@@ -1,0 +1,69 @@
+# ============================================================
+# WiFiNav / autoresearch 工作区
+#
+# ⚠️ 此仓库是 PUBLIC（github.com/Or1ginnn/WiFiNav）。
+#    未发表的研究计划与假设不得入库 —— 见下方「未发表材料」段。
+#
+# 原则：能重跑的产物不提交，可公开的工程产物（代码、配置、脚本）
+#       提交。研究内容是否公开见下方说明。
+# ============================================================
+
+# ---- 未发表材料：PUBLIC 仓库里绝对不能提交 ----
+# 项目计划书：完整的研究问题、核心假设、论文边界。公开 = 抢发风险。
+RadioFrontier_Project_Plan_v2.1.md
+
+# ---- 大文件：checkpoint / 权重 ----
+# SKILL.md 明确要求：模型权重等大文件放外部存储，不进项目目录。
+# 这里兜底，防止实验中途手滑写进仓库。
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.onnx
+*.h5
+*.pkl
+checkpoints/
+ckpt/
+
+# ---- 训练/追踪产物：可从代码和配置重跑，不必占仓库 ----
+wandb/
+runs/
+outputs/
+lightning_logs/
+mlruns/
+tb_logs/
+events.out.tfevents.*
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ---- LaTeX 编译中间产物（paper/ 下的 .tex 源文件要提交）----
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.toc
+*.spl
+
+# ---- 本地权限配置 ----
+# 已由全局 ignore (~/.config/git/ignore) 覆盖，这里重复一遍做兜底：
+# 该文件机器相关，且在无人值守跑动后会持续累积一次性 allow 条目。
+.claude/settings.local.json
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
