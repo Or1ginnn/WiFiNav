@@ -8,7 +8,7 @@
 
 **暂定题目：** *Stay Connected: Connectivity-Aware Vision-and-Language Navigation via Online Bayesian Signal Field Estimation*。
 
-研究家政机器人执行自然语言导航指令时，如何在室内 WiFi 覆盖不均、机器人只能边走边采样 RSSI 的条件下，在线估计尚未访问区域的连通性 belief，并将其转成规划代价，使机器人在完成指令和维持网络连接之间进行可控权衡。
+以下为原proposal的候选研究设定：研究家政机器人在室内WiFi覆盖不均、只能沿途采样RSSI的条件下，在线估计未访问区域的连通性belief并转为规划代价。**具体任务（含是否采用VLN）、benchmark与成功条件需经T0调研后确定，当前先部署通用基础设施。**
 
 **一句话方法：** 机载 RSSI 观测 → 时空贝叶斯信号场 belief（含不确定性）→ 连通风险 costmap → 现有 VLN/导航栈的路径代价。
 
@@ -187,6 +187,8 @@
 | 文献 gap 被 2025–2026 新工作覆盖 | 新颖性主张需调整 | 投稿前用最新论文和代码复核；若撞车，缩小贡献到在线 belief、VLN 接口或数据/评测 |
 
 ## 8. 项目文档入口
+
+- [服务器部署现场记录](docs/experiments/server_bootstrap_2026-11-04.md)：目录备份、复用环境、模型固定版本与服务验收状态。
 
 - [任务与benchmark调研任务单](docs/design/task_benchmark_research_plan.md)：用户确认需要先调研任务，将benchmark调整作为工作内容；任务尚未冻结。
 

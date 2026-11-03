@@ -19,6 +19,8 @@ WIFI+Nav/
 ├── docs/
 │   ├── PROJECT_STRUCTURE.md                     # 本文件：目录地图和资料索引
 │   ├── LOCAL_ENVIRONMENT.md                     # 本机环境和服务器接入登记
+│   ├── experiments/
+│   │   └── server_bootstrap_2026-11-04.md          # 服务器部署与验收记录
 │   ├── references/
 │   │   ├── connectivity_aware_vln_project_proposal_2026-10-15.pdf
 │   │   ├── wifi_aware_vln_literature_review_2026-10-15.pdf
@@ -57,6 +59,7 @@ WIFI+Nav/
 | 新增基座调研 | [Social Navigation 基座与规划接口](references/social_navigation_backbone_review_2026-11-02.md) | 模型配置、训练路线、作者代码及对当前项目的选型建议 |
 | API费用调研 | [API费用与预算测算](references/api_cost_review_2026-11-03.md) | 官方价格、地域/上下文档位与导航运行预算 |
 | 本地部署调研 | [本地zero-shot可行性](references/local_zero_shot_feasibility_2026-11-03.md) | 用户报告4×4090条件下的模型容量与导航代码可用性 |
+| 部署记录 | [服务器部署现场记录](experiments/server_bootstrap_2026-11-04.md) | 四步基础设施执行、资源、复用环境及服务验收 |
 | 本机/服务器 | [LOCAL_ENVIRONMENT.md](LOCAL_ENVIRONMENT.md) | 本机软件信息、服务器参数登记表和接入核对项 |
 | 历史 RadioNav | [RadioNav v4](archive/radionav/RadioNav-v4.md)、[RadioNavDP v3](archive/radionav/RadioNavDP-v3.md) | X-NavDP 轨迹级未来无线预测方向；不作为现主线 |
 | 历史 RadioFrontier | `archive/radiofrontier/` 下的 4 份文档 | ObjectNav、frontier、CSI/AP belief 方向的历史方案 |
