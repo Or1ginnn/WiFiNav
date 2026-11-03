@@ -33,6 +33,28 @@ os.environ.setdefault("HF_HOME", str(runtime / "hf-cache"))
 os.environ.setdefault("VLLM_CACHE_ROOT", str(runtime / "vllm-cache"))
 # SSH non-login shells do not activate Conda's shared-library search path.
 library_dir = str(Path(config["python"]).parents[1] / "lib")
+toolkit_source = Path(config["cuda_toolkit_source"]).expanduser()
+cuda_home = Path(config["cuda_home"]).expanduser()
+cuda_home.mkdir(parents=True, exist_ok=True)
+# The existing Conda toolkit keeps headers under targets/, not root/include.
+# Provide a project-local conventional layout with links, leaving it untouched.
+for name, source in {
+    "bin": toolkit_source / "bin",
+    "include": toolkit_source / "targets/x86_64-linux/include",
+    "lib64": toolkit_source / "targets/x86_64-linux/lib",
+    "lib": toolkit_source / "targets/x86_64-linux/lib",
+    "nvvm": toolkit_source / "nvvm",
+    "targets": toolkit_source / "targets",
+}.items():
+    link = cuda_home / name
+    if not source.exists():
+        raise SystemExit(f"CUDA toolkit component missing: {source}")
+    if not link.exists() and not link.is_symlink():
+        link.symlink_to(source, target_is_directory=True)
+    if link.resolve() != source.resolve():
+        raise SystemExit(f"Unexpected CUDA overlay entry: {link}")
+os.environ["CUDA_HOME"] = str(cuda_home)
+os.environ["PATH"] = os.pathsep.join([str(Path(config["python"]).parent), str(cuda_home / "bin"), os.environ.get("PATH", "")])
 os.environ["LD_LIBRARY_PATH"] = library_dir + (
     ":" + os.environ["LD_LIBRARY_PATH"] if os.environ.get("LD_LIBRARY_PATH") else ""
 )
