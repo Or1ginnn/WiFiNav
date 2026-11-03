@@ -31,6 +31,7 @@
     ├── models/Qwen3.5-35B-A3B/
     ├── hf-cache/
     ├── vllm-cache/
+    ├── toolchains/cuda-13.0/         # 指向现有CUDA13的标准布局软链接
     ├── logs/
     │   ├── model_download.log
     │   └── model_service.log
@@ -47,9 +48,32 @@
 - 服务接口：`http://127.0.0.1:8010/v1`，模型名称 `wifinav-qwen35b`。
 - 请求验收：在服务器运行 `/opt/anaconda3/envs/vllm/bin/python scripts/probe_model.py`，保存实际响应、usage、延迟和停止原因。合成图仅检验服务能否读图，不能作为导航性能结果。
 
-## 第4步验收状态
+## 第4步验收结果：已完成
 
-**14分片已全部下载并通过完整SHA256校验，服务启动重试中。** 首次启动在显存预留检查处失败：单卡空闲21.07GiB，低于90%要求的21.17GiB。保持其他进程不动，将服务预留降到85%后重试。健康检查、图文请求和显存记录仍待完成。
+部署代码版本：`81f00f9`；服务进程PID记录为71892（仅当次运行标识，重启后会改变）。模型revision见上文。当前通过nohup运行，未配置开机自启或自动重启。
+
+- 14个分片均通过固定HF版本对应的SHA256验证。
+- 四卡BF16、8K上下文、单请求、85%显存预留，TP0日志报告模型加载约16.52GiB，其他rank未单独计量。
+- `/health`和`/v1/models`正常；模型别名为`wifinav-qwen35b`。
+
+| 验收请求 | 实际响应摘要 | 请求耗时 | token（输入/输出） | 结果 |
+|---|---|---|---|---|
+| 文本 | READY | 5.570秒 | 17 / 2 | 通过 |
+| 单图 | red square | 2.398秒 | 221 / 12 | 通过 |
+| 双图 | 第一张red square；第二张blue circle | 2.250秒 | 424 / 18 | 通过 |
+
+以上每项仅1次，文本首请求日志有Triton JIT；不能作为稳定吞吐、复杂图像准确率或导航性能结论。全部响应正常stop，未达到128输出token上限。
+
+请求后的整卡显存快照依次为22155、22153、22769、20859MiB，**包含其他进程，不是模型独占显存或严格峰值**。当前模型服务和已有GPU工作并存，批量仿真前需重新安排资源。
+
+### 本次启动问题与处理
+
+1. SSH未激活动态库路径：服务进程补充现有Conda的lib路径，FFmpeg/torchcodec导入恢复。
+2. 初始90%显存预留略超当时空闲量：降低到85%，保留其他进程。
+3. 内核编译找不到ninja：服务进程PATH补入现有Conda bin。系统默认nvcc为11.5，与torch的CUDA13不匹配；复用已有 `~/CFRP/toolchains/cuda-13.0`，在runtime/toolchains下建立标准布局软链接并设置进程CUDA_HOME。未改共享包或原工具链。
+4. 前两次失败日志分别保留为 `model_service_attempt1.log` 与 `model_service_attempt2.log`，当前正常服务日志为 `model_service.log`。
+
+原环境、CFRP中的Habitat源码和CUDA工具链均未移动或重装；本项目依赖其路径，后续如需迁移应单独导出环境/工具链，不直接删除来源目录。
 
 ## 后续研究边界
 
