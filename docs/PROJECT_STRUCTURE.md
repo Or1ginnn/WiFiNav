@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-04。当前主线为连通性感知 VLN。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
+> 最近整理：2026-11-04。当前按连通性感知导航推进基础设施，具体任务与benchmark待调研。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
 
 ## 当前目录
 
@@ -10,6 +10,12 @@ WIFI+Nav/
 ├── .gitignore                                   # 本机状态、认证、模型/数据和运行产物忽略规则
 ├── AGENTS.md                                    # 新聊天读取计划与维护进度的项目约定
 ├── plan.md                                      # 当前项目计划、进度、里程碑、待办
+├── configs/model/qwen35b.json                    # 固定模型revision与服务初值
+├── scripts/
+│   ├── download_model.py                        # 模型下载与镜像SHA256核验
+│   ├── serve_model.py                           # 使用已有vLLM环境启动服务
+│   ├── bootstrap_model.sh                       # 下载完成后启动服务
+│   └── probe_model.py                           # 文本/单图/多图服务验收
 ├── docs/
 │   ├── PROJECT_STRUCTURE.md                     # 本文件：目录地图和资料索引
 │   ├── LOCAL_ENVIRONMENT.md                     # 本机环境和服务器接入登记
@@ -30,6 +36,7 @@ WIFI+Nav/
 │   │       ├── project_plan.md
 │   │       └── action_plan.md
 │   └── design/
+│       ├── task_benchmark_research_plan.md         # 任务选择与benchmark修改的调研任务单
 │       └── radiofrontier/                        # RadioFrontier 现实/半现实演示设计
 │           ├── demo_scenario.md
 │           └── real_world_setup.md
@@ -43,6 +50,7 @@ WIFI+Nav/
 | 类型 | 文件 | 用途 |
 |---|---|---|
 | 当前交接与进度 | [plan.md](../plan.md) | 已确定Qwen3.5-35B-A3B；当前状态、M0–M7里程碑、E0–E8执行任务与变更记录 |
+| 任务与benchmark设计 | [任务调研任务单](design/task_benchmark_research_plan.md) | 比较任务、调研近期方法、设计通信感知协议；当前未选定任务 |
 | 阶段选型记录 | [基座选型简报](references/backbone_selection_report_2026-11-03.md) | 旧首选已撤销；保留候选取舍与源码审计，当前选择见 plan.md |
 | 当前具体方案 | [连通性感知 VLN 项目小样](references/connectivity_aware_vln_project_proposal_2026-10-15.pdf) | 在线贝叶斯信号场、连通代价注入 VLN、实验路线 |
 | 文献参考 | [WiFi 信号感知 VLN 调研](references/wifi_aware_vln_literature_review_2026-10-15.pdf) | 文献版图、gap 论证、仿真和数据资源调研 |
@@ -56,14 +64,14 @@ WIFI+Nav/
 
 ## 后续代码结构建议
 
-按实现逐步创建，当前还没有代码、数据或运行结果目录。第一版先实现 RSSI 信号场 belief 和 VLN 代价接口，避免预建未采用的 CSI/AP 定位、frontier 或端到端 RL 模块。
+当前已创建模型服务配置与部署脚本；服务器模型/日志/验收结果在项目外的 `~/WiFiNav_runtime`，旧目录保存在 `~/WiFiNav_backups`。下述为任务确定后逐步创建的源码结构建议，不代表已有导航代码或结果。
 
 ```text
 WIFI+Nav/
 ├── README.md
 ├── plan.md
 ├── pyproject.toml / environment.yml
-├── configs/{vln,wireless,experiments}/
+├── configs/{model,navigation,wireless,experiments}/
 ├── docs/{references,archive,design,experiments,decisions}/
 ├── src/connectivity_vln/
 │   ├── signal_simulation/       # RSSI/覆盖场仿真接口
@@ -71,7 +79,7 @@ WIFI+Nav/
 │   ├── navigation/              # VLN 适配、costmap、重规划触发
 │   ├── evaluation/              # VLN、通信、开销与联合指标
 │   └── visualization/
-├── scripts/                     # 数据生成、训练/运行、评估
+├── scripts/                     # 数据生成、服务/运行、评估
 ├── tests/
 ├── data/                        # 清单和小样例；大数据外置/服务器保存
 └── outputs/                     # 小型结果；模型和批量日志存服务器
