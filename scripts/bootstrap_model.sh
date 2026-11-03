@@ -8,6 +8,7 @@ mkdir -p "$task_runtime_dir/logs" "$task_runtime_dir/manifests"
 export HF_HOME="$task_runtime_dir/hf-cache"
 export HF_HUB_DISABLE_XET=1
 export WIFINAV_DOWNLOAD_WORKERS="${WIFINAV_DOWNLOAD_WORKERS:-16}"
+export WIFINAV_DOWNLOAD_SOURCE="${WIFINAV_DOWNLOAD_SOURCE:-modelscope}"
 # Use only the already running local proxy; no system proxy settings changed.
 HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 \
   "$task_python" -u "$task_project_dir/scripts/download_model.py" \

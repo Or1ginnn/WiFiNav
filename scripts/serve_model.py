@@ -31,5 +31,10 @@ os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0,1,2,3")
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("HF_HOME", str(runtime / "hf-cache"))
 os.environ.setdefault("VLLM_CACHE_ROOT", str(runtime / "vllm-cache"))
+# SSH non-login shells do not activate Conda's shared-library search path.
+library_dir = str(Path(config["python"]).parents[1] / "lib")
+os.environ["LD_LIBRARY_PATH"] = library_dir + (
+    ":" + os.environ["LD_LIBRARY_PATH"] if os.environ.get("LD_LIBRARY_PATH") else ""
+)
 print("Starting model service", json.dumps(args), flush=True)
 os.execv(config["python"], args)
