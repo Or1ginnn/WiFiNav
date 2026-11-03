@@ -1,0 +1,16 @@
+{
+  "model_id": "Qwen/Qwen3.5-35B-A3B",
+  "revision": "59d61f3ce65a6d9863b86d2e96597125219dc754",
+  "served_model_name": "wifinav-qwen35b",
+  "precision": "bfloat16",
+  "tensor_parallel_size": 4,
+  "max_model_len": 8192,
+  "max_num_seqs": 1,
+  "gpu_memory_utilization": 0.90,
+  "max_images_per_request": 3,
+  "max_image_pixels": 262144,
+  "host": "127.0.0.1",
+  "port": 8010,
+  "runtime_root": "~/WiFiNav_runtime",
+  "python": "/opt/anaconda3/envs/vllm/bin/python"
+}
