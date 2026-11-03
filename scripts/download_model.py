@@ -1,5 +1,6 @@
 """Download a fixed public checkpoint into the external runtime directory."""
 import json
+import os
 from pathlib import Path
 
 from huggingface_hub import snapshot_download
@@ -14,7 +15,7 @@ snapshot_download(
     repo_id=config["model_id"],
     revision=config["revision"],
     local_dir=str(target),
-    max_workers=4,
+    max_workers=int(os.environ.get("WIFINAV_DOWNLOAD_WORKERS", "8")),
     allow_patterns=["*.json", "*.safetensors", "*.jinja", "*.txt", "*.model", "LICENSE*", "README.md"],
 )
 index = json.loads((target / "model.safetensors.index.json").read_text())
