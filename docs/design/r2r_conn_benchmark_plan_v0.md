@@ -94,13 +94,13 @@
 
 Git内建议逐步增加：`configs/benchmark/`、`scripts/generate_benchmark.py`、`src/connectivity_vln/{signal_simulation,evaluation}/`及小型manifest样例。它们目前尚未实现，不预造生成器或结果。
 
-服务器大数据放checkout外的独立dataset目录，实际位置在B0登记；已有模型在WiFiNav_runtime/models，旧备份保持不动。每个case至少记录：源版本与hash、scene/episode/path/instruction ID、split、start/goal引用、坐标/楼层、AP布局/信道seed、信号生成版本、阈值/时间定义、覆盖分层和过滤原因。
+按用户后续明确要求，原始任务与场景使用实际副本存服务器checkout的data/{datasets,scene_datasets}，不使用链接，data整体由Git忽略；模型实际权重放checkout内models，日志/缓存/清单放runtime，均Git忽略，旧备份保持不动。每个case至少记录：源版本与hash、scene/episode/path/instruction ID、split、start/goal引用、坐标/楼层、AP布局/信道seed、信号生成版本、阈值/时间定义、覆盖分层和过滤原因。
 
 先发布代码、可再分发的生成参数与评测协议；原场景、任务文本和派生数据的再分发遵循源许可，不能把开放代码许可当作场景再分发许可。[VLN-CE许可说明](https://github.com/jacobkrantz/VLN-CE#license)
 
 ## 9. 当前交付与紧接着的动作
 
-已完成：制作计划、官方场景/任务/指标核对、分阶段验收设计，以及用户的执行确认。未完成：B0实际资产盘点与导航实现、具体版本/参数登记、数据生成、Oracle或任何导航结果。
+已完成：制作计划、官方场景/任务/指标核对、分阶段验收设计，以及用户的执行确认。资产已盘点并完成372个文件的独立复制与SHA256核验（见DATASETS.md）。未完成：导航实现、真实场景兼容性与具体版本/参数登记、数据生成、Oracle或任何导航结果。
 
 **紧接着先做B0，再做B1。** 正式扩大benchmark必须先有单条导航+RSSI闭环及Oracle决策价值证据。
 

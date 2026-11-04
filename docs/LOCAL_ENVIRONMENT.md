@@ -31,8 +31,8 @@
 | SSH 主机 / HostName | `10.161.4.51`（用户提供；属于内网地址，网络可达性待核实） |
 | 用户名 / 端口 | `sunqiuyi` / `22` |
 | 项目远端路径 | `/mnt/data/suiqiuyi/WiFiNav`；实际家目录 `/mnt/data/suiqiuyi`（与用户名拼写不同） |
-| 数据集路径 / 挂载 | 待确认 |
-| checkpoints / outputs 路径 | `/mnt/data/suiqiuyi/WiFiNav_runtime/{models,logs,manifests,hf-cache,vllm-cache}`；位于checkout外 |
+| 数据集路径 / 挂载 | 用户要求实际副本放 `~/WiFiNav/data/datasets/R2R_VLNCE_v1-3_preprocessed` 与 `~/WiFiNav/data/scene_datasets/mp3d`，不用链接；复制/盘点结果见DATASETS.md |
+| checkpoints / outputs 路径 | `~/WiFiNav/models/Qwen3.5-35B-A3B`及`~/WiFiNav/runtime/{logs,manifests,hf-cache,vllm-cache}`；迁移按最新用户要求执行，完成状态见下文 |
 | Python / Conda 环境 | /opt/anaconda3；复用现有vllm环境：Python3.10.20/vLLM0.25.0/transformers5.13.1/torch2.11.0+cu130；不改共享包 |
 | 代码同步方式 | 本机提交并push至GitHub；服务器盘点后pull，服务器代码修改使用独立分支 |
 | 任务提交与日志查看 | 待确认：交互式、作业调度器或容器 |
@@ -49,19 +49,20 @@
 | 本机 `/Users/sqysmac/Desktop/code/WIFI+Nav` | 默认编辑、文档与提交入口 |
 | GitHub `Or1ginnn/WiFiNav` | 用户确认公开托管；主分支main，作为两机同步来源 |
 | 服务器 `~/WiFiNav` | 运行checkout；首次同步前盘点，不覆盖已有文件 |
-| 服务器模型/数据/运行产物目录 | 规划放在项目外；尚未创建，结合已有磁盘布局确定后记录 |
+| 服务器任务/场景数据 | 用户要求放checkout内data/datasets与data/scene_datasets，使用独立文件，不用链接；Git忽略 |
+| 服务器模型/运行产物目录 | 统一使用checkout内models/和runtime/，实际文件且Git忽略 |
 
-本机提交后push；服务器确认工作区干净再pull。服务器需要改代码时建立分支并提交后合并。大模型、数据、认证和完整运行产物不纳入Git。不要双向rsync覆盖代码，也不要在已有非空目录强行clone。
+本机提交后push；服务器确认工作区干净再pull。服务器需要改代码时建立分支并提交后合并。大模型、数据、认证和完整运行产物不纳入Git。任务/场景的实际文件按用户要求置于checkout内被忽略的data目录，详见[数据说明](DATASETS.md)。不要双向rsync覆盖代码，也不要在已有非空目录强行clone。
 
 ## 当前部署配置（已通过基础图文验收）
 
 - 模型：`Qwen/Qwen3.5-35B-A3B`；模型revision、引擎版本与精度在首次部署时登记。
 - 首轮：四卡分片BF16、单请求、8K上下文、限制图片预算；仅权重粗算约70GB，不代表运行峰值，需实测与仿真共存。
 - 显存不足时先缩短上下文/图像预算，再核验兼容量化方案；不承诺预先可用2卡或具体吞吐。
-- 模型服务与Habitat分环境，通过网络接口连接；数据、模型和输出实际目录待接入后填写。
+- 模型服务与Habitat分环境，通过网络接口连接；数据、模型和运行产物统一置于项目data/、models/和runtime/；共享环境继续复用。
 - 当前服务：`http://127.0.0.1:8010/v1`，模型别名`wifinav-qwen35b`；四卡BF16/8K/单请求/85%显存预留。
 - 2026-11-04文本、单图、双图请求通过；详细响应/延迟与启动兼容修复见 [现场记录](experiments/server_bootstrap_2026-11-04.md)。
-- 最新任务顺序与验收以根目录 `plan.md` 的T0/E0–E8为准；具体任务及benchmark尚未确定。
+- 最新任务顺序与验收以根目录 `plan.md` 的T0/E0–E8为准；已确认连通性感知VLN与R2R-Conn，B0正在进行。
 
 ## 接入检查清单
 
@@ -71,7 +72,7 @@
 - [ ] 确认项目远端路径、数据路径、日志/模型输出路径及备份策略。
 - [x] 决定源码同步方式，并建立仓库/分支和代码版本记录。
 - [x] 复用现有环境并确认导入/设备可见性；Habitat0.3.0空场景GPU渲染通过。
-- [x] 模型服务文本/单图/双图请求及日志保存通过；任务数据读取与导航验收待T0确定任务后开展。
+- [x] 模型服务文本/单图/双图请求及日志保存通过；任务JSON已盘点，真实任务场景加载与导航验收待B0后续开展。
 - [x] 将实际命令、结果和限制补到本文件、部署现场记录及 `plan.md`。
 
 ## 更新记录

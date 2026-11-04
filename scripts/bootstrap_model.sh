@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Run under nohup; model files, PID and logs belong in WiFiNav_runtime.
+# Run under nohup; model files, PID and logs stay inside the project.
 set -euo pipefail
 task_project_dir="$(cd "$(dirname "$0")/.." && pwd)"
-task_runtime_dir="$HOME/WiFiNav_runtime"
+task_runtime_dir="$task_project_dir/runtime"
 task_python="/opt/anaconda3/envs/vllm/bin/python"
 mkdir -p "$task_runtime_dir/logs" "$task_runtime_dir/manifests"
 export HF_HOME="$task_runtime_dir/hf-cache"

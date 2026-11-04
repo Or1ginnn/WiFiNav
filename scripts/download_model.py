@@ -1,4 +1,4 @@
-"""Download a fixed public checkpoint into the external runtime directory."""
+"""Download a fixed public checkpoint into the project models directory."""
 import json
 import os
 import hashlib
@@ -11,8 +11,8 @@ from huggingface_hub import HfApi, snapshot_download
 
 project = Path(__file__).resolve().parents[1]
 config = json.loads((project / "configs/model/qwen35b.json").read_text())
-runtime = Path(config["runtime_root"]).expanduser()
-target = runtime / "models" / "Qwen3.5-35B-A3B"
+runtime = (project / Path(config["runtime_root"]).expanduser()).resolve()
+target = (project / Path(config["model_path"]).expanduser()).resolve()
 manifest_dir = runtime / "manifests"
 manifest_dir.mkdir(parents=True, exist_ok=True)
 source = os.environ.get("WIFINAV_DOWNLOAD_SOURCE", "huggingface")

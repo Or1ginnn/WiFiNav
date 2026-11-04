@@ -5,10 +5,10 @@ from pathlib import Path
 
 project = Path(__file__).resolve().parents[1]
 config = json.loads((project / "configs/model/qwen35b.json").read_text())
-runtime = Path(config["runtime_root"]).expanduser()
+runtime = (project / Path(config["runtime_root"]).expanduser()).resolve()
 if not (runtime / "manifests/model_download.json").exists():
     raise SystemExit("Download manifest missing; run download_model.py first")
-model = runtime / "models/Qwen3.5-35B-A3B"
+model = (project / Path(config["model_path"]).expanduser()).resolve()
 args = [
     config["python"], "-m", "vllm.entrypoints.openai.api_server",
     "--model", str(model),
@@ -34,7 +34,7 @@ os.environ.setdefault("VLLM_CACHE_ROOT", str(runtime / "vllm-cache"))
 # SSH non-login shells do not activate Conda's shared-library search path.
 library_dir = str(Path(config["python"]).parents[1] / "lib")
 toolkit_source = Path(config["cuda_toolkit_source"]).expanduser()
-cuda_home = Path(config["cuda_home"]).expanduser()
+cuda_home = (project / Path(config["cuda_home"]).expanduser()).resolve()
 cuda_home.mkdir(parents=True, exist_ok=True)
 # The existing Conda toolkit keeps headers under targets/, not root/include.
 # Provide a project-local conventional layout with links, leaving it untouched.

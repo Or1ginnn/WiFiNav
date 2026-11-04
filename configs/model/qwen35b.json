@@ -11,8 +11,9 @@
   "max_image_pixels": 262144,
   "host": "127.0.0.1",
   "port": 8010,
-  "runtime_root": "~/WiFiNav_runtime",
+  "runtime_root": "runtime",
   "python": "/opt/anaconda3/envs/vllm/bin/python",
   "cuda_toolkit_source": "~/CFRP/toolchains/cuda-13.0",
-  "cuda_home": "~/WiFiNav_runtime/toolchains/cuda-13.0"
+  "cuda_home": "runtime/toolchains/cuda-13.0",
+  "model_path": "models/Qwen3.5-35B-A3B"
 }

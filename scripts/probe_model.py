@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw
 
 project = Path(__file__).resolve().parents[1]
 config = json.loads((project / "configs/model/qwen35b.json").read_text())
-runtime = Path(config["runtime_root"]).expanduser()
+runtime = (project / Path(config["runtime_root"]).expanduser()).resolve()
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 

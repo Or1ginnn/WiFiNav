@@ -1,0 +1,11 @@
+{
+  "path_base": "project_root",
+  "storage_policy": "physical_copies_no_symlinks",
+  "task_dataset": "data/datasets/R2R_VLNCE_v1-3_preprocessed",
+  "scene_dataset_root": "data/scene_datasets",
+  "mp3d_scenes": "data/scene_datasets/mp3d",
+  "copy_manifest": "data/_manifests/raw_assets_copy.json",
+  "development_source_split": "train",
+  "held_out_candidate_split": "val_unseen",
+  "raw_data_in_git": false
+}
