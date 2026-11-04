@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-04。用户已确认连通性感知VLN与R2R-Conn制作计划，基础设施完成，当前准备资产与协议核对。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
+> 最近整理：2026-11-05。B1首条导航+RSSI闭环已完成，当前准备B2开发pilot与Oracle验收。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
 
 ## 当前目录
 
@@ -12,16 +12,25 @@ WIFI+Nav/
 ├── plan.md                                      # 当前项目计划、进度、里程碑、待办
 ├── configs/data/server_paths.json               # 项目内数据路径及副本策略
 ├── configs/model/qwen35b.json                    # 固定模型revision与服务初值
+├── configs/navigation/r2r_dev.json               # 固定首条任务、观察/动作和控制预算
+├── configs/wireless/r2r_conn_v0.json             # 路线A信号、阈值与确定性seed
 ├── scripts/
 │   ├── download_model.py                        # 模型下载与镜像SHA256核验
 │   ├── serve_model.py                           # 使用已有vLLM环境启动服务
 │   ├── bootstrap_model.sh                       # 下载完成后启动服务
-│   └── probe_model.py                           # 文本/单图/多图服务验收
+│   ├── probe_model.py                           # 文本/单图/多图服务验收
+│   ├── check_habitat_task.py                    # 真实场景/RGB-D/动作验收
+│   └── run_vln_episode.py                       # 单条VLM导航与RSSI闭环入口
+├── src/connectivity_vln/
+│   ├── navigation/                              # R2R任务、模型工具决策与局部规划
+│   ├── signal_simulation/                       # 路线A确定性RSSI查询
+│   └── evaluation/                              # 运行后导航指标
 ├── docs/
 │   ├── PROJECT_STRUCTURE.md                     # 本文件：目录地图和资料索引
 │   ├── DATASETS.md                              # 服务器实际数据副本、规模与来源
 │   ├── LOCAL_ENVIRONMENT.md                     # 本机环境和服务器接入登记
 │   ├── experiments/
+│   │   ├── b1_first_episode_2026-11-05.md          # 首条导航+RSSI闭环证据与边界
 │   │   ├── project_storage_2026-11-04.md           # 资产归项目目录及迁移验收
 │   │   └── server_bootstrap_2026-11-04.md          # 服务器部署与验收记录
 │   ├── references/
@@ -68,15 +77,16 @@ WIFI+Nav/
 | API费用调研 | [API费用与预算测算](references/api_cost_review_2026-11-03.md) | 官方价格、地域/上下文档位与导航运行预算 |
 | 本地部署调研 | [本地zero-shot可行性](references/local_zero_shot_feasibility_2026-11-03.md) | 用户报告4×4090条件下的模型容量与导航代码可用性 |
 | 部署记录 | [服务器部署现场记录](experiments/server_bootstrap_2026-11-04.md) | 四步基础设施执行、资源、复用环境及服务验收 |
+| B1首条闭环 | [首条导航与RSSI记录](experiments/b1_first_episode_2026-11-05.md) | 固定episode、信息隔离、失败修复、导航/RSSI指标及产物路径 |
 | 服务器任务与场景 | [DATASETS.md](DATASETS.md) | 实际文件副本，无软链接；任务规模、场景覆盖、复制校验和来源 |
 | 本机/服务器 | [LOCAL_ENVIRONMENT.md](LOCAL_ENVIRONMENT.md) | 本机软件信息、服务器参数登记表和接入核对项 |
 | 历史 RadioNav | [RadioNav v4](archive/radionav/RadioNav-v4.md)、[RadioNavDP v3](archive/radionav/RadioNavDP-v3.md) | X-NavDP 轨迹级未来无线预测方向；不作为现主线 |
 | 历史 RadioFrontier | `archive/radiofrontier/` 下的 4 份文档 | ObjectNav、frontier、CSI/AP belief 方向的历史方案 |
 | 历史 demo 设计 | `design/radiofrontier/` 下的 2 份文档 | RadioFrontier 的真实与半真实场景草案，不能视为当前 VLN 实验已完成 |
 
-## 后续代码结构建议
+## 当前源码与后续结构
 
-当前已创建模型服务配置与部署脚本；服务器模型在项目内 `~/WiFiNav/models/`，日志/缓存/验收结果在 `~/WiFiNav/runtime/`，旧目录保存在 `~/WiFiNav_backups`。下述为任务确定后逐步创建的源码结构建议，不代表已有导航代码或结果。
+当前已有模型服务、真实场景验收、单条VLM导航、局部navmesh控制、RSSI查询和离线评测代码。服务器模型在 `~/WiFiNav/models/`，日志/缓存/完整运行在 `~/WiFiNav/runtime/`，旧目录保存在 `~/WiFiNav_backups`。下述结构中的belief、批量评测和可视化仍待后续实现。
 
 ```text
 WIFI+Nav/

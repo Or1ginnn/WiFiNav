@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-模型基座已选定为 **Qwen3.5-35B-A3B**，使用冻结权重进行多模态推理。服务器盘点、项目同步和模型部署已完成，文本/单图/双图服务验收通过；已有Habitat环境可复用。**用户已确认连通性感知VLN任务及MP3D/R2R-CE→R2R-Conn制作计划；B0已完成原始资产盘点及独立复制，继续协议/适配核对，具体版本与导航实现待闭合，无导航实验结果。**
+模型基座为冻结的 **Qwen3.5-35B-A3B**。服务器、模型和Habitat0.3.0真实MP3D任务已接通；B1固定episode的NoSignal导航与逐动作RSSI闭环通过。当前准备10个episode×3个AP布局的开发pilot和StaticMap/Oracle价值验证；首条结果仅作工程验收。
 
 ## 文档入口
 
@@ -12,13 +12,14 @@
 - [目录索引](docs/PROJECT_STRUCTURE.md)：研究资料与历史方案分类。
 - [环境与服务器记录](docs/LOCAL_ENVIRONMENT.md)：环境、连接、目录与同步约定。
 - [服务器资产与日常操作](docs/experiments/project_storage_2026-11-04.md)：data/models/runtime与模型启动命令。
+- [B1首条导航与RSSI闭环](docs/experiments/b1_first_episode_2026-11-05.md)：固定任务、信息隔离、运行指标和产物路径。
 - [协作规则](AGENTS.md)：新聊天接手与文件维护要求。
 
 ## 下一步
 
-1. 按 [R2R-Conn制作计划v0](docs/design/r2r_conn_benchmark_plan_v0.md) 核对MP3D/R2R-CE资产、实现与协议。
-2. 跑通单条导航+RSSI闭环，生成10个开发episode×3布局的pilot。
-3. 先验证Oracle收益，再加入在线belief并扩大benchmark；保留原始指令和导航指标。
+1. 固定10个开发episode（至少2个scene）和每个episode 3个AP布局。
+2. 回放NoSignal轨迹并运行StaticMap/Oracle，检查导航—通信权衡。
+3. Oracle通过后加入Reactive与Online Belief，再扩大benchmark；并行补齐源资产版本和许可追溯。
 
 模型部署细节、实际请求结果和服务器资源见 [部署现场记录](docs/experiments/server_bootstrap_2026-11-04.md)。
 
