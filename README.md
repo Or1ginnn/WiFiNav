@@ -11,6 +11,7 @@
 - [计划与进度](plan.md)：当前选择、里程碑、E0–E8执行任务和交接记录。
 - [目录索引](docs/PROJECT_STRUCTURE.md)：研究资料与历史方案分类。
 - [环境与服务器记录](docs/LOCAL_ENVIRONMENT.md)：环境、连接、目录与同步约定。
+- [服务器资产与日常操作](docs/experiments/project_storage_2026-11-04.md)：data/models/runtime与模型启动命令。
 - [协作规则](AGENTS.md)：新聊天接手与文件维护要求。
 
 ## 下一步

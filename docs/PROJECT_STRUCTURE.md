@@ -22,6 +22,7 @@ WIFI+Nav/
 │   ├── DATASETS.md                              # 服务器实际数据副本、规模与来源
 │   ├── LOCAL_ENVIRONMENT.md                     # 本机环境和服务器接入登记
 │   ├── experiments/
+│   │   ├── project_storage_2026-11-04.md           # 资产归项目目录及迁移验收
 │   │   └── server_bootstrap_2026-11-04.md          # 服务器部署与验收记录
 │   ├── references/
 │   │   ├── connectivity_aware_vln_project_proposal_2026-10-15.pdf

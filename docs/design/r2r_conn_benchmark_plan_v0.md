@@ -106,7 +106,8 @@ Git内建议逐步增加：`configs/benchmark/`、`scripts/generate_benchmark.py
 
 ### B0开始时的交付清单
 
-- [ ] 盘点服务器已有MP3D场景、R2R-CE任务/GT及访问许可，不重复下载已有资产。
+- [x] 盘点服务器已有MP3D场景与R2R-CE任务/GT，完成独立副本校验，不重复下载已有资产；具体清单见[DATASETS.md](../DATASETS.md)。
+- [ ] 核查场景/任务许可的具体适用范围（不公开原始payload）；与官方发布版本对应关系仍需确认。
 - [ ] 固定scene与episode版本、路径对应及坐标约定，选定首条开发episode并记录选择规则。
 - [ ] 确认导航执行实现与可复用Habitat版本，核查oracle信息隔离和模型/仿真资源共存。
 - [ ] 登记动作、步数/停止规则、时间推进、RSSI采样/阈值、传播参数和随机种子。

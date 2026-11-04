@@ -32,7 +32,7 @@
 | 用户名 / 端口 | `sunqiuyi` / `22` |
 | 项目远端路径 | `/mnt/data/suiqiuyi/WiFiNav`；实际家目录 `/mnt/data/suiqiuyi`（与用户名拼写不同） |
 | 数据集路径 / 挂载 | 用户要求实际副本放 `~/WiFiNav/data/datasets/R2R_VLNCE_v1-3_preprocessed` 与 `~/WiFiNav/data/scene_datasets/mp3d`，不用链接；复制/盘点结果见DATASETS.md |
-| checkpoints / outputs 路径 | `~/WiFiNav/models/Qwen3.5-35B-A3B`及`~/WiFiNav/runtime/{logs,manifests,hf-cache,vllm-cache}`；迁移按最新用户要求执行，完成状态见下文 |
+| checkpoints / outputs 路径 | `~/WiFiNav/models/Qwen3.5-35B-A3B`及`~/WiFiNav/runtime/{logs,manifests,hf-cache,vllm-cache}`；已完成迁移、分片SHA256复核和图文重启验收 |
 | Python / Conda 环境 | /opt/anaconda3；复用现有vllm环境：Python3.10.20/vLLM0.25.0/transformers5.13.1/torch2.11.0+cu130；不改共享包 |
 | 代码同步方式 | 本机提交并push至GitHub；服务器盘点后pull，服务器代码修改使用独立分支 |
 | 任务提交与日志查看 | 待确认：交互式、作业调度器或容器 |
@@ -125,10 +125,14 @@
 ### 服务运行状态与资源边界
 
 - 14个分片下载及完整SHA256校验完成；文本/单图/双图均返回正确的验收响应。
-- 服务以nohup常驻；PID记录在 `~/WiFiNav_runtime/model_service.pid`。未设置开机自启/自动重启，重启前先检查PID与端口，避免重复实例。
+- 服务以nohup常驻；PID记录在 `~/WiFiNav/runtime/model_service.pid`。未设置开机自启/自动重启，重启前先检查PID与端口，避免重复实例。
 - CUDA13源路径为 `~/CFRP/toolchains/cuda-13.0`，服务使用runtime/toolchains/cuda-13.0软链接布局；原工具链未更改。PATH补入现有vLLM bin以找到ninja，动态库路径也仅对服务进程设置。
 - GPU显存已主要用于该四卡服务并叠加其他已有进程；不是两卡空闲的部署。后续仿真并发需重新核实和安排，不能沿用部署前空闲量。
 
 ### 最终文档同步状态
 
 新增运维记录曾被自动审批拦截，用户随后明确允许本次内网地址、用户名、实际目录/备份路径、硬件软件版本、服务端口和验收结果公开；不含密码、私钥或令牌。收尾提交af54d92现已成功推送GitHub并快进同步服务器，服务器工作区干净，服务/health返回200；授权状态记录随本次文档提交同步，无需重启服务。
+
+## 项目内存储整理（2026-11-04）
+
+原始资产372文件已独立复制至data/，模型14分片已实际移动至models/并重新通过SHA256核验；日志/缓存/清单和PID统一runtime/。无旧runtime兼容链接。共享环境与旧备份保持原处；日常命令与迁移验收见[整理记录](experiments/project_storage_2026-11-04.md)。
