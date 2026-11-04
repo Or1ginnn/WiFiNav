@@ -19,7 +19,13 @@ import habitat
 import numpy as np
 from PIL import Image, ImageDraw
 from connectivity_vln.navigation.task import PROJECT, prepare, pose, load_json
-from connectivity_vln.navigation.pixel_policy import PixelPolicy, pixel_subgoal, heading_error, floor_candidates
+from connectivity_vln.navigation.pixel_policy import (
+    PixelPolicy,
+    floor_candidates,
+    heading_error,
+    local_navmesh_waypoint,
+    pixel_subgoal,
+)
 from connectivity_vln.evaluation.metrics import evaluate
 
 parser = argparse.ArgumentParser()
@@ -89,6 +95,7 @@ with habitat.Env(config=config, dataset=dataset) as env:
             feedback = {"tool": choice["tool"], "executed_actions": [], "collision": False}
             record = {"index": index, "choice": choice, "request": request_record, "feedback": feedback}
             decisions.append(record)
+            decision_start = np.asarray(pose(env)["position"])
             if choice["tool"] == "stop":
                 obs, step = act(env, "stop", index)
                 feedback["executed_actions"].append("stop")
@@ -106,15 +113,20 @@ with habitat.Env(config=config, dataset=dataset) as env:
                     target, projection = pixel_subgoal(env, obs["depth"], candidate, settings)
                     record.update({"subgoal_world": target, "depth_projection": projection})
                     forward_count = 0
-                    # Bounded local controller. Never queries shortest paths or goals.
-                    for _ in range(18):
+                    # Bounded geometry controller. The navmesh query is local to
+                    # the VLM-selected target and never receives the task goal.
+                    planner_trace = []
+                    record["local_planner"] = planner_trace
+                    for _ in range(settings["max_local_controller_actions"]):
                         if env.episode_over:
                             break
                         delta = np.array(target) - np.array(pose(env)["position"])
                         delta[1] = 0
                         if float(np.linalg.norm(delta)) < settings["forward_step_m"] * 0.6:
                             break
-                        angle = heading_error(env, target)
+                        next_point, planner_state = local_navmesh_waypoint(env, target)
+                        planner_trace.append(planner_state)
+                        angle = heading_error(env, next_point)
                         if abs(angle) > settings["turn_degrees"] / 2:
                             action = "turn_left" if angle > 0 else "turn_right"
                         else:
@@ -130,12 +142,16 @@ with habitat.Env(config=config, dataset=dataset) as env:
                 except ValueError as failure:
                     feedback["rejected_subgoal"] = str(failure)
             policy.observe_feedback(feedback)
+            feedback["displacement_m"] = float(
+                np.linalg.norm((np.asarray(pose(env)["position"]) - decision_start)[[0, 2]])
+            )
+            feedback["made_progress"] = feedback["displacement_m"] >= 0.05
             (directory / "decision.json").write_text(json.dumps(record, indent=2) + "\n")
             with (run / "decisions.jsonl").open("a") as stream:
                 stream.write(json.dumps(record) + "\n")
             print(json.dumps({"decision": index, "tool": choice, "feedback": feedback,
                               "primitive_steps": len(trajectory)-1}), flush=True)
-            no_progress = no_progress + 1 if not feedback["executed_actions"] else 0
+            no_progress = no_progress + 1 if not feedback["made_progress"] else 0
             if no_progress >= settings["max_consecutive_no_progress"]:
                 exit_reason = "consecutive_no_progress_limit"
                 break

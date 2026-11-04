@@ -6,6 +6,7 @@ import math
 import time
 import urllib.request
 
+import habitat_sim
 import numpy as np
 from PIL import Image
 from habitat.utils.geometry_utils import quaternion_rotate_vector
@@ -143,6 +144,34 @@ def heading_error(env, target):
     delta = np.array(target) - state.position
     return math.degrees(math.atan2(forward[2] * delta[0] - forward[0] * delta[2],
                                   forward[0] * delta[0] + forward[2] * delta[2]))
+
+
+def local_navmesh_waypoint(env, target):
+    """Return the next navmesh point toward a VLM-selected local target.
+
+    This query only receives the current pose and local target. It never sees the
+    R2R task goal, reference path, shortest-path sensor, or evaluation metrics.
+    """
+    pathfinder = env.sim.pathfinder
+    snapped = pathfinder.snap_point(np.asarray(target, dtype=np.float32))
+    if not np.isfinite(snapped).all():
+        raise ValueError("Local target cannot be snapped to the navigation mesh")
+    query = habitat_sim.ShortestPath()
+    query.requested_start = env.sim.get_agent_state().position
+    query.requested_end = snapped
+    if not pathfinder.find_path(query) or not math.isfinite(query.geodesic_distance):
+        raise ValueError("No navigation-mesh path to the selected local target")
+    position = env.sim.get_agent_state().position
+    points = [np.asarray(point) for point in query.points]
+    next_point = next(
+        (point for point in points[1:] if np.linalg.norm((point - position)[[0, 2]]) > 0.12),
+        snapped,
+    )
+    return next_point.tolist(), {
+        "snapped_target": snapped.tolist(),
+        "remaining_geodesic_m": float(query.geodesic_distance),
+        "path_points": [point.tolist() for point in points],
+    }
 
 
 def floor_candidates(env, depth, settings, rgb, output):

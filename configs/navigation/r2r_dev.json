@@ -21,6 +21,7 @@
   "max_history_images": 2,
   "max_subgoal_distance_m": 1.5,
   "max_forward_actions_per_subgoal": 6,
+  "max_local_controller_actions": 24,
   "request_timeout_seconds": 120,
   "max_parse_attempts": 2,
   "model_output_tokens": 384,
@@ -39,5 +40,5 @@
     "model_subgoal"
   ],
   "privileged_policy_inputs": false,
-  "max_consecutive_no_progress": 6
+  "max_consecutive_no_progress": 4
 }
