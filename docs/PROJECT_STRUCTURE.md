@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-04。当前按连通性感知导航推进基础设施，具体任务与benchmark待调研。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
+> 最近整理：2026-11-04。用户已确认连通性感知VLN与R2R-Conn制作计划，基础设施完成，当前准备资产与协议核对。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
 
 ## 当前目录
 
@@ -53,7 +53,7 @@ WIFI+Nav/
 | 类型 | 文件 | 用途 |
 |---|---|---|
 | 当前交接与进度 | [plan.md](../plan.md) | 已确定Qwen3.5-35B-A3B；当前状态、M0–M7里程碑、E0–E8执行任务与变更记录 |
-| 当前任务与benchmark制作 | [R2R-Conn制作计划v0](design/r2r_conn_benchmark_plan_v0.md) | 基于原提案，核实MP3D/R2R-CE、指令语义、无线场、划分和指标，再分阶段生成 |
+| 当前任务与benchmark制作 | [R2R-Conn制作计划v0](design/r2r_conn_benchmark_plan_v0.md) | 用户已确认；B0核实资产/版本/协议，再单条闭环、10×3开发pilot、Oracle与后续扩展 |
 | 阶段任务调研范围 | [任务调研任务单](design/task_benchmark_research_plan.md) | 保留历史讨论；不作为从零重选任务方向的要求 |
 | 阶段选型记录 | [基座选型简报](references/backbone_selection_report_2026-11-03.md) | 旧首选已撤销；保留候选取舍与源码审计，当前选择见 plan.md |
 | 当前具体方案 | [连通性感知 VLN 项目小样](references/connectivity_aware_vln_project_proposal_2026-10-15.pdf) | 在线贝叶斯信号场、连通代价注入 VLN、实验路线 |
