@@ -16,11 +16,12 @@ Images are chronological, with the CURRENT image last. You cannot see behind wal
 Choose one high-level tool. Return ONLY a single JSON object with a short reason and
 an updated memory (max 600 characters) of observed progress, rooms and planned next step.
 Tools:
-1. {"tool":"waypoint","u":0.5,"v":0.75,"reason":"...","memory":"..."}
-Select a visible reachable FLOOR point in the CURRENT image. u,v are normalized [0,1]
-coordinates from top-left. The controller back-projects its depth and moves at most 1.5m
-before requesting a new observation. Choose doorway floor to pass through a doorway.
-Do not select objects or a wall. A waypoint left/right in the image also steers the robot.
+1. {"tool":"waypoint","candidate_id":3,"reason":"...","memory":"..."}
+Select one numbered visible floor candidate from the CURRENT image and candidate list.
+Candidates are derived from current depth only, without goal or global map information.
+They are NOT guaranteed collision-free: furniture and narrow doorways can block execution.
+Choose a point towards the next doorway/landmark, not an object. The local controller
+moves at most 1.5m before requesting another observation. Candidate IDs change each view.
 2. {"tool":"look","degrees":60,"reason":"...","memory":"..."}
 Rotate in place: positive = left, negative = right, multiples of 15, at most 90 degrees.
 Use this to inspect unseen space; use a different view if no floor path is visible.
@@ -31,7 +32,7 @@ Never invent a visual observation. Do not repeat a failed motion without new evi
 """
 
 
-def validate_tool(text):
+def validate_tool(text, candidates):
     value = text.strip()
     if value.startswith("```"):
         value = value.split("\n", 1)[1].rsplit("```", 1)[0].strip()
@@ -39,9 +40,9 @@ def validate_tool(text):
     if not isinstance(item, dict) or item.get("tool") not in {"waypoint", "look", "stop"}:
         raise ValueError("Expected a waypoint/look/stop object")
     if item["tool"] == "waypoint":
-        for k in ("u", "v"):
-            if isinstance(item.get(k), bool) or not isinstance(item.get(k), (float, int)) or not 0 <= item[k] <= 1:
-                raise ValueError("Pixel coordinates must be finite normalized numbers")
+        value = item.get("candidate_id")
+        if type(value) is not int or value not in {c["id"] for c in candidates}:
+            raise ValueError("Choose an integer candidate_id from the current candidate list")
     if item["tool"] == "look":
         value = item.get("degrees")
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 15 <= abs(value) <= 90 or abs(value / 15 - round(value / 15)) > 1e-6:
@@ -61,14 +62,14 @@ class PixelPolicy:
         self.feedback = []
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
-    def decide(self, instruction, frame, directory):
+    def decide(self, instruction, frame, candidates, directory):
         content = []
         frames = self.history[-self.settings["max_history_images"]:] + [str(frame)]
         for i, name in enumerate(frames):
             content.append({"type": "text", "text": "CURRENT image:" if i == len(frames)-1 else "Previous image:"})
             content.append({"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(open(name, "rb").read()).decode()}})
         content.append({"type": "text", "text": json.dumps({
-            "instruction": instruction, "memory": self.memory,
+            "instruction": instruction, "memory": self.memory, "current_floor_candidates": candidates,
             "recent_controller_feedback": self.feedback[-6:],
         }, ensure_ascii=False)})
         messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}]
@@ -89,7 +90,7 @@ class PixelPolicy:
             try:
                 if raw["choices"][0].get("finish_reason") != "stop":
                     raise ValueError("Model output was truncated or did not finish normally")
-                choice = validate_tool(text)
+                choice = validate_tool(text, candidates)
             except (ValueError, TypeError) as error:
                 (directory / f"parse_error_{attempt}.txt").write_text(str(error))
                 messages += [{"role": "assistant", "content": text},
@@ -142,3 +143,32 @@ def heading_error(env, target):
     delta = np.array(target) - state.position
     return math.degrees(math.atan2(forward[2] * delta[0] - forward[0] * delta[2],
                                   forward[0] * delta[0] + forward[2] * delta[2]))
+
+
+def floor_candidates(env, depth, settings, rgb, output):
+    """Sample measured floor points and annotate RGB; no map/GT is queried."""
+    from PIL import ImageDraw
+    candidates = []
+    for u in np.linspace(0.10, 0.90, 9):
+        valid = []
+        for v in np.linspace(0.95, 0.55, 17):
+            try:
+                target, projection = pixel_subgoal(env, depth, {"u":float(u),"v":float(v)}, settings)
+            except ValueError:
+                continue
+            raw = projection["backprojected_point"]
+            position = env.sim.get_agent_state().position
+            distance = float(np.linalg.norm(np.array(raw)[[0,2]] - position[[0,2]]))
+            if abs(raw[1]-position[1]) <= 0.20 and 0.5 <= distance <= 4.0:
+                valid.append({"u":float(u),"v":float(v),"distance_m":distance})
+        if valid:
+            candidates.append(max(valid,key=lambda c:c["distance_m"]))
+    image = Image.fromarray(rgb[..., :3]).copy()
+    draw = ImageDraw.Draw(image)
+    for i, candidate in enumerate(candidates):
+        candidate["id"] = i
+        x,y = round(candidate["u"]*(image.width-1)),round(candidate["v"]*(image.height-1))
+        draw.ellipse((x-10,y-10,x+10,y+10),fill="yellow",outline="black",width=2)
+        draw.text((x-3,y-5),str(i),fill="black")
+    image.save(output)
+    return candidates

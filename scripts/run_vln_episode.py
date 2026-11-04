@@ -19,7 +19,7 @@ import habitat
 import numpy as np
 from PIL import Image, ImageDraw
 from connectivity_vln.navigation.task import PROJECT, prepare, pose, load_json
-from connectivity_vln.navigation.pixel_policy import PixelPolicy, pixel_subgoal, heading_error
+from connectivity_vln.navigation.pixel_policy import PixelPolicy, pixel_subgoal, heading_error, floor_candidates
 from connectivity_vln.evaluation.metrics import evaluate
 
 parser = argparse.ArgumentParser()
@@ -31,7 +31,7 @@ model_config = load_json(PROJECT / "configs/model/qwen35b.json")
 run = PROJECT / "runtime/runs" / ("nosignal_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
 run.mkdir(parents=True)
 (run / "frames").mkdir()
-metadata.update({"mode": "NoSignal", "implementation_status": "provisional_pixel_subgoal_straight_line_controller",
+metadata.update({"mode": "NoSignal", "implementation_status": "provisional_depth_candidate_subgoal_straight_line_controller",
                  "model": model_config, "code_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=PROJECT, text=True).strip(),
                  "policy_privileged_inputs": [], "evaluation_uses_gt": True,
                  "not_official_benchmark_result": True})
@@ -76,13 +76,16 @@ error = None
 with habitat.Env(config=config, dataset=dataset) as env:
     obs = env.reset()
     save_state(env, obs, "reset")
+    no_progress = 0
     try:
         for index in range(settings["max_decisions"]):
             directory = run / f"decision_{index:03d}"
             directory.mkdir()
-            frame = run / trajectory[-1]["rgb"]
+            frame = directory / "policy_view.png"
+            candidates = floor_candidates(env, obs["depth"], settings, obs["rgb"], frame)
+            (directory / "candidates.json").write_text(json.dumps(candidates, indent=2)+"\n")
             # Only instruction, RGB history, model memory and controller feedback.
-            choice, request_record = policy.decide(episode["instruction"]["instruction_text"], frame, directory)
+            choice, request_record = policy.decide(episode["instruction"]["instruction_text"], frame, candidates, directory)
             feedback = {"tool": choice["tool"], "executed_actions": [], "collision": False}
             record = {"index": index, "choice": choice, "request": request_record, "feedback": feedback}
             decisions.append(record)
@@ -99,7 +102,8 @@ with habitat.Env(config=config, dataset=dataset) as env:
                     feedback["executed_actions"].append(action)
             else:
                 try:
-                    target, projection = pixel_subgoal(env, obs["depth"], choice, settings)
+                    candidate = next(c for c in candidates if c["id"] == choice["candidate_id"])
+                    target, projection = pixel_subgoal(env, obs["depth"], candidate, settings)
                     record.update({"subgoal_world": target, "depth_projection": projection})
                     forward_count = 0
                     # Bounded local controller. Never queries shortest paths or goals.
@@ -131,6 +135,10 @@ with habitat.Env(config=config, dataset=dataset) as env:
                 stream.write(json.dumps(record) + "\n")
             print(json.dumps({"decision": index, "tool": choice, "feedback": feedback,
                               "primitive_steps": len(trajectory)-1}), flush=True)
+            no_progress = no_progress + 1 if not feedback["executed_actions"] else 0
+            if no_progress >= settings["max_consecutive_no_progress"]:
+                exit_reason = "consecutive_no_progress_limit"
+                break
             if env.episode_over:
                 exit_reason = "model_stop" if choice["tool"] == "stop" else "primitive_step_limit"
                 break

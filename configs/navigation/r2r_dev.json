@@ -1,5 +1,5 @@
 {
-  "name": "wifinav_pixel_subgoal_dev_v0",
+  "name": "wifinav_depth_candidates_dev_v1",
   "split": "train",
   "selection": "first_by_scene_id_then_numeric_episode_id",
   "seed": 20261104,
@@ -26,7 +26,18 @@
   "model_output_tokens": 384,
   "motion_forward_speed_mps": 0.25,
   "motion_turn_speed_degrees_per_second": 30,
-  "policy_inputs": ["instruction", "current_rgb", "two_recent_rgb_frames", "bounded_action_feedback", "bounded_task_memory"],
-  "controller_inputs": ["current_metric_depth", "current_pose", "model_subgoal"],
-  "privileged_policy_inputs": false
+  "policy_inputs": [
+    "instruction",
+    "current_rgb",
+    "two_recent_rgb_frames",
+    "bounded_action_feedback",
+    "bounded_task_memory"
+  ],
+  "controller_inputs": [
+    "current_metric_depth",
+    "current_pose",
+    "model_subgoal"
+  ],
+  "privileged_policy_inputs": false,
+  "max_consecutive_no_progress": 6
 }
