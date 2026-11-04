@@ -27,6 +27,7 @@ from connectivity_vln.navigation.pixel_policy import (
     pixel_subgoal,
 )
 from connectivity_vln.evaluation.metrics import evaluate
+from connectivity_vln.signal_simulation.route_a import SignalField, communication_metrics
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=Path)
@@ -34,12 +35,15 @@ args = parser.parse_args()
 config, dataset, episode, metadata = prepare(args.config)
 settings = metadata["settings"]
 model_config = load_json(PROJECT / "configs/model/qwen35b.json")
+wireless_config = load_json(PROJECT / "configs/wireless/r2r_conn_v0.json")
 run = PROJECT / "runtime/runs" / ("nosignal_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
 run.mkdir(parents=True)
 (run / "frames").mkdir()
-metadata.update({"mode": "NoSignal", "implementation_status": "provisional_depth_candidate_subgoal_straight_line_controller",
-                 "model": model_config, "code_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=PROJECT, text=True).strip(),
+metadata.update({"mode": "NoSignal", "implementation_status": "provisional_depth_candidate_subgoal_navmesh_controller",
+                 "model": model_config, "wireless": wireless_config,
+                 "code_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=PROJECT, text=True).strip(),
                  "policy_privileged_inputs": [], "evaluation_uses_gt": True,
+                 "policy_uses_wireless": False,
                  "not_official_benchmark_result": True})
 (run / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
 policy = PixelPolicy(model_config, settings)
@@ -64,6 +68,7 @@ def save_state(env, obs, action, decision=None, latency=0.0):
             "rgb": "frames/" + filename + ".png", "depth": "frames/" + filename + "_depth.npy",
             "motion_sim_time_seconds": sim_time, "wall_elapsed_seconds": time.perf_counter() - started,
             "action_wall_seconds": latency, "collision": bool(env.sim.previous_step_collided) if action != "reset" else False,
+            "wireless": signal.query(env.sim.get_agent_state().position, index),
             "evaluation_only_metrics": dict(env.get_metrics())}
     trajectory.append(item)
     with (run / "trajectory.jsonl").open("a") as stream:
@@ -81,6 +86,12 @@ exit_reason = "uninitialized"
 error = None
 with habitat.Env(config=config, dataset=dataset) as env:
     obs = env.reset()
+    signal = SignalField(
+        env.sim.pathfinder,
+        episode["scene_id"],
+        episode["start_position"],
+        wireless_config,
+    )
     save_state(env, obs, "reset")
     no_progress = 0
     try:
@@ -170,6 +181,7 @@ with habitat.Env(config=config, dataset=dataset) as env:
     with gzip.open(gt_file, "rt") as stream:
         gt = json.load(stream)[str(episode["episode_id"])]["locations"]
     metrics = evaluate(env, trajectory, gt, settings)
+    metrics["communication"] = communication_metrics(trajectory, wireless_config)
     # Offline diagnostic plot. Neither GT nor this plot is fed to the policy.
     points = np.array([x["pose"]["position"] for x in trajectory])[:, [0,2]]
     ref = np.array(gt)[:, [0,2]]

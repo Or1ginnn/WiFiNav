@@ -1,0 +1,23 @@
+{
+  "name": "r2r_conn_route_a_v0",
+  "layout_id": "ap_at_episode_start_v0",
+  "seed": 20261105,
+  "ap_floor_position": "episode_start",
+  "reference_rssi_dbm_at_1m": -35.0,
+  "path_loss_exponent": 2.2,
+  "obstruction_proxy": "navmesh_geodesic_excess",
+  "obstruction_db_per_excess_meter": 4.0,
+  "max_obstruction_penalty_db": 25.0,
+  "spatial_shadow_sigma_db": 2.0,
+  "spatial_shadow_cell_m": 0.5,
+  "observation_noise_sigma_db": 1.5,
+  "weak_threshold_dbm": -67.0,
+  "outage_threshold_dbm": -75.0,
+  "query_inputs": [
+    "scene_id",
+    "position_xz",
+    "layout_id",
+    "seed"
+  ],
+  "fidelity_note": "The installed Habitat-Sim lacks Bullet ray casting. Navmesh geodesic excess is a deterministic obstruction proxy for the first loop, not a physical wall count."
+}
