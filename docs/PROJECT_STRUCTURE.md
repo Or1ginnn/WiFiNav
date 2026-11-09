@@ -24,7 +24,9 @@ WIFI+Nav/
 │   ├── run_vln_episode.py                       # 单条VLM导航与RSSI闭环入口
 │   ├── generate_pilot.py                        # 运行前固定10任务/30 case清单
 │   ├── run_pilot.py                             # 串行NoSignal和明确错误/超时记录
-│   └── replay_pilot.py                          # 一轨迹三AP回放与任务级汇总
+│   ├── replay_pilot.py                          # 一轨迹三AP回放与任务级汇总
+│   ├── audit_pilot_signals.py                   # 可导航探针位置的信号重复性审计
+│   └── plot_pilot.py                            # 报告生成独立PNG/PDF诊断图
 ├── src/connectivity_vln/
 │   ├── navigation/                              # R2R任务、模型工具决策与局部规划
 │   ├── signal_simulation/                       # 路线A确定性RSSI查询

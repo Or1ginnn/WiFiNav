@@ -41,6 +41,7 @@ def main():
         episode_result = {"episode_id": episode["episode_id"], "scene_id": episode["scene_id"],
                           "trajectory_id": episode["trajectory_id"], "exit_reason": status["exit_reason"],
                           "success": status["success"], "summary_complete": summary is not None,
+                          "runtime_error": summary.get("error") if summary else "missing_summary",
                           "spl": summary["metrics"]["spl"] if summary else 0.0,
                           "ndtw": summary["metrics"]["ndtw_exact_euclidean"] if summary else None,
                           "path_length_m": summary["metrics"]["path_length_m"] if summary else None}
@@ -60,7 +61,8 @@ def main():
             communication = communication_metrics(replay, config) if replay else None
             results.append({**episode_result, "layout_id": layout["layout_id"],
                             "trajectory_sha256": sha, "sample_count": len(replay),
-                            "full_rollout": summary is not None, "communication": communication})
+                            "full_rollout": summary is not None and summary.get("error") is None,
+                            "communication": communication})
     complete = [r for r in results if r["full_rollout"] and r["communication"]]
     aggregate = {
         "episode_count": len(episodes), "scene_count": len({e["scene_id"] for e in episodes}),
@@ -70,6 +72,7 @@ def main():
         "spl_all_selected": statistics.mean(e["spl"] for e in episodes),
         "ndtw_complete_rollouts": statistics.mean(e["ndtw"] for e in episodes if e["ndtw"] is not None),
         "complete_cases": len(complete),
+        "partial_cases": len(results)-len(complete),
         "cases_with_outage": sum(r["communication"]["outage_seconds"] > 0 for r in complete),
         "cases_with_weak_signal": sum(r["communication"]["weak_seconds"] > 0 for r in complete),
         "oracle_benefit_verified": False,
