@@ -15,14 +15,20 @@ def load_json(path):
     return json.loads(Path(path).read_text())
 
 
-def prepare(config_path=None):
+def prepare(config_path=None, episode_id=None):
     settings = load_json(config_path or PROJECT / "configs/navigation/r2r_dev.json")
     paths = load_json(PROJECT / "configs/data/server_paths.json")
     task_file = PROJECT / paths["task_dataset"] / settings["split"] / (settings["split"] + ".json.gz")
     with gzip.open(task_file, "rt") as stream:
         payload = json.load(stream)
     # Selection never depends on goal length, rendered observations or policy outcome.
-    selected = min(payload["episodes"], key=lambda e: (e["scene_id"], int(e["episode_id"])))
+    if episode_id is None:
+        selected = min(payload["episodes"], key=lambda e: (e["scene_id"], int(e["episode_id"])))
+    else:
+        matches = [e for e in payload["episodes"] if str(e["episode_id"]) == str(episode_id)]
+        if len(matches) != 1:
+            raise ValueError("Explicit episode_id must identify exactly one source episode")
+        selected = matches[0]
     config = habitat.get_config("benchmark/nav/vln_r2r.yaml")
     with read_write(config):
         h = config.habitat
@@ -61,7 +67,8 @@ def prepare(config_path=None):
     metadata = {
         "split": settings["split"], "episode_id": str(selected["episode_id"]),
         "trajectory_id": str(selected["trajectory_id"]), "scene_id": selected["scene_id"],
-        "selection": settings["selection"], "task_sha256": hashlib.sha256(task_file.read_bytes()).hexdigest(),
+        "selection": settings["selection"] if episode_id is None else "explicit_frozen_manifest_id",
+        "task_sha256": hashlib.sha256(task_file.read_bytes()).hexdigest(),
         "settings": settings, "habitat_config": OmegaConf.to_container(config, resolve=True),
         "habitat_lab_version": habitat.__version__,
     }

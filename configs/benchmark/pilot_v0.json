@@ -1,0 +1,30 @@
+{
+  "name": "r2r_conn_pilot_v0",
+  "split": "train",
+  "scene_count": 2,
+  "episodes_per_scene": 5,
+  "selection": "first_two_scene_ids_then_first_five_distinct_trajectory_ids_by_numeric_episode_id",
+  "navigation_config": "configs/navigation/r2r_dev.json",
+  "model_config": "configs/model/qwen35b.json",
+  "wireless_base_config": "configs/wireless/r2r_conn_v0.json",
+  "wireless_overrides": {
+    "name": "route_a_pilot_v1",
+    "seed": 20261109,
+    "reference_rssi_dbm_at_1m": -48.0,
+    "path_loss_exponent": 2.8
+  },
+  "layouts": [
+    {"layout_id": "start", "ap_rule": "episode_start"},
+    {"layout_id": "near", "ap_rule": "nearest_seeded_same_floor_point_to_6m_radius", "target_radius_m": 6.0},
+    {"layout_id": "far", "ap_rule": "nearest_seeded_same_floor_point_to_12m_radius", "target_radius_m": 12.0}
+  ],
+  "ap_candidates_per_scene": 512,
+  "ap_floor_tolerance_m": 0.25,
+  "scene_seed": 20261109,
+  "manifest_path": "data/derived/r2r_conn/pilot_v0/manifest.json",
+  "geometry_access": "shared_known_navmesh_for_all_controllers",
+  "maximum_episode_wall_seconds": 1800,
+  "failure_policy": "retain_all_selected_tasks_and_exit_reasons_no_resampling",
+  "replay_policy": "one_nosignal_rollout_per_episode_three_offline_ap_replays",
+  "development_only": true
+}

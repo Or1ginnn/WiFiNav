@@ -1,8 +1,8 @@
 """One frozen-model development rollout with explicit privileged-info isolation.
 
 This is our provisional pixel-subgoal adapter, not an AgenticNav reproduction or
-an accepted benchmark baseline. It currently uses a local straight-line
-controller; weighted grid planning and RSSI integration are separate follow-ups.
+an accepted benchmark baseline. It uses a local navmesh geometry controller;
+weighted signal-aware planning is a separate follow-up.
 """
 import argparse
 from datetime import datetime, timezone
@@ -31,13 +31,18 @@ from connectivity_vln.signal_simulation.route_a import SignalField, communicatio
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=Path)
+parser.add_argument("--episode-id", type=str)
+parser.add_argument("--output-dir", type=Path)
 args = parser.parse_args()
-config, dataset, episode, metadata = prepare(args.config)
+config, dataset, episode, metadata = prepare(args.config, args.episode_id)
 settings = metadata["settings"]
 model_config = load_json(PROJECT / "configs/model/qwen35b.json")
 wireless_config = load_json(PROJECT / "configs/wireless/r2r_conn_v0.json")
-run = PROJECT / "runtime/runs" / ("nosignal_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
-run.mkdir(parents=True)
+run = args.output_dir or PROJECT / "runtime/runs" / ("nosignal_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
+run = run.resolve()
+if not run.is_relative_to((PROJECT / "runtime").resolve()):
+    raise ValueError("Rollout output must remain under project runtime/")
+run.mkdir(parents=True, exist_ok=False)
 (run / "frames").mkdir()
 metadata.update({"mode": "NoSignal", "implementation_status": "provisional_depth_candidate_subgoal_navmesh_controller",
                  "model": model_config, "wireless": wireless_config,

@@ -14,13 +14,17 @@ WIFI+Nav/
 ├── configs/model/qwen35b.json                    # 固定模型revision与服务初值
 ├── configs/navigation/r2r_dev.json               # 固定首条任务、观察/动作和控制预算
 ├── configs/wireless/r2r_conn_v0.json             # 路线A信号、阈值与确定性seed
+├── configs/benchmark/pilot_v0.json               # B2固定任务选择/AP布局与运行预算
 ├── scripts/
 │   ├── download_model.py                        # 模型下载与镜像SHA256核验
 │   ├── serve_model.py                           # 使用已有vLLM环境启动服务
 │   ├── bootstrap_model.sh                       # 下载完成后启动服务
 │   ├── probe_model.py                           # 文本/单图/多图服务验收
 │   ├── check_habitat_task.py                    # 真实场景/RGB-D/动作验收
-│   └── run_vln_episode.py                       # 单条VLM导航与RSSI闭环入口
+│   ├── run_vln_episode.py                       # 单条VLM导航与RSSI闭环入口
+│   ├── generate_pilot.py                        # 运行前固定10任务/30 case清单
+│   ├── run_pilot.py                             # 串行NoSignal和明确错误/超时记录
+│   └── replay_pilot.py                          # 一轨迹三AP回放与任务级汇总
 ├── src/connectivity_vln/
 │   ├── navigation/                              # R2R任务、模型工具决策与局部规划
 │   ├── signal_simulation/                       # 路线A确定性RSSI查询
@@ -51,6 +55,7 @@ WIFI+Nav/
 │   │       └── action_plan.md
 │   └── design/
 │       ├── r2r_conn_benchmark_plan_v0.md          # 当前任务与benchmark分阶段制作计划
+│       ├── b2_pilot_protocol_v0.md               # B2执行前固定的样本/AP/信息/时间协议
 │       ├── task_benchmark_research_plan.md         # 任务选择与benchmark修改的调研任务单
 │       └── radiofrontier/                        # RadioFrontier 现实/半现实演示设计
 │           ├── demo_scenario.md
