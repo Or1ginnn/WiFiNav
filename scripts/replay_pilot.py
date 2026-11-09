@@ -67,14 +67,21 @@ def main():
     aggregate = {
         "episode_count": len(episodes), "scene_count": len({e["scene_id"] for e in episodes}),
         "case_count": len(results), "completed_rollouts": sum(e["summary_complete"] for e in episodes),
+        "runtime_error_episodes": sum(e["runtime_error"] is not None for e in episodes),
+        "missing_summary_episodes": sum(not e["summary_complete"] for e in episodes),
         "successful_episodes": sum(e["success"] for e in episodes),
         "sr_all_selected": statistics.mean(e["success"] for e in episodes),
         "spl_all_selected": statistics.mean(e["spl"] for e in episodes),
-        "ndtw_complete_rollouts": statistics.mean(e["ndtw"] for e in episodes if e["ndtw"] is not None),
+        "ndtw_available_trajectories_including_error_prefixes": statistics.mean(
+            e["ndtw"] for e in episodes if e["ndtw"] is not None),
         "complete_cases": len(complete),
         "partial_cases": len(results)-len(complete),
         "cases_with_outage": sum(r["communication"]["outage_seconds"] > 0 for r in complete),
         "cases_with_weak_signal": sum(r["communication"]["weak_seconds"] > 0 for r in complete),
+        "cases_with_outage_including_partial": sum(
+            r["communication"] is not None and r["communication"]["outage_seconds"] > 0 for r in results),
+        "cases_with_weak_signal_including_partial": sum(
+            r["communication"] is not None and r["communication"]["weak_seconds"] > 0 for r in results),
         "oracle_benefit_verified": False,
         "failed_episodes_retained": True,
         "case_counts_do_not_multiply_independent_navigation_samples": True,

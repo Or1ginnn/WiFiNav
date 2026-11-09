@@ -16,6 +16,7 @@ def main():
     batch = args.batch_dir
     report = json.loads((batch / "pilot_report.json").read_text())
     ids = [e["episode_id"] for e in report["episodes"]]
+    labels = [e["episode_id"] + ("*" if e.get("runtime_error") else "") for e in report["episodes"]]
     layouts = ["start", "near", "far"]
     heat = np.full((len(ids), len(layouts)), np.nan)
     for row in report["cases"]:
@@ -25,7 +26,7 @@ def main():
     colors = ["#297c58" if e["success"] else "#b85252" for e in report["episodes"]]
     axes[0].barh(range(len(ids)), [e["spl"] for e in report["episodes"]], color=colors)
     axes[0].set_yticks(range(len(ids)))
-    axes[0].set_yticklabels(ids)
+    axes[0].set_yticklabels(labels)
     axes[0].invert_yaxis()
     axes[0].set_xlim(0, 1)
     axes[0].set_xlabel("SPL (green=success; red=failure)")
@@ -33,7 +34,7 @@ def main():
     axes[0].set_title("10 NoSignal rollouts")
     image = axes[1].imshow(heat, aspect="auto", vmin=0, vmax=100, cmap="YlOrRd")
     axes[1].set_yticks(range(len(ids)))
-    axes[1].set_yticklabels(ids)
+    axes[1].set_yticklabels(labels)
     axes[1].set_xticks(range(len(layouts)))
     axes[1].set_xticklabels(layouts)
     axes[1].set_title("30 AP replays: outage % of motion time")
@@ -43,7 +44,7 @@ def main():
             axes[1].text(j, i, text, ha="center", va="center", color="black", fontsize=9)
     fig.colorbar(image, ax=axes[1], label="Outage time (%)")
     fig.suptitle("R2R-Conn development pilot: known geometry, proxy radio field")
-    fig.text(0.5, 0.01, "All selected episodes retained. AP replays are not independent navigation samples. Oracle benefit untested.", ha="center", fontsize=8)
+    fig.text(0.5, 0.01, "All episodes retained; * = partial error trajectory. AP replays are not independent tasks. Oracle benefit untested.", ha="center", fontsize=8)
     fig.tight_layout(rect=(0, 0.04, 1, 0.95))
     fig.savefig(batch / "pilot_overview.png", dpi=160)
     fig.savefig(batch / "pilot_overview.pdf")
