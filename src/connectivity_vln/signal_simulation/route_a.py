@@ -79,6 +79,10 @@ def communication_metrics(trajectory, config):
     was_outage = False
     for previous, current in zip(trajectory, trajectory[1:]):
         duration = max(0.0, current["motion_sim_time_seconds"] - previous["motion_sim_time_seconds"])
+        # STOP has zero motion duration; a fresh noisy sample at that instant
+        # must not create an outage event with no exposure time.
+        if duration <= 0:
+            continue
         sample = current["wireless"]
         if sample["weak"]:
             weak_seconds += duration

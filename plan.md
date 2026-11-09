@@ -222,6 +222,7 @@ B0资产与协议核对 → B1单条闭环 → B2开发pilot（10个原始episod
 - B2选择规则固定为训练集场景名排序的前两个场景、每场景episode ID升序的前五条不同trajectory_id；不按指令、轨迹长度、画面或成功与否筛样。三个AP布局为起点、固定seed采样同楼层可达点中最接近6米/12米半径者，记录实际距离；信号参数在运行前固定为1米-48dBm、路径损耗指数2.8，阈值仍为-67/-75dBm。
 - 新增`configs/benchmark/pilot_v0.json`、`scripts/generate_pilot.py`、`scripts/run_pilot.py`与`scripts/replay_pilot.py`，支持固定episode、独立运行目录、超时/错误保留、断点恢复和一轨迹三布局回放。B2使用所有控制器共享的已知navmesh几何设定；不把它描述为未知几何建图。生成资产与完整日志保存在data/derived和runtime，Git只维护代码、配置与摘要。
 - manifest已生成并冻结（SHA256 `8a0caf14400bd73939c97e976cdc5e97c34ce32eb2da35eee936c53a5dd1d326`）：两个场景17DRP5sb8fy/1LXtFkjw3qL；episode 515、575、1074、1116、1802、85、97、127、743、818。AP实际半径已登记，部分far布局因可用楼层范围小于12米，保留最接近者，不更换场景。服务器代理TLS失败且直连无响应，改用已推送同一提交53b9624的Git bundle校验并快进合并；未覆盖工作区。新增独立信号探针审计与报告绘图入口；均不修改导航策略或已冻结配置。
+- 信号回放统计修正：STOP的零运动时长采样不生成断连事件。该修正不改变RSSI场、导航输入、动作或冻结参数；B2回放报告使用修正后的正时长积分。
 
 ### 2026-11-05
 
