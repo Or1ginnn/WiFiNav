@@ -138,3 +138,9 @@
 ## 项目内存储整理（2026-11-04）
 
 原始资产372文件已独立复制至data/，模型14分片已实际移动至models/并重新通过SHA256核验；日志/缓存/清单和PID统一runtime/。无旧runtime兼容链接。共享环境与旧备份保持原处；日常命令与迁移验收见[整理记录](experiments/project_storage_2026-11-04.md)。
+
+## B2执行现场（2026-11-09）
+
+原模型服务日志显示11月7日已关闭；本轮确认没有本项目服务且GPU空闲后，按原配置恢复，PID1315140记录在runtime/model_service.pid，新日志为runtime/logs/model_service_20261109T233803.log。B2结束时health=200，共享Conda未改动。冻结清单在data/derived/r2r_conn/pilot_v0/manifest.json，批次在runtime/batches/pilot_20261109T154150Z，约726MiB；详情见[B2记录](experiments/b2_pilot_2026-11-09.md)。
+
+本轮服务器7890代理访问GitHub连续TLS失败，直连也未响应；本机提交已正常推送GitHub，随后将同一提交制成Git bundle传输，服务器校验并仅快进合并，未改全局代理或覆盖工作区。最终同步应核对main和origin/main的commit与本机一致。

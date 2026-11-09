@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-模型基座为冻结的 **Qwen3.5-35B-A3B**。服务器、模型和Habitat0.3.0真实MP3D任务已接通；B1固定episode的NoSignal导航与逐动作RSSI闭环通过。当前准备10个episode×3个AP布局的开发pilot和StaticMap/Oracle价值验证；首条结果仅作工程验收。
+模型基座为冻结的 **Qwen3.5-35B-A3B**。B1闭环和B2首轮开发pilot已执行：10条任务、2个场景、30个AP回放，SR=30%、平均SPL=0.2723；全部失败和3个错误前缀case保留。当前先处理解析/停止/无进展问题，再开展StaticMap/Oracle价值验证；尚无论文级方法收益结论。
 
 ## 文档入口
 
@@ -13,12 +13,13 @@
 - [环境与服务器记录](docs/LOCAL_ENVIRONMENT.md)：环境、连接、目录与同步约定。
 - [服务器资产与日常操作](docs/experiments/project_storage_2026-11-04.md)：data/models/runtime与模型启动命令。
 - [B1首条导航与RSSI闭环](docs/experiments/b1_first_episode_2026-11-05.md)：固定任务、信息隔离、运行指标和产物路径。
+- [B2首轮开发pilot](docs/experiments/b2_pilot_2026-11-09.md)：10任务/30回放、失败诊断、覆盖指标与复现路径。
 - [协作规则](AGENTS.md)：新聊天接手与文件维护要求。
 
 ## 下一步
 
-1. 固定10个开发episode（至少2个scene）和每个episode 3个AP布局。
-2. 回放NoSignal轨迹并运行StaticMap/Oracle，检查导航—通信权衡。
+1. 用已冻结的10任务诊断工具说明字段长度、错误STOP和无位移保护，另存版本与新批次。
+2. 实现同一加权规划器的λ=0/StaticMap对照，检查导航—通信权衡。
 3. Oracle通过后加入Reactive与Online Belief，再扩大benchmark；并行补齐源资产版本和许可追溯。
 
 模型部署细节、实际请求结果和服务器资源见 [部署现场记录](docs/experiments/server_bootstrap_2026-11-04.md)。
