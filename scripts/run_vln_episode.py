@@ -164,7 +164,6 @@ with habitat.Env(config=config, dataset=dataset) as env:
                             break
                 except ValueError as failure:
                     feedback["rejected_subgoal"] = str(failure)
-            policy.observe_feedback(feedback)
             feedback["displacement_m"] = float(
                 np.linalg.norm((np.asarray(pose(env)["position"]) - decision_start)[[0, 2]])
             )
@@ -174,11 +173,17 @@ with habitat.Env(config=config, dataset=dataset) as env:
                     "stop" if choice["tool"] == "stop"
                     else progress_guard.update(pose(env), feedback)
                 )
-                feedback["made_progress"] = feedback["progress_kind"] in ("translation", "new_view")
+                if feedback["progress_kind"] == "new_view":
+                    feedback["made_progress"] = True
                 no_progress = progress_guard.stalled
                 feedback["consecutive_stalled"] = no_progress
             else:
                 no_progress = no_progress + 1 if not feedback["made_progress"] else 0
+            # Keep diagnostic counters out of the VLM's normal feedback format.
+            policy.observe_feedback({
+                key: value for key, value in feedback.items()
+                if key not in ("progress_kind", "consecutive_stalled")
+            })
             (directory / "decision.json").write_text(json.dumps(record, indent=2) + "\n")
             with (run / "decisions.jsonl").open("a") as stream:
                 stream.write(json.dumps(record) + "\n")
