@@ -94,7 +94,10 @@ class PixelPolicy:
                 "instruction. Confirm only with visible evidence of the final landmark and spatial "
                 "relation. Reject only with positive visual evidence of a contradictory location "
                 "or unfinished instruction, for example an identifiable earlier room or a destination "
-                "clearly still far ahead. A landmark outside the frame or ambiguity alone is uncertain. "
+                "clearly still far ahead. If the current room is identifiable and incompatible with "
+                "the requested final room, reject even if the destination could be nearby. "
+                "A landmark outside the frame or ambiguity alone is uncertain. A generic doorway "
+                "or object alone does not establish that it is the specific destination. "
                 "Do not infer a contradiction from missing evidence. Return only JSON with verdict "
                 'equal to confirm, reject, or uncertain: {"verdict":"uncertain","evidence":"brief observation"}.')},
             {"role": "user", "content": [
