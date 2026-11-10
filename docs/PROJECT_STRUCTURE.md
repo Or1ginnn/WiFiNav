@@ -87,6 +87,7 @@ WIFI+Nav/
 | 部署记录 | [服务器部署现场记录](experiments/server_bootstrap_2026-11-04.md) | 四步基础设施执行、资源、复用环境及服务验收 |
 | B1首条闭环 | [首条导航与RSSI记录](experiments/b1_first_episode_2026-11-05.md) | 固定episode、信息隔离、失败修复、导航/RSSI指标及产物路径 |
 | B2首轮pilot | [B2记录](experiments/b2_pilot_2026-11-09.md) | 固定10任务/30回放、失败分类、信号审计与当前限制 |
+| 导航接口 v1 | [修复与复核](experiments/navigation_interface_v1_2026-11-10.md) | 工具校验、STOP复核、观察与无进展处理 |
 | 服务器任务与场景 | [DATASETS.md](DATASETS.md) | 实际文件副本，无软链接；任务规模、场景覆盖、复制校验和来源 |
 | 本机/服务器 | [LOCAL_ENVIRONMENT.md](LOCAL_ENVIRONMENT.md) | 本机软件信息、服务器参数登记表和接入核对项 |
 | 历史 RadioNav | [RadioNav v4](archive/radionav/RadioNav-v4.md)、[RadioNavDP v3](archive/radionav/RadioNavDP-v3.md) | X-NavDP 轨迹级未来无线预测方向；不作为现主线 |

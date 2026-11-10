@@ -144,3 +144,5 @@
 原模型服务日志显示11月7日已关闭；本轮确认没有本项目服务且GPU空闲后，按原配置恢复，PID1315140记录在runtime/model_service.pid，新日志为runtime/logs/model_service_20261109T233803.log。B2结束时health=200，共享Conda未改动。冻结清单在data/derived/r2r_conn/pilot_v0/manifest.json，批次在runtime/batches/pilot_20261109T154150Z，约726MiB；详情见[B2记录](experiments/b2_pilot_2026-11-09.md)。
 
 本轮服务器7890代理访问GitHub连续TLS失败，直连也未响应；本机提交已正常推送GitHub，随后将同一提交制成Git bundle传输，服务器校验并仅快进合并，未改全局代理或覆盖工作区。最终同步应核对main和origin/main的commit与本机一致。
+
+2026-11-10，导航接口 v1 继续通过 Git bundle 快进同步。复用现有 Habitat 环境与模型服务，验证数据存放于独立 `runtime/runs/interface_v1_*`，原B2 v0批次保持只读；结果见[导航接口复核](experiments/navigation_interface_v1_2026-11-10.md)。
