@@ -1,8 +1,8 @@
 """Provisional pixel-subgoal VLM baseline, without goal or reference access."""
 import base64
-import io
 import json
 import math
+from pathlib import Path
 import time
 import urllib.request
 
@@ -10,6 +10,7 @@ import habitat_sim
 import numpy as np
 from PIL import Image
 from habitat.utils.geometry_utils import quaternion_rotate_vector
+from .interface import stop_review, validate_tool
 
 SYSTEM = """You navigate an indoor robot using its front camera and an instruction.
 Follow the instruction in order; explore if the next doorway or landmark is out of view.
@@ -33,76 +34,116 @@ Never invent a visual observation. Do not repeat a failed motion without new evi
 """
 
 
-def validate_tool(text, candidates):
-    value = text.strip()
-    if value.startswith("```"):
-        value = value.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-    item = json.loads(value)
-    if not isinstance(item, dict) or item.get("tool") not in {"waypoint", "look", "stop"}:
-        raise ValueError("Expected a waypoint/look/stop object")
-    if item["tool"] == "waypoint":
-        value = item.get("candidate_id")
-        if type(value) is not int or value not in {c["id"] for c in candidates}:
-            raise ValueError("Choose an integer candidate_id from the current candidate list")
-    if item["tool"] == "look":
-        value = item.get("degrees")
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 15 <= abs(value) <= 90 or abs(value / 15 - round(value / 15)) > 1e-6:
-            raise ValueError("Look angle must be a nonzero multiple of 15 in [-90,90]")
-    for key, limit in (("reason", 600), ("memory", 600)):
-        if not isinstance(item.get(key, ""), str) or len(item.get(key, "")) > limit:
-            raise ValueError(f"Invalid or oversized {key}")
-    return item
+class ToolParseError(RuntimeError):
+    """The model exhausted its bounded tool-format retries."""
 
 
 class PixelPolicy:
     def __init__(self, model_config, settings):
         self.model = model_config
         self.settings = settings
+        self.version = settings.get("interface_version", "v0")
         self.memory = ""
         self.history = []
         self.feedback = []
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
-    def decide(self, instruction, frame, candidates, directory):
+    @staticmethod
+    def _image(frame):
+        return {"type": "image_url", "image_url": {
+            "url": "data:image/png;base64," + base64.b64encode(frame.read_bytes()).decode()}}
+
+    def _chat(self, messages, directory, attempt):
+        payload = {"model": self.model["served_model_name"], "messages": messages,
+                   "temperature": 0, "max_tokens": self.settings["model_output_tokens"],
+                   "chat_template_kwargs": {"enable_thinking": False}}
+        body = json.dumps(payload).encode()
+        (directory / f"request_{attempt}.json").write_bytes(body + b"\n")
+        request = urllib.request.Request(
+            f'http://127.0.0.1:{self.model["port"]}/v1/chat/completions',
+            data=body, headers={"Content-Type": "application/json"})
+        started = time.perf_counter()
+        with self.opener.open(request, timeout=self.settings["request_timeout_seconds"]) as response:
+            raw = json.load(response)
+        raw["wall_seconds"] = time.perf_counter() - started
+        (directory / f"response_{attempt}.json").write_text(json.dumps(raw, indent=2) + "\n")
+        return raw
+
+    def _tool(self, messages, candidates, directory, allow_stop=True):
+        for attempt in range(self.settings["max_parse_attempts"]):
+            raw = self._chat(messages, directory, attempt)
+            result = raw["choices"][0]
+            text = result["message"]["content"]
+            try:
+                if result.get("finish_reason") != "stop":
+                    raise ValueError("Model output was truncated or did not finish normally")
+                choice = validate_tool(text, candidates, version=self.version, allow_stop=allow_stop)
+            except ValueError as error:
+                (directory / f"parse_error_{attempt}.txt").write_text(str(error))
+                messages += [{"role": "assistant", "content": text if isinstance(text, str) else ""},
+                             {"role": "user", "content": "Invalid tool JSON: " + str(error) + ". Return one valid tool object."}]
+                continue
+            return choice, {"attempts": attempt + 1,
+                            "wall_seconds": raw["wall_seconds"], "usage": raw.get("usage")}
+        raise ToolParseError("Model failed bounded tool parsing attempts")
+
+    def _review_stop(self, instruction, frame, directory):
+        messages = [
+            {"role": "system", "content": (
+                "Independently check whether the CURRENT camera view supports stopping at the "
+                "destination in the navigation instruction. Require visible evidence of the final "
+                "landmark and requested spatial relation. Seeing a distant landmark, an intermediate "
+                "landmark, or being unsure is insufficient. Return only JSON: "
+                '{"arrived": false, "evidence": "brief observation"}.')},
+            {"role": "user", "content": [
+                self._image(frame),
+                {"type": "text", "text": json.dumps({"instruction": instruction}, ensure_ascii=False)},
+            ]},
+        ]
+        result = self._chat(messages, directory, "stop_review")["choices"][0]
+        try:
+            if result.get("finish_reason") != "stop":
+                raise ValueError("Incomplete stop review")
+            return stop_review(result["message"]["content"])
+        except ValueError as error:
+            return {"arrived": False, "evidence": "", "parse_error": str(error)}
+
+    def decide(self, instruction, frame, candidates, directory, *, raw_frame=None):
         content = []
         frames = self.history[-self.settings["max_history_images"]:] + [str(frame)]
         for i, name in enumerate(frames):
             content.append({"type": "text", "text": "CURRENT image:" if i == len(frames)-1 else "Previous image:"})
-            content.append({"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(open(name, "rb").read()).decode()}})
+            content.append(self._image(Path(name)))
         content.append({"type": "text", "text": json.dumps({
             "instruction": instruction, "memory": self.memory, "current_floor_candidates": candidates,
             "recent_controller_feedback": self.feedback[-6:],
         }, ensure_ascii=False)})
         messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}]
-        for attempt in range(self.settings["max_parse_attempts"]):
-            payload = {"model": self.model["served_model_name"], "messages": messages,
-                       "temperature": 0, "max_tokens": self.settings["model_output_tokens"],
-                       "chat_template_kwargs": {"enable_thinking": False}}
-            # Exact request is retained in ignored runtime; frame paths are also indexed.
-            (directory / f"request_{attempt}.json").write_text(json.dumps(payload) + "\n")
-            request = urllib.request.Request(f'http://127.0.0.1:{self.model["port"]}/v1/chat/completions',
-                        data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
-            started = time.perf_counter()
-            with self.opener.open(request, timeout=self.settings["request_timeout_seconds"]) as response:
-                raw = json.load(response)
-            raw["wall_seconds"] = time.perf_counter() - started
-            (directory / f"response_{attempt}.json").write_text(json.dumps(raw, indent=2) + "\n")
-            text = raw["choices"][0]["message"]["content"]
-            try:
-                if raw["choices"][0].get("finish_reason") != "stop":
-                    raise ValueError("Model output was truncated or did not finish normally")
-                choice = validate_tool(text, candidates)
-            except (ValueError, TypeError) as error:
-                (directory / f"parse_error_{attempt}.txt").write_text(str(error))
-                messages += [{"role": "assistant", "content": text},
-                             {"role": "user", "content": "Invalid tool JSON: " + str(error) + ". Return one valid tool object."}]
-                continue
-            self.memory = choice.get("memory", "")
-            self.history.append(str(frame))
-            self.history = self.history[-self.settings["max_history_images"]:]
-            return choice, {"frames": frames, "attempts": attempt + 1,
-                            "wall_seconds": raw["wall_seconds"], "usage": raw.get("usage")}
-        raise RuntimeError("Model failed bounded tool parsing attempts")
+        choice, record = self._tool(messages, candidates, directory)
+        record["frames"] = frames
+        if self.version == "v1" and choice["tool"] == "stop":
+            review = self._review_stop(instruction, raw_frame or frame, directory)
+            record["stop_review"] = review
+            (directory / "stop_review.json").write_text(json.dumps(review, indent=2) + "\n")
+            if not review["arrived"]:
+                recovery = directory / "stop_recovery"
+                recovery.mkdir()
+                # Do not feed the rejected stop's self-reported completion back as memory.
+                recovery_messages = messages[:2] + [{"role": "user", "content":
+                    "The current view did not confirm arrival. Continue the unfinished "
+                    "instruction with waypoint or look. STOP is unavailable for this decision. "
+                    "If there are no floor candidates, choose look."}]
+                try:
+                    choice, record["stop_recovery"] = self._tool(
+                        recovery_messages, candidates, recovery, allow_stop=False)
+                except ToolParseError:
+                    choice = {"tool": "look", "degrees": 45, "memory": self.memory,
+                              "reason": "Observe again after an unconfirmed STOP"}
+                    record["stop_recovery"] = {"fallback": "look_after_parse_retries"}
+        self.memory = choice.get("memory", "")
+        self.history.append(str(frame))
+        self.history = self.history[-self.settings["max_history_images"]:]
+        return choice, record
 
     def observe_feedback(self, feedback):
         self.feedback.append(feedback)

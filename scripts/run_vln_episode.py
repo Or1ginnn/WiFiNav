@@ -27,15 +27,18 @@ from connectivity_vln.navigation.pixel_policy import (
     pixel_subgoal,
 )
 from connectivity_vln.evaluation.metrics import evaluate
+from connectivity_vln.navigation.interface import ProgressGuard
 from connectivity_vln.signal_simulation.route_a import SignalField, communication_metrics
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=Path)
 parser.add_argument("--episode-id", type=str)
 parser.add_argument("--output-dir", type=Path)
+parser.add_argument("--interface-version", choices=["v0", "v1"], default="v0")
 args = parser.parse_args()
 config, dataset, episode, metadata = prepare(args.config, args.episode_id)
 settings = metadata["settings"]
+settings["interface_version"] = args.interface_version
 model_config = load_json(PROJECT / "configs/model/qwen35b.json")
 wireless_config = load_json(PROJECT / "configs/wireless/r2r_conn_v0.json")
 run = args.output_dir or PROJECT / "runtime/runs" / ("nosignal_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
@@ -98,6 +101,7 @@ with habitat.Env(config=config, dataset=dataset) as env:
         wireless_config,
     )
     save_state(env, obs, "reset")
+    progress_guard = ProgressGuard(trajectory[0]["pose"], settings["turn_degrees"])
     no_progress = 0
     try:
         for index in range(settings["max_decisions"]):
@@ -107,7 +111,10 @@ with habitat.Env(config=config, dataset=dataset) as env:
             candidates = floor_candidates(env, obs["depth"], settings, obs["rgb"], frame)
             (directory / "candidates.json").write_text(json.dumps(candidates, indent=2)+"\n")
             # Only instruction, RGB history, model memory and controller feedback.
-            choice, request_record = policy.decide(episode["instruction"]["instruction_text"], frame, candidates, directory)
+            choice, request_record = policy.decide(
+                episode["instruction"]["instruction_text"], frame, candidates, directory,
+                raw_frame=run / trajectory[-1]["rgb"],
+            )
             feedback = {"tool": choice["tool"], "executed_actions": [], "collision": False}
             record = {"index": index, "choice": choice, "request": request_record, "feedback": feedback}
             decisions.append(record)
@@ -162,12 +169,24 @@ with habitat.Env(config=config, dataset=dataset) as env:
                 np.linalg.norm((np.asarray(pose(env)["position"]) - decision_start)[[0, 2]])
             )
             feedback["made_progress"] = feedback["displacement_m"] >= 0.05
+            if args.interface_version == "v1":
+                feedback["progress_kind"] = (
+                    "confirmed_stop" if choice["tool"] == "stop"
+                    else progress_guard.update(pose(env), feedback)
+                )
+                feedback["made_progress"] = feedback["progress_kind"] in ("translation", "new_view")
+                no_progress = progress_guard.stalled
+                feedback["consecutive_stalled"] = no_progress
+            else:
+                no_progress = no_progress + 1 if not feedback["made_progress"] else 0
             (directory / "decision.json").write_text(json.dumps(record, indent=2) + "\n")
             with (run / "decisions.jsonl").open("a") as stream:
                 stream.write(json.dumps(record) + "\n")
             print(json.dumps({"decision": index, "tool": choice, "feedback": feedback,
                               "primitive_steps": len(trajectory)-1}), flush=True)
-            no_progress = no_progress + 1 if not feedback["made_progress"] else 0
+            if args.interface_version == "v1" and env.episode_over:
+                exit_reason = "model_stop" if choice["tool"] == "stop" else "primitive_step_limit"
+                break
             if no_progress >= settings["max_consecutive_no_progress"]:
                 exit_reason = "consecutive_no_progress_limit"
                 break
@@ -205,10 +224,11 @@ with habitat.Env(config=config, dataset=dataset) as env:
     draw.text((15,720), "Offline only: GT gray; executed blue; start green; goal red. X/Z plane.", fill="black")
     image.save(run / "trajectory_offline.png")
 summary = {"run_dir": str(run), "episode_id": str(episode["episode_id"]), "scene_id": episode["scene_id"],
+           "interface_version": args.interface_version,
            "exit_reason": exit_reason, "error": error, "metrics": metrics,
            "decisions": len(decisions), "motion_sim_time_seconds": sim_time,
            "wall_seconds": time.perf_counter()-started,
-           "model_request_attempts": sum(len(list(d.glob('request_*.json'))) for d in run.glob('decision_*')),
+           "model_request_attempts": sum(len(list(d.rglob('request_*.json'))) for d in run.glob('decision_*')),
            "status": "development_rollout_only_not_paper_result"}
 (run / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 print(json.dumps(summary, indent=2), flush=True)

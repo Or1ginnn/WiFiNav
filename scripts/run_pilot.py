@@ -19,6 +19,7 @@ def read(path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch-dir", type=Path)
+    parser.add_argument("--interface-version", choices=["v0", "v1"], default="v0")
     args = parser.parse_args()
     spec = read(PROJECT / "configs/benchmark/pilot_v0.json")
     manifest_path = PROJECT / spec["manifest_path"]
@@ -40,18 +41,26 @@ def main():
     if not batch.is_relative_to((PROJECT / "runtime").resolve()):
         raise ValueError("Batch path must stay under project runtime/")
     batch.mkdir(parents=True, exist_ok=True)
+    metadata_path = batch / "batch_metadata.json"
+    if metadata_path.exists():
+        if read(metadata_path).get("interface_version", "v0") != args.interface_version:
+            raise RuntimeError("Resume interface version differs; use a new batch directory")
+    elif any(batch.glob("episode_*")):
+        raise RuntimeError("Cannot resume existing episodes without batch metadata")
     (PROJECT / "runtime/manifests/b2_active_batch.json").write_text(json.dumps({"batch_dir": str(batch)}) + "\n")
     snapshot = batch / "manifest.json"
     if snapshot.exists() and snapshot.read_bytes() != manifest_path.read_bytes():
         raise RuntimeError("Resume manifest differs from frozen batch")
     if not snapshot.exists():
         snapshot.write_bytes(manifest_path.read_bytes())
-    (batch / "batch_metadata.json").write_text(json.dumps({
-        "manifest_sha256": hashlib.sha256(snapshot.read_bytes()).hexdigest(),
-        "execution_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=PROJECT, text=True).strip(),
-        "started_at_utc": datetime.now(timezone.utc).isoformat(),
-        "no_signal_wireless_does_not_influence_policy": True,
-    }, indent=2) + "\n")
+    if not metadata_path.exists():
+        metadata_path.write_text(json.dumps({
+            "manifest_sha256": hashlib.sha256(snapshot.read_bytes()).hexdigest(),
+            "execution_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=PROJECT, text=True).strip(),
+            "started_at_utc": datetime.now(timezone.utc).isoformat(),
+            "interface_version": args.interface_version,
+            "no_signal_wireless_does_not_influence_policy": True,
+        }, indent=2) + "\n")
     outcomes = []
     for episode in manifest["episodes"]:
         episode_id = episode["episode_id"]
@@ -64,7 +73,8 @@ def main():
             raise RuntimeError(f"Unfinished attempt exists; inspect and record failure before resuming: {directory}")
         command = [sys.executable, "-u", str(PROJECT / "scripts/run_vln_episode.py"),
                    "--config", str(PROJECT / spec["navigation_config"]),
-                   "--episode-id", episode_id, "--output-dir", str(directory)]
+                   "--episode-id", episode_id, "--output-dir", str(directory),
+                   "--interface-version", args.interface_version]
         print(f"Starting episode {episode_id} ({len(outcomes)+1}/{len(manifest['episodes'])})", flush=True)
         start = time.perf_counter()
         timed_out = False
