@@ -90,11 +90,13 @@ class PixelPolicy:
     def _review_stop(self, instruction, frame, directory):
         messages = [
             {"role": "system", "content": (
-                "Independently check whether the CURRENT camera view supports stopping at the "
-                "destination in the navigation instruction. Require visible evidence of the final "
-                "landmark and requested spatial relation. Seeing a distant landmark, an intermediate "
-                "landmark, or being unsure is insufficient. Return only JSON: "
-                '{"arrived": false, "evidence": "brief observation"}.')},
+                "Independently review a proposed STOP using the CURRENT camera view and navigation "
+                "instruction. Confirm only with visible evidence of the final landmark and spatial "
+                "relation. Reject only with positive visual evidence of a contradictory location "
+                "or unfinished instruction, for example an identifiable earlier room or a destination "
+                "clearly still far ahead. A landmark outside the frame or ambiguity alone is uncertain. "
+                "Do not infer a contradiction from missing evidence. Return only JSON with verdict "
+                'equal to confirm, reject, or uncertain: {"verdict":"uncertain","evidence":"brief observation"}.')},
             {"role": "user", "content": [
                 self._image(frame),
                 {"type": "text", "text": json.dumps({"instruction": instruction}, ensure_ascii=False)},
@@ -106,7 +108,7 @@ class PixelPolicy:
                 raise ValueError("Incomplete stop review")
             return stop_review(result["message"]["content"])
         except ValueError as error:
-            return {"arrived": False, "evidence": "", "parse_error": str(error)}
+            return {"verdict": "invalid", "evidence": "", "parse_error": str(error)}
 
     def decide(self, instruction, frame, candidates, directory, *, raw_frame=None):
         content = []
@@ -125,7 +127,7 @@ class PixelPolicy:
             review = self._review_stop(instruction, raw_frame or frame, directory)
             record["stop_review"] = review
             (directory / "stop_review.json").write_text(json.dumps(review, indent=2) + "\n")
-            if not review["arrived"]:
+            if review["verdict"] in ("reject", "invalid"):
                 recovery = directory / "stop_recovery"
                 recovery.mkdir()
                 # Do not feed the rejected stop's self-reported completion back as memory.

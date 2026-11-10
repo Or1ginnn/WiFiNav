@@ -47,12 +47,13 @@ def validate_tool(text, candidates, *, version="v0", allow_stop=True):
 
 def stop_review(text):
     item = parse_object(text)
-    if type(item.get("arrived")) is not bool:
-        raise ValueError("Expected a boolean arrived field")
+    verdict = item.get("verdict")
+    if verdict not in ("confirm", "reject", "uncertain"):
+        raise ValueError("Expected confirm, reject or uncertain")
     evidence = item.get("evidence")
-    if not isinstance(evidence, str) or (item["arrived"] and not evidence.strip()):
-        raise ValueError("Expected visual evidence for arrival")
-    return {"arrived": item["arrived"], "evidence": evidence[:600]}
+    if not isinstance(evidence, str) or (verdict != "uncertain" and not evidence.strip()):
+        raise ValueError("Expected visual evidence for a decisive verdict")
+    return {"verdict": verdict, "evidence": evidence[:600]}
 
 
 class ProgressGuard:

@@ -171,7 +171,7 @@ with habitat.Env(config=config, dataset=dataset) as env:
             feedback["made_progress"] = feedback["displacement_m"] >= 0.05
             if args.interface_version == "v1":
                 feedback["progress_kind"] = (
-                    "confirmed_stop" if choice["tool"] == "stop"
+                    "stop" if choice["tool"] == "stop"
                     else progress_guard.update(pose(env), feedback)
                 )
                 feedback["made_progress"] = feedback["progress_kind"] in ("translation", "new_view")
