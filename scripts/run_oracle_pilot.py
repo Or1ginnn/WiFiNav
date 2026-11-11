@@ -100,6 +100,15 @@ def main():
                 (batch/'progress.json').write_text(json.dumps({'case_rows':len(rows),'rows':rows},indent=2)+'\n')
                 print(json.dumps({**status,'success':summary['metrics']['success'] if summary else 0,
                                   'exit':summary['exit_reason'] if summary else 'missing_summary'}),flush=True)
+                if not weight:
+                    baseline = read(PROJECT/spec['baseline_batch']/('episode_'+e['episode_id'])/'summary.json')
+                    lost_success = baseline['metrics']['success'] > 0 and (summary is None or summary['metrics']['success'] == 0)
+                    if summary is None or summary.get('error') or timed_out or lost_success:
+                        (batch/'blocked_on_baseline.json').write_text(json.dumps({
+                            'reason':'Shared grid lambda0 error or loss of known navigation success; diagnose geometry before radio comparisons',
+                            'episode_id':e['episode_id'],'rows':rows},indent=2)+'\n')
+                        print('Stopped at shared-grid baseline gate; all attempted cases retained',flush=True)
+                        return
     (batch/'oracle_report.json').write_text(json.dumps({'scope':'two-scene closed-loop smoke, not full B3 acceptance',
                                                        'rows':rows},indent=2)+'\n')
     print('Completed',len(rows),'case rows from 14 executions',flush=True)

@@ -27,6 +27,7 @@ WIFI+Nav/
 │   ├── replay_pilot.py                          # 一轨迹三AP回放与任务级汇总
 │   ├── audit_pilot_signals.py                   # 可导航探针位置的信号重复性审计
 │   ├── diagnose_oracle.py                       # 固定局部目标的离线绕行诊断
+│   ├── compare_pilot_interfaces.py              # 同清单接口消融的配对汇总
 │   ├── run_oracle_pilot.py                      # 同规划器NoSignal/StaticMap闭环检查
 │   └── plot_pilot.py                            # 报告生成独立PNG/PDF诊断图
 ├── src/connectivity_vln/

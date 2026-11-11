@@ -9,5 +9,7 @@
   "grid_resolution_m": 0.25,
   "grid_floor_tolerance_m": 0.20,
   "diagnostic_subgoals_per_episode": 2,
+  "baseline_batch": "runtime/batches/pilot_v1_no_review",
+  "baseline_gate": "stop before StaticMap on lambda0 error or loss of a baseline success",
   "development_only": true
 }
