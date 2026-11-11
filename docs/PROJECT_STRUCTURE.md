@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-10。B1与B2首轮开发运行已完成，接口问题与失败保留，Oracle验收尚未开始。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
+> 最近整理：2026-11-11。B1、B2首轮与接口v1配对运行已完成，v1没有提高SR且降低SPL，Oracle验收尚未开始。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
 
 ## 当前目录
 
@@ -36,6 +36,8 @@ WIFI+Nav/
 │   ├── DATASETS.md                              # 服务器实际数据副本、规模与来源
 │   ├── LOCAL_ENVIRONMENT.md                     # 本机环境和服务器接入登记
 │   ├── experiments/
+│   │   ├── b2_interface_v1_pair_2026-11-10.md     # 接口配对结果、回退与开销
+│   │   ├── navigation_interface_v1_2026-11-10.md  # 接口修复与针对性复核
 │   │   ├── b2_pilot_2026-11-09.md                # 10任务/30回放与失败/覆盖诊断
 │   │   ├── b1_first_episode_2026-11-05.md          # 首条导航+RSSI闭环证据与边界
 │   │   ├── project_storage_2026-11-04.md           # 资产归项目目录及迁移验收
@@ -88,6 +90,7 @@ WIFI+Nav/
 | B1首条闭环 | [首条导航与RSSI记录](experiments/b1_first_episode_2026-11-05.md) | 固定episode、信息隔离、失败修复、导航/RSSI指标及产物路径 |
 | B2首轮pilot | [B2记录](experiments/b2_pilot_2026-11-09.md) | 固定10任务/30回放、失败分类、信号审计与当前限制 |
 | 导航接口 v1 | [修复与复核](experiments/navigation_interface_v1_2026-11-10.md) | 工具校验、STOP复核、观察与无进展处理 |
+| 接口配对结果 | [v0/v1固定清单复跑](experiments/b2_interface_v1_pair_2026-11-10.md) | 10任务/30回放、全部失败、SPL回退与复核开销 |
 | 服务器任务与场景 | [DATASETS.md](DATASETS.md) | 实际文件副本，无软链接；任务规模、场景覆盖、复制校验和来源 |
 | 本机/服务器 | [LOCAL_ENVIRONMENT.md](LOCAL_ENVIRONMENT.md) | 本机软件信息、服务器参数登记表和接入核对项 |
 | 历史 RadioNav | [RadioNav v4](archive/radionav/RadioNav-v4.md)、[RadioNavDP v3](archive/radionav/RadioNavDP-v3.md) | X-NavDP 轨迹级未来无线预测方向；不作为现主线 |

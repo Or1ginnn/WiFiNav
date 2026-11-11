@@ -146,3 +146,5 @@
 本轮服务器7890代理访问GitHub连续TLS失败，直连也未响应；本机提交已正常推送GitHub，随后将同一提交制成Git bundle传输，服务器校验并仅快进合并，未改全局代理或覆盖工作区。最终同步应核对main和origin/main的commit与本机一致。
 
 2026-11-10，导航接口 v1 继续通过 Git bundle 快进同步。复用现有 Habitat 环境与模型服务，验证数据存放于独立 `runtime/runs/interface_v1_*`，原B2 v0批次保持只读；结果见[导航接口复核](experiments/navigation_interface_v1_2026-11-10.md)。
+
+2026-11-11完成接口v1固定10任务复跑与30AP回放：`runtime/batches/pilot_interface_v1`，执行提交`f6ff7b5`；完整日志为`runtime/logs/pilot_interface_v1.log`，配对指标为批次内`paired_comparison.json`。沿用原模型服务、Habitat和配置，未安装或升级共享环境；原v0批次未改。结果与下一步见[配对记录](experiments/b2_interface_v1_pair_2026-11-10.md)。
