@@ -1,0 +1,13 @@
+{
+  "name": "b3_oracle_smoke_v0",
+  "pilot_spec": "configs/benchmark/pilot_v0.json",
+  "selection": "first_manifest_episode_per_scene",
+  "lambda_values": [0.0, 1.0, 4.0],
+  "interface_version": "v1",
+  "stop_review": "off",
+  "planner": "grid",
+  "grid_resolution_m": 0.25,
+  "grid_floor_tolerance_m": 0.20,
+  "diagnostic_subgoals_per_episode": 2,
+  "development_only": true
+}

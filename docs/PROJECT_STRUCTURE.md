@@ -26,6 +26,8 @@ WIFI+Nav/
 │   ├── run_pilot.py                             # 串行NoSignal和明确错误/超时记录
 │   ├── replay_pilot.py                          # 一轨迹三AP回放与任务级汇总
 │   ├── audit_pilot_signals.py                   # 可导航探针位置的信号重复性审计
+│   ├── diagnose_oracle.py                       # 固定局部目标的离线绕行诊断
+│   ├── run_oracle_pilot.py                      # 同规划器NoSignal/StaticMap闭环检查
 │   └── plot_pilot.py                            # 报告生成独立PNG/PDF诊断图
 ├── src/connectivity_vln/
 │   ├── navigation/                              # R2R任务、模型工具决策与局部规划
@@ -91,6 +93,8 @@ WIFI+Nav/
 | B2首轮pilot | [B2记录](experiments/b2_pilot_2026-11-09.md) | 固定10任务/30回放、失败分类、信号审计与当前限制 |
 | 导航接口 v1 | [修复与复核](experiments/navigation_interface_v1_2026-11-10.md) | 工具校验、STOP复核、观察与无进展处理 |
 | 接口配对结果 | [v0/v1固定清单复跑](experiments/b2_interface_v1_pair_2026-11-10.md) | 10任务/30回放、全部失败、SPL回退与复核开销 |
+| 无复核消融 | [v1关闭STOP复核](experiments/b2_no_review_2026-11-11.md) | 独立开关、固定任务和基线冻结依据 |
+| B3首轮协议 | [Oracle诊断与闭环检查](design/b3_oracle_protocol_v0.md) | 统一栅格规划器、双路径/局部目标诊断及两场景smoke；不是完整B3验收 |
 | 服务器任务与场景 | [DATASETS.md](DATASETS.md) | 实际文件副本，无软链接；任务规模、场景覆盖、复制校验和来源 |
 | 本机/服务器 | [LOCAL_ENVIRONMENT.md](LOCAL_ENVIRONMENT.md) | 本机软件信息、服务器参数登记表和接入核对项 |
 | 历史 RadioNav | [RadioNav v4](archive/radionav/RadioNav-v4.md)、[RadioNavDP v3](archive/radionav/RadioNavDP-v3.md) | X-NavDP 轨迹级未来无线预测方向；不作为现主线 |

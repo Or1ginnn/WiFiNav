@@ -83,7 +83,7 @@
 | 导航框架集成 | 已实现本项目首版：深度候选点、Qwen工具决策、局部navmesh规划与Habitat动作反馈；属于自建开发基线，不冒称AgenticNav复现 |
 | 服务器与模型服务 | 目录盘点/备份/同步和硬件/环境确认完成；服务`127.0.0.1:8010/v1`，别名`wifinav-qwen35b`，详见部署现场记录 |
 | 代码 / 数据 / 实验 | B1与B2首轮工程运行完成：10任务/30回放，原始结果与失败完整留在服务器runtime；摘要见B2实验记录。data/models/runtime均Git忽略；没有保留评估集或论文级结论 |
-| 当前执行项 | **固定10任务配对复跑完成**：`runtime/batches/pilot_interface_v1`，执行提交 `f6ff7b5`；清单字节一致，30回放完整。SR未提高，STOP复核增加绕行与开销。下一步将解析修复和STOP复核分开消融，再冻结同规划器NoSignal/StaticMap接口；B0继续补源版本/许可对应。详见[配对结果](docs/experiments/b2_interface_v1_pair_2026-11-10.md) |
+| 当前执行项 | **无复核固定10任务消融执行中**：`runtime/batches/pilot_v1_no_review`，执行提交`1c65cd6`；独立开关检查通过。B3统一栅格Dijkstra已实现并通过合成双路径测试，真实navmesh诊断与两场景闭环待执行，协议见[B3首轮](docs/design/b3_oracle_protocol_v0.md)。完整10任务Oracle验收未完成；B0源版本/许可对应并行补充 |
 | 本地版本管理 | 已初始化Git，分支main；初始文档提交 `6a2cdd5`。托管为用户确认的公开仓库 `Or1ginnn/WiFiNav`，本机已合并远端历史，合并提交 `0f6ade2`；用户已明确授权全部现有材料和历史公开，首次push成功；main已跟踪origin/main |
 | 版本同步约定 | 本机、GitHub、服务器通过main同步；用户已授权研究与本次运维信息公开，无待确认公开范围；确切提交以git log/status为准 |
 | 待闭合事项 | 工具解析与STOP/无进展可靠性、通信加权规划与绕行协议、B3 Oracle价值、源资产官方版本/许可对应 |
@@ -219,6 +219,7 @@ B0资产与协议核对 → B1单条闭环 → B2开发pilot → B3 NoSignal/Sta
 ### 2026-11-11
 
 - 开始执行已确认的无复核消融：新增独立`--stop-review`开关及恢复一致性检查，默认行为保持原版本；固定10任务、独立批次`runtime/batches/pilot_v1_no_review`。协议与结果入口见[消融记录](docs/experiments/b2_no_review_2026-11-11.md)。结果待运行后登记，之后进入B3统一规划器改造。
+- B3统一栅格规划器与独立StaticMap低层接口已实现；4项单元测试覆盖双路径风险取舍、λ=0不读场、断图/非法权重和多场缓存隔离。本机合成测试通过不代表真实VLN收益。运行前固定[B3首轮协议](docs/design/b3_oracle_protocol_v0.md)，先局部目标诊断，再2任务/3布局/3权重闭环检查，之后才决定完整B3扩展。
 
 - 完成11月10日晚启动的固定10任务v1配对复跑与30个AP回放，执行提交`f6ff7b5`。原任务hash、模型metadata和除接口版本外的settings一致；解析异常由1降到0，SR维持30%，SPL 0.272316→0.221820、nDTW 0.452765→0.406824（v0含1074错误前缀），平均请求9.1→14.8、耗时91.1→139.7秒。575绕行增加、97继续偏离，不能宣称整套v1优于v0。下一步先分离STOP复核做消融，B3仍待开始。证据见[配对结果](docs/experiments/b2_interface_v1_pair_2026-11-10.md)和服务器`runtime/batches/pilot_interface_v1/paired_comparison.json`。
 

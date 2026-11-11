@@ -148,3 +148,5 @@
 2026-11-10，导航接口 v1 继续通过 Git bundle 快进同步。复用现有 Habitat 环境与模型服务，验证数据存放于独立 `runtime/runs/interface_v1_*`，原B2 v0批次保持只读；结果见[导航接口复核](experiments/navigation_interface_v1_2026-11-10.md)。
 
 2026-11-11完成接口v1固定10任务复跑与30AP回放：`runtime/batches/pilot_interface_v1`，执行提交`f6ff7b5`；完整日志为`runtime/logs/pilot_interface_v1.log`，配对指标为批次内`paired_comparison.json`。沿用原模型服务、Habitat和配置，未安装或升级共享环境；原v0批次未改。结果与下一步见[配对记录](experiments/b2_interface_v1_pair_2026-11-10.md)。
+
+同日启动关闭STOP复核消融：执行提交`1c65cd6`，批次`runtime/batches/pilot_v1_no_review`，日志`runtime/logs/pilot_v1_no_review.log`。离线检查已验证v0/v1默认与显式on/off行为；B3代码在本机准备，消融运行结束前不更新服务器源码。

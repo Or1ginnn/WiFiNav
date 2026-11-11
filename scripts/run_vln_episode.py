@@ -28,6 +28,7 @@ from connectivity_vln.navigation.pixel_policy import (
 )
 from connectivity_vln.evaluation.metrics import evaluate
 from connectivity_vln.navigation.interface import ProgressGuard
+from connectivity_vln.navigation.weighted_planner import NavmeshRiskPlanner
 from connectivity_vln.signal_simulation.route_a import SignalField, communication_metrics
 
 parser = argparse.ArgumentParser()
@@ -36,7 +37,12 @@ parser.add_argument("--episode-id", type=str)
 parser.add_argument("--output-dir", type=Path)
 parser.add_argument("--interface-version", choices=["v0", "v1"], default="v0")
 parser.add_argument("--stop-review", choices=["auto", "on", "off"], default="auto")
+parser.add_argument("--planner", choices=["navmesh", "grid"], default="navmesh")
+parser.add_argument("--risk-weight", type=float, default=0.0)
+parser.add_argument("--wireless-instance", type=Path)
 args = parser.parse_args()
+if not 0 <= args.risk_weight < float('inf') or (args.planner != "grid" and args.risk_weight):
+    parser.error("A finite nonnegative risk weight requires the shared grid planner")
 config, dataset, episode, metadata = prepare(args.config, args.episode_id)
 settings = metadata["settings"]
 settings["interface_version"] = args.interface_version
@@ -44,17 +50,25 @@ settings["stop_review_enabled"] = (args.interface_version == "v1" if args.stop_r
                                    else args.stop_review == "on")
 model_config = load_json(PROJECT / "configs/model/qwen35b.json")
 wireless_config = load_json(PROJECT / "configs/wireless/r2r_conn_v0.json")
+wireless_instance = load_json(args.wireless_instance) if args.wireless_instance else None
+if wireless_instance:
+    if wireless_instance["scene_id"] != episode["scene_id"] or str(wireless_instance["episode_id"]) != str(episode["episode_id"]):
+        raise ValueError("Wireless instance does not match selected task")
+    wireless_config = wireless_instance["wireless_config"]
 run = args.output_dir or PROJECT / "runtime/runs" / ("nosignal_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
 run = run.resolve()
 if not run.is_relative_to((PROJECT / "runtime").resolve()):
     raise ValueError("Rollout output must remain under project runtime/")
 run.mkdir(parents=True, exist_ok=False)
 (run / "frames").mkdir()
-metadata.update({"mode": "NoSignal", "implementation_status": "provisional_depth_candidate_subgoal_navmesh_controller",
+metadata.update({"mode": "StaticMap" if args.risk_weight else "NoSignal", "implementation_status": "provisional_depth_candidate_subgoal_navmesh_controller",
                  "model": model_config, "wireless": wireless_config,
                  "code_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=PROJECT, text=True).strip(),
                  "policy_privileged_inputs": [], "evaluation_uses_gt": True,
                  "policy_uses_wireless": False,
+                 "controller_uses_wireless_truth": bool(args.risk_weight),
+                 "planner": args.planner, "risk_weight": args.risk_weight,
+                 "wireless_instance": wireless_instance,
                  "not_official_benchmark_result": True})
 (run / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
 policy = PixelPolicy(model_config, settings)
@@ -100,13 +114,15 @@ with habitat.Env(config=config, dataset=dataset) as env:
     signal = SignalField(
         env.sim.pathfinder,
         episode["scene_id"],
-        episode["start_position"],
+        wireless_instance["ap_floor_position"] if wireless_instance else episode["start_position"],
         wireless_config,
     )
     save_state(env, obs, "reset")
     progress_guard = ProgressGuard(trajectory[0]["pose"], settings["turn_degrees"])
     no_progress = 0
     try:
+        grid_planner = (NavmeshRiskPlanner(env.sim.pathfinder, float(episode["start_position"][1]))
+                        if args.planner == "grid" else None)
         for index in range(settings["max_decisions"]):
             directory = run / f"decision_{index:03d}"
             directory.mkdir()
@@ -150,7 +166,17 @@ with habitat.Env(config=config, dataset=dataset) as env:
                         delta[1] = 0
                         if float(np.linalg.norm(delta)) < settings["forward_step_m"] * 0.6:
                             break
-                        next_point, planner_state = local_navmesh_waypoint(env, target)
+                        if grid_planner is None:
+                            next_point, planner_state = local_navmesh_waypoint(env, target)
+                        else:
+                            position = env.sim.get_agent_state().position
+                            route, planner_state = grid_planner.plan(
+                                position, target, weight=args.risk_weight,
+                                field=signal if args.risk_weight else None,
+                            )
+                            next_point = next((p for p in route[1:]
+                                               if np.linalg.norm((np.asarray(p)-position)[[0, 2]]) > 0.12),
+                                              route[-1])
                         planner_trace.append(planner_state)
                         angle = heading_error(env, next_point)
                         if abs(angle) > settings["turn_degrees"] / 2:
