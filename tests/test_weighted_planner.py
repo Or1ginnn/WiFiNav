@@ -52,6 +52,39 @@ class WeightedPlannerTest(unittest.TestCase):
         _, safe = planner.plan(start, goal, weight=4., field=Field(False))
         self.assertAlmostEqual(safe['path_length_m'], 3., places=5)
 
+    def test_discrete_heading_avoids_clipping_without_turn_oscillation(self):
+        class Floor:
+            def get_bounds(self):
+                return np.array([0.,0.,0.]),np.array([3.,0.,3.])
+            def snap_point(self,p): return np.asarray(p,dtype=np.float32)
+            def try_step(self,a,b):
+                reached=np.asarray(b).copy()
+                if b[0]>a[0] and abs(b[2]-a[2])<.001: reached[0]-=.02
+                return reached
+        planner=NavmeshRiskPlanner(Floor(),0.)
+        start=np.array([1.,0.,1.]);target=np.array([2.,0.,1.])
+        action,record=planner.discrete_action(start,[1.,0.,0.],target,step_m=.25,turn_degrees=15)
+        self.assertIn(action,['turn_left','turn_right'])
+        self.assertGreater(record['rejected_headings']['clipping'],0)
+        theta=np.radians(record['selected_heading_offset_degrees'])
+        forward=[np.cos(theta),0.,-np.sin(theta)]
+        action,_=planner.discrete_action(start,forward,target,step_m=.25,turn_degrees=15)
+        self.assertEqual(action,'move_forward')
+
+    def test_discrete_step_cannot_leave_supported_floor(self):
+        class Floor:
+            def get_bounds(self): return np.array([0.,0.,0.]),np.array([3.,0.,3.])
+            def snap_point(self,p): return np.asarray(p,dtype=np.float32)
+            def try_step(self,a,b): return np.asarray(b).copy()
+        planner=NavmeshRiskPlanner(Floor(),0.)
+        class Drop(Floor):
+            def try_step(self,a,b):
+                p=np.asarray(b).copy();p[1]=-.254
+                return p
+        planner.pathfinder=Drop()
+        with self.assertRaisesRegex(ValueError,'floor'):
+            planner.discrete_action([1.,0.,1.],[1.,0.,0.],[2.,0.,1.],step_m=.25,turn_degrees=15)
+
 
 if __name__ == '__main__':
     unittest.main()

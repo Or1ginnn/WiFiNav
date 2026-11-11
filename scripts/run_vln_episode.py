@@ -26,6 +26,7 @@ from connectivity_vln.navigation.pixel_policy import (
     local_navmesh_waypoint,
     pixel_subgoal,
 )
+from habitat.utils.geometry_utils import quaternion_rotate_vector
 from connectivity_vln.evaluation.metrics import evaluate
 from connectivity_vln.navigation.interface import ProgressGuard
 from connectivity_vln.navigation.weighted_planner import NavmeshRiskPlanner
@@ -178,13 +179,25 @@ with habitat.Env(config=config, dataset=dataset) as env:
                                                if np.linalg.norm((np.asarray(p)-position)[[0, 2]]) > 0.12),
                                               route[-1])
                         planner_trace.append(planner_state)
-                        angle = heading_error(env, next_point)
-                        if abs(angle) > settings["turn_degrees"] / 2:
-                            action = "turn_left" if angle > 0 else "turn_right"
+                        if grid_planner is not None:
+                            state = env.sim.get_agent_state()
+                            forward = quaternion_rotate_vector(state.rotation, np.array([0., 0., -1.]))
+                            try:
+                                action, validation = grid_planner.discrete_action(
+                                    state.position, forward, next_point,
+                                    step_m=settings["forward_step_m"], turn_degrees=settings["turn_degrees"],
+                                )
+                                planner_state["action_validation"] = validation
+                            except ValueError as failure:
+                                planner_state["action_validation_error"] = str(failure)
+                                raise
                         else:
+                            angle = heading_error(env, next_point)
+                            action = (("turn_left" if angle > 0 else "turn_right")
+                                      if abs(angle) > settings["turn_degrees"] / 2 else "move_forward")
+                        if action == "move_forward":
                             if forward_count >= settings["max_forward_actions_per_subgoal"]:
                                 break
-                            action = "move_forward"
                             forward_count += 1
                         obs, step = act(env, action, index)
                         feedback["executed_actions"].append(action)

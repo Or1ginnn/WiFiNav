@@ -47,6 +47,8 @@ class NavmeshRiskPlanner:
     def __init__(self, pathfinder, floor_y, *, resolution=0.25, floor_tolerance=0.20):
         self.pathfinder = pathfinder
         self.resolution = resolution
+        self.floor_y = floor_y
+        self.floor_tolerance = floor_tolerance
         self.points = []
         self.cells = {}
         self.edges = []
@@ -90,6 +92,52 @@ class NavmeshRiskPlanner:
         distances = np.linalg.norm(self.positions-point, axis=1)
         nodes = np.flatnonzero(distances <= self.resolution*2)
         return [(int(n), float(distances[n])) for n in nodes if self._clear(point, self.points[n])]
+
+    def discrete_action(self, position, forward, waypoint, *, step_m, turn_degrees):
+        """Choose a realizable heading, not just an ideal graph edge.
+
+        Geometry only: a complete forward action must avoid clipping, stay on
+        this floor, and retain graph access. At most 45 degrees departure from
+        the requested path tangent is allowed. Never extend a step across an
+        unsupported stair simply because its ideal waypoint is on the boundary.
+        """
+        position = np.asarray(position, dtype=np.float32)
+        forward = np.asarray(forward, dtype=np.float64)
+        forward[1] = 0
+        forward /= np.linalg.norm(forward)
+        delta = np.asarray(waypoint)-position
+        desired = math.degrees(math.atan2(forward[2]*delta[0]-forward[0]*delta[2],
+                                         forward[0]*delta[0]+forward[2]*delta[2]))
+        options = []
+        rejected = {"clipping": 0, "floor": 0, "attachment": 0}
+        for k in range(-round(180/turn_degrees), round(180/turn_degrees)+1):
+            angle = k*turn_degrees
+            error = abs((desired-angle+180) % 360-180)
+            if error > 45:
+                continue
+            rad = math.radians(angle)
+            direction = np.array([math.cos(rad)*forward[0]+math.sin(rad)*forward[2], 0.,
+                                  -math.sin(rad)*forward[0]+math.cos(rad)*forward[2]])
+            endpoint = position+step_m*direction
+            reached = np.asarray(self.pathfinder.try_step(position, endpoint))
+            if not np.isfinite(reached).all() or np.linalg.norm((reached-endpoint)[[0, 2]]) > .001:
+                rejected["clipping"] += 1
+                continue
+            if abs(float(reached[1])-self.floor_y) > self.floor_tolerance+1e-5:
+                rejected["floor"] += 1
+                continue
+            if not self._attach(reached):
+                rejected["attachment"] += 1
+                continue
+            options.append((error, abs(k), k, reached))
+        if not options:
+            raise ValueError("No safe discrete forward heading on shared floor grid: " + str(rejected))
+        error, _, k, reached = min(options, key=lambda x: x[:3])
+        action = "move_forward" if k == 0 else ("turn_left" if k > 0 else "turn_right")
+        return action, {"desired_heading_degrees": desired,
+                        "selected_heading_offset_degrees": k*turn_degrees,
+                        "heading_error_degrees": error, "predicted_forward_position": reached.tolist(),
+                        "rejected_headings": rejected, "clipping_tolerance_m": .001}
 
     @staticmethod
     def signal_risk(field, point):

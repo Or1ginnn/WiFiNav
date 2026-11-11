@@ -152,3 +152,7 @@
 同日完成关闭STOP复核消融：执行提交`1c65cd6`，批次`runtime/batches/pilot_v1_no_review`，日志`runtime/logs/pilot_v1_no_review.log`，10任务/30回放，无运行异常。离线检查已验证v0/v1默认与显式on/off行为和恢复保护；消融结束后才通过bundle快进源码至`735f52b`。现有环境4项规划器单元测试通过，B3局部诊断在`runtime/batches/oracle_local_diagnostic_v0`，真实闭环在`runtime/batches/oracle_smoke_v0`；复用原模型与共享环境，未更改依赖。
 
 B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.json`保存完整结果，`paired_summary.json`保存版本/清单/模型输入字段审计与汇总。原B2三版批次均保留，全部回放文件数核验通过，收尾模型服务health=200；文档继续经GitHub和bundle快进同步，收益与限制见[B3记录](experiments/b3_oracle_2026-11-11.md)。
+
+## 2026-11-12 控制器诊断
+
+本机与服务器HEAD均为`06ebac1`且干净，模型health=200，没有导航实验进程。历史六条near轨迹只读复核，诊断JSON放`runtime/diagnostics/b3_controller_20261112/`；已确认离散前进裁剪与越出单层高度导致的问题，见[修复记录](experiments/b3_controller_repair_2026-11-12.md)。修复先在本机提交、发布再同步；真实复跑使用新目录，不覆盖原smoke。
