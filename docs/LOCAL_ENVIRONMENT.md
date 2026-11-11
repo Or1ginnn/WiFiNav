@@ -149,4 +149,6 @@
 
 2026-11-11完成接口v1固定10任务复跑与30AP回放：`runtime/batches/pilot_interface_v1`，执行提交`f6ff7b5`；完整日志为`runtime/logs/pilot_interface_v1.log`，配对指标为批次内`paired_comparison.json`。沿用原模型服务、Habitat和配置，未安装或升级共享环境；原v0批次未改。结果与下一步见[配对记录](experiments/b2_interface_v1_pair_2026-11-10.md)。
 
-同日启动关闭STOP复核消融：执行提交`1c65cd6`，批次`runtime/batches/pilot_v1_no_review`，日志`runtime/logs/pilot_v1_no_review.log`。离线检查已验证v0/v1默认与显式on/off行为；B3代码在本机准备，消融运行结束前不更新服务器源码。
+同日完成关闭STOP复核消融：执行提交`1c65cd6`，批次`runtime/batches/pilot_v1_no_review`，日志`runtime/logs/pilot_v1_no_review.log`，10任务/30回放，无运行异常。离线检查已验证v0/v1默认与显式on/off行为和恢复保护；消融结束后才通过bundle快进源码至`735f52b`。现有环境4项规划器单元测试通过，B3局部诊断在`runtime/batches/oracle_local_diagnostic_v0`，真实闭环在`runtime/batches/oracle_smoke_v0`；复用原模型与共享环境，未更改依赖。
+
+B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.json`保存完整结果，`paired_summary.json`保存版本/清单/模型输入字段审计与汇总。原B2三版批次均保留，全部回放文件数核验通过，收尾模型服务health=200；文档继续经GitHub和bundle快进同步，收益与限制见[B3记录](experiments/b3_oracle_2026-11-11.md)。

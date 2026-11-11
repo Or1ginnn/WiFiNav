@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-11。B1、B2首轮与接口v1配对运行已完成，v1没有提高SR且降低SPL，Oracle验收尚未开始。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
+> 最近整理：2026-11-11。B1/B2及无复核消融完成；B3统一规划器、局部诊断与两场景接线检查已完成，收益门尚未通过。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
 
 ## 当前目录
 
@@ -15,6 +15,7 @@ WIFI+Nav/
 ├── configs/navigation/r2r_dev.json               # 固定首条任务、观察/动作和控制预算
 ├── configs/wireless/r2r_conn_v0.json             # 路线A信号、阈值与确定性seed
 ├── configs/benchmark/pilot_v0.json               # B2固定任务选择/AP布局与运行预算
+├── configs/benchmark/oracle_smoke_v0.json         # B3两场景/三布局/三权重接线协议
 ├── scripts/
 │   ├── download_model.py                        # 模型下载与镜像SHA256核验
 │   ├── serve_model.py                           # 使用已有vLLM环境启动服务
@@ -39,6 +40,8 @@ WIFI+Nav/
 │   ├── DATASETS.md                              # 服务器实际数据副本、规模与来源
 │   ├── LOCAL_ENVIRONMENT.md                     # 本机环境和服务器接入登记
 │   ├── experiments/
+│   │   ├── b3_oracle_2026-11-11.md               # B3诊断、18case与收益门判断
+│   │   ├── b2_no_review_2026-11-11.md            # 关闭复核消融与接口冻结
 │   │   ├── b2_interface_v1_pair_2026-11-10.md     # 接口配对结果、回退与开销
 │   │   ├── navigation_interface_v1_2026-11-10.md  # 接口修复与针对性复核
 │   │   ├── b2_pilot_2026-11-09.md                # 10任务/30回放与失败/覆盖诊断
@@ -64,6 +67,7 @@ WIFI+Nav/
 │   └── design/
 │       ├── r2r_conn_benchmark_plan_v0.md          # 当前任务与benchmark分阶段制作计划
 │       ├── b2_pilot_protocol_v0.md               # B2执行前固定的样本/AP/信息/时间协议
+│       ├── b3_oracle_protocol_v0.md              # 统一规划器及分阶段检查/扩展门槛
 │       ├── task_benchmark_research_plan.md         # 任务选择与benchmark修改的调研任务单
 │       └── radiofrontier/                        # RadioFrontier 现实/半现实演示设计
 │           ├── demo_scenario.md
@@ -71,6 +75,7 @@ WIFI+Nav/
 ├── data/                                        # 仅服务器：任务/场景实际副本，Git忽略
 ├── models/                                      # 仅服务器：实际模型权重，Git忽略
 ├── runtime/                                     # 仅服务器：日志/缓存/清单/PID，Git忽略
+├── tests/test_weighted_planner.py                # 双路径、信息隔离、断图与缓存测试
 └── .obsidian/                                    # Obsidian 本地工作区设置
 ```
 
@@ -96,6 +101,7 @@ WIFI+Nav/
 | 接口配对结果 | [v0/v1固定清单复跑](experiments/b2_interface_v1_pair_2026-11-10.md) | 10任务/30回放、全部失败、SPL回退与复核开销 |
 | 无复核消融 | [v1关闭STOP复核](experiments/b2_no_review_2026-11-11.md) | 独立开关、固定任务和基线冻结依据 |
 | B3首轮协议 | [Oracle诊断与闭环检查](design/b3_oracle_protocol_v0.md) | 统一栅格规划器、双路径/局部目标诊断及两场景smoke；不是完整B3验收 |
+| B3实际结果 | [首轮Oracle记录](experiments/b3_oracle_2026-11-11.md) | 局部目标诊断、已知限制和真实闭环状态 |
 | 服务器任务与场景 | [DATASETS.md](DATASETS.md) | 实际文件副本，无软链接；任务规模、场景覆盖、复制校验和来源 |
 | 本机/服务器 | [LOCAL_ENVIRONMENT.md](LOCAL_ENVIRONMENT.md) | 本机软件信息、服务器参数登记表和接入核对项 |
 | 历史 RadioNav | [RadioNav v4](archive/radionav/RadioNav-v4.md)、[RadioNavDP v3](archive/radionav/RadioNavDP-v3.md) | X-NavDP 轨迹级未来无线预测方向；不作为现主线 |
@@ -104,7 +110,7 @@ WIFI+Nav/
 
 ## 当前源码与后续结构
 
-当前已有模型服务、真实场景验收、单条VLM导航、局部navmesh控制、RSSI查询和离线评测代码。服务器模型在 `~/WiFiNav/models/`，日志/缓存/完整运行在 `~/WiFiNav/runtime/`，旧目录保存在 `~/WiFiNav_backups`。下述结构中的belief、批量评测和可视化仍待后续实现。
+当前已有模型服务、真实场景验收、VLM导航、局部navmesh/共享风险栅格控制、RSSI查询、批量回放与诊断图代码。服务器模型在 `~/WiFiNav/models/`，日志/缓存/完整运行在 `~/WiFiNav/runtime/`，旧目录保存在 `~/WiFiNav_backups`。下述结构中的belief与正式规模评估仍待后续实现。
 
 ```text
 WIFI+Nav/
