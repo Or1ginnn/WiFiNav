@@ -35,10 +35,13 @@ parser.add_argument("--config", type=Path)
 parser.add_argument("--episode-id", type=str)
 parser.add_argument("--output-dir", type=Path)
 parser.add_argument("--interface-version", choices=["v0", "v1"], default="v0")
+parser.add_argument("--stop-review", choices=["auto", "on", "off"], default="auto")
 args = parser.parse_args()
 config, dataset, episode, metadata = prepare(args.config, args.episode_id)
 settings = metadata["settings"]
 settings["interface_version"] = args.interface_version
+settings["stop_review_enabled"] = (args.interface_version == "v1" if args.stop_review == "auto"
+                                   else args.stop_review == "on")
 model_config = load_json(PROJECT / "configs/model/qwen35b.json")
 wireless_config = load_json(PROJECT / "configs/wireless/r2r_conn_v0.json")
 run = args.output_dir or PROJECT / "runtime/runs" / ("nosignal_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))

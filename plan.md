@@ -218,6 +218,8 @@ B0资产与协议核对 → B1单条闭环 → B2开发pilot → B3 NoSignal/Sta
 
 ### 2026-11-11
 
+- 开始执行已确认的无复核消融：新增独立`--stop-review`开关及恢复一致性检查，默认行为保持原版本；固定10任务、独立批次`runtime/batches/pilot_v1_no_review`。协议与结果入口见[消融记录](docs/experiments/b2_no_review_2026-11-11.md)。结果待运行后登记，之后进入B3统一规划器改造。
+
 - 完成11月10日晚启动的固定10任务v1配对复跑与30个AP回放，执行提交`f6ff7b5`。原任务hash、模型metadata和除接口版本外的settings一致；解析异常由1降到0，SR维持30%，SPL 0.272316→0.221820、nDTW 0.452765→0.406824（v0含1074错误前缀），平均请求9.1→14.8、耗时91.1→139.7秒。575绕行增加、97继续偏离，不能宣称整套v1优于v0。下一步先分离STOP复核做消融，B3仍待开始。证据见[配对结果](docs/experiments/b2_interface_v1_pair_2026-11-10.md)和服务器`runtime/batches/pilot_interface_v1/paired_comparison.json`。
 
 ### 2026-11-10

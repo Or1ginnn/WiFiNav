@@ -20,7 +20,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch-dir", type=Path)
     parser.add_argument("--interface-version", choices=["v0", "v1"], default="v0")
+    parser.add_argument("--stop-review", choices=["auto", "on", "off"], default="auto")
     args = parser.parse_args()
+    review_enabled = args.interface_version == "v1" if args.stop_review == "auto" else args.stop_review == "on"
     spec = read(PROJECT / "configs/benchmark/pilot_v0.json")
     manifest_path = PROJECT / spec["manifest_path"]
     manifest = read(manifest_path)
@@ -45,6 +47,9 @@ def main():
     if metadata_path.exists():
         if read(metadata_path).get("interface_version", "v0") != args.interface_version:
             raise RuntimeError("Resume interface version differs; use a new batch directory")
+        saved = read(metadata_path)
+        if saved.get("stop_review_enabled", saved.get("interface_version", "v0") == "v1") != review_enabled:
+            raise RuntimeError("Resume STOP review differs; use a new batch directory")
     elif any(batch.glob("episode_*")):
         raise RuntimeError("Cannot resume existing episodes without batch metadata")
     (PROJECT / "runtime/manifests/b2_active_batch.json").write_text(json.dumps({"batch_dir": str(batch)}) + "\n")
@@ -59,6 +64,7 @@ def main():
             "execution_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=PROJECT, text=True).strip(),
             "started_at_utc": datetime.now(timezone.utc).isoformat(),
             "interface_version": args.interface_version,
+            "stop_review_enabled": review_enabled,
             "no_signal_wireless_does_not_influence_policy": True,
         }, indent=2) + "\n")
     outcomes = []
@@ -74,7 +80,7 @@ def main():
         command = [sys.executable, "-u", str(PROJECT / "scripts/run_vln_episode.py"),
                    "--config", str(PROJECT / spec["navigation_config"]),
                    "--episode-id", episode_id, "--output-dir", str(directory),
-                   "--interface-version", args.interface_version]
+                   "--interface-version", args.interface_version, "--stop-review", args.stop_review]
         print(f"Starting episode {episode_id} ({len(outcomes)+1}/{len(manifest['episodes'])})", flush=True)
         start = time.perf_counter()
         timed_out = False

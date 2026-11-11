@@ -43,6 +43,7 @@ class PixelPolicy:
         self.model = model_config
         self.settings = settings
         self.version = settings.get("interface_version", "v0")
+        self.stop_review_enabled = settings.get("stop_review_enabled", self.version == "v1")
         self.memory = ""
         self.history = []
         self.feedback = []
@@ -126,7 +127,7 @@ class PixelPolicy:
         messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}]
         choice, record = self._tool(messages, candidates, directory)
         record["frames"] = frames
-        if self.version == "v1" and choice["tool"] == "stop":
+        if self.stop_review_enabled and choice["tool"] == "stop":
             review = self._review_stop(instruction, raw_frame or frame, directory)
             record["stop_review"] = review
             (directory / "stop_review.json").write_text(json.dumps(review, indent=2) + "\n")
