@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-11。B1/B2及无复核消融完成；B3统一规划器、局部诊断与两场景接线检查已完成，收益门尚未通过。根目录 `plan.md` 是进度入口；提案与调研 PDF 保存在项目内，旧方向归档以便追溯。
+> 最近整理：2026-11-13。共同执行器修复及完整B3固定开发集已完成，70执行/90case，当前通信代价方案No-Go，不扩大belief。根目录 `plan.md` 是进度入口；原始资料与全部历史结果保留。
 
 ## 当前目录
 
@@ -16,6 +16,7 @@ WIFI+Nav/
 ├── configs/wireless/r2r_conn_v0.json             # 路线A信号、阈值与确定性seed
 ├── configs/benchmark/pilot_v0.json               # B2固定任务选择/AP布局与运行预算
 ├── configs/benchmark/oracle_smoke_v0.json         # B3两场景/三布局/三权重接线协议
+├── configs/benchmark/oracle_full_v1.json          # 完整10任务与预先固定的验收门
 ├── scripts/
 │   ├── download_model.py                        # 模型下载与镜像SHA256核验
 │   ├── serve_model.py                           # 使用已有vLLM环境启动服务
@@ -30,6 +31,8 @@ WIFI+Nav/
 │   ├── diagnose_oracle.py                       # 固定局部目标的离线绕行诊断
 │   ├── compare_pilot_interfaces.py              # 同清单接口消融的配对汇总
 │   ├── run_oracle_pilot.py                      # 同规划器NoSignal/StaticMap闭环检查
+│   ├── evaluate_oracle.py                       # 全case/固定基线子集验收与CSV
+│   ├── plot_oracle.py                           # 验收JSON生成导航—通信取舍图
 │   └── plot_pilot.py                            # 报告生成独立PNG/PDF诊断图
 ├── src/connectivity_vln/
 │   ├── navigation/                              # R2R任务、模型工具决策与局部规划
@@ -40,6 +43,8 @@ WIFI+Nav/
 │   ├── DATASETS.md                              # 服务器实际数据副本、规模与来源
 │   ├── LOCAL_ENVIRONMENT.md                     # 本机环境和服务器接入登记
 │   ├── experiments/
+│   │   ├── b3_full_2026-11-12.md                 # 70执行/90case完整No-Go与错误分组
+│   │   ├── b3_controller_repair_2026-11-12.md    # 离散动作与层高边界修复
 │   │   ├── b3_oracle_2026-11-11.md               # B3诊断、18case与收益门判断
 │   │   ├── b2_no_review_2026-11-11.md            # 关闭复核消融与接口冻结
 │   │   ├── b2_interface_v1_pair_2026-11-10.md     # 接口配对结果、回退与开销
@@ -68,6 +73,7 @@ WIFI+Nav/
 │       ├── r2r_conn_benchmark_plan_v0.md          # 当前任务与benchmark分阶段制作计划
 │       ├── b2_pilot_protocol_v0.md               # B2执行前固定的样本/AP/信息/时间协议
 │       ├── b3_oracle_protocol_v0.md              # 统一规划器及分阶段检查/扩展门槛
+│       ├── b3_full_protocol_v1.md                # 完整开发集运行前冻结的收益规则
 │       ├── task_benchmark_research_plan.md         # 任务选择与benchmark修改的调研任务单
 │       └── radiofrontier/                        # RadioFrontier 现实/半现实演示设计
 │           ├── demo_scenario.md
@@ -76,6 +82,7 @@ WIFI+Nav/
 ├── models/                                      # 仅服务器：实际模型权重，Git忽略
 ├── runtime/                                     # 仅服务器：日志/缓存/清单/PID，Git忽略
 ├── tests/test_weighted_planner.py                # 双路径、信息隔离、断图与缓存测试
+├── tests/test_oracle_gate.py                     # 防止早停/错误前缀/分母变化误判收益
 └── .obsidian/                                    # Obsidian 本地工作区设置
 ```
 
@@ -104,6 +111,7 @@ WIFI+Nav/
 | B3实际结果 | [首轮Oracle记录](experiments/b3_oracle_2026-11-11.md) | 局部目标诊断、已知限制和真实闭环状态 |
 | B3共同执行器修复 | [离散动作与单层边界](experiments/b3_controller_repair_2026-11-12.md) | 六条历史轨迹证据、最小动作校验与新批次复跑 |
 | B3完整开发集协议 | [固定10任务验收v1](design/b3_full_protocol_v1.md) | 70次执行/90case、几何入口门、固定配对子集与预先冻结的收益规则 |
+| B3完整运行 | [固定开发集结果](experiments/b3_full_2026-11-12.md) | 实际执行状态、原始产物与正式开发门结论 |
 | 服务器任务与场景 | [DATASETS.md](DATASETS.md) | 实际文件副本，无软链接；任务规模、场景覆盖、复制校验和来源 |
 | 本机/服务器 | [LOCAL_ENVIRONMENT.md](LOCAL_ENVIRONMENT.md) | 本机软件信息、服务器参数登记表和接入核对项 |
 | 历史 RadioNav | [RadioNav v4](archive/radionav/RadioNav-v4.md)、[RadioNavDP v3](archive/radionav/RadioNavDP-v3.md) | X-NavDP 轨迹级未来无线预测方向；不作为现主线 |
