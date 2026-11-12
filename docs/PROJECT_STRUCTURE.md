@@ -103,6 +103,7 @@ WIFI+Nav/
 | B3首轮协议 | [Oracle诊断与闭环检查](design/b3_oracle_protocol_v0.md) | 统一栅格规划器、双路径/局部目标诊断及两场景smoke；不是完整B3验收 |
 | B3实际结果 | [首轮Oracle记录](experiments/b3_oracle_2026-11-11.md) | 局部目标诊断、已知限制和真实闭环状态 |
 | B3共同执行器修复 | [离散动作与单层边界](experiments/b3_controller_repair_2026-11-12.md) | 六条历史轨迹证据、最小动作校验与新批次复跑 |
+| B3完整开发集协议 | [固定10任务验收v1](design/b3_full_protocol_v1.md) | 70次执行/90case、几何入口门、固定配对子集与预先冻结的收益规则 |
 | 服务器任务与场景 | [DATASETS.md](DATASETS.md) | 实际文件副本，无软链接；任务规模、场景覆盖、复制校验和来源 |
 | 本机/服务器 | [LOCAL_ENVIRONMENT.md](LOCAL_ENVIRONMENT.md) | 本机软件信息、服务器参数登记表和接入核对项 |
 | 历史 RadioNav | [RadioNav v4](archive/radionav/RadioNav-v4.md)、[RadioNavDP v3](archive/radionav/RadioNavDP-v3.md) | X-NavDP 轨迹级未来无线预测方向；不作为现主线 |

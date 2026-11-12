@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import statistics
 
 PROJECT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT/'src'))
@@ -52,11 +53,26 @@ def main():
         'spec_sha256':hashlib.sha256(spec_path.read_bytes()).hexdigest(),
         'manifest_sha256':hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         'selected_episodes':[e['episode_id'] for e in episodes],
+        'source_sha256':{name:hashlib.sha256((PROJECT/name).read_bytes()).hexdigest() for name in
+                         ['scripts/run_vln_episode.py','src/connectivity_vln/navigation/weighted_planner.py',
+                          'src/connectivity_vln/navigation/pixel_policy.py','src/connectivity_vln/signal_simulation/route_a.py']},
         'not_full_b3_acceptance':spec['selection'] != 'all_manifest_episodes'},indent=2)+'\n')
     rows = []
     # Inspect every common-planner baseline before starting radio comparisons.
     baseline_failures = []
+    baseline_checked = False
     for weight, e in [(w, e) for w in spec['lambda_values'] for e in episodes]:
+        if weight and not baseline_checked:
+            baseline_checked = True
+            limits = spec.get('common_baseline_limits')
+            if limits and not baseline_failures:
+                ref = read(PROJECT/spec['baseline_batch']/'pilot_report.json')['aggregate']
+                spl = statistics.mean(r['summary']['metrics']['spl'] for r in rows)
+                ndtw = statistics.mean(r['summary']['metrics']['ndtw_exact_euclidean'] for r in rows)
+                if spl < ref['spl_all_selected']*(1-limits['relative_spl_loss']):
+                    baseline_failures.append('mean_SPL_geometry_regression')
+                if ndtw < ref['ndtw_available_trajectories_including_error_prefixes']-limits['absolute_ndtw_loss']:
+                    baseline_failures.append('mean_nDTW_geometry_regression')
         if weight and baseline_failures:
             (batch/'blocked_on_baseline.json').write_text(json.dumps({
                 'reason':'Shared baseline error or lost known success; StaticMap not started',

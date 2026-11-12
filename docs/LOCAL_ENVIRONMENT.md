@@ -156,3 +156,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 ## 2026-11-12 控制器诊断
 
 本机与服务器HEAD均为`06ebac1`且干净，模型health=200，没有导航实验进程。历史六条near轨迹只读复核，诊断JSON放`runtime/diagnostics/b3_controller_20261112/`；已确认离散前进裁剪与越出单层高度导致的问题，见[修复记录](experiments/b3_controller_repair_2026-11-12.md)。修复先在本机提交、发布再同步；真实复跑使用新目录，不覆盖原smoke。
+
+修复提交`1128cf1`已同步，原Habitat环境6项测试通过，`oracle_smoke_action_guard_v1`完成14执行/18case、0运行异常/超时、0单层高度越界；完整验证尚未运行。新验收器与完整协议在本机准备，累计11项单元测试通过。模型服务复核health=200，共享包和模型文件未改。

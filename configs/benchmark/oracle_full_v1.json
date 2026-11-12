@@ -1,0 +1,25 @@
+{
+  "name": "b3_full_action_guard_v1",
+  "pilot_spec": "configs/benchmark/pilot_v0.json",
+  "selection": "all_manifest_episodes",
+  "lambda_values": [0.0, 1.0, 4.0],
+  "interface_version": "v1",
+  "stop_review": "off",
+  "planner": "grid",
+  "grid_resolution_m": 0.25,
+  "grid_floor_tolerance_m": 0.20,
+  "baseline_batch": "runtime/batches/pilot_v1_no_review",
+  "common_baseline_limits": {"relative_spl_loss": 0.10, "absolute_ndtw_loss": 0.05},
+  "acceptance": {
+    "retain_all_baseline_success_cases": true,
+    "maximum_paired_absolute_spl_loss": 0.02,
+    "maximum_paired_absolute_ndtw_loss": 0.03,
+    "maximum_paired_total_path_increase": 0.20,
+    "minimum_paired_total_outage_reduction": 0.10,
+    "maximum_paired_total_longest_outage_increase": 0.0,
+    "require_all_selected_cases_complete": true,
+    "paired_subset": "all lambda0 successful cases, frozen from baseline before inspecting StaticMap; zero-outage cases retained",
+    "lambda_selection": "among passing weights minimize paired total outage seconds; tie choose smaller lambda"
+  },
+  "development_only": true
+}
