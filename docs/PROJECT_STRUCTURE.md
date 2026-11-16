@@ -17,6 +17,7 @@ WIFI+Nav/
 ├── configs/benchmark/pilot_v0.json               # B2固定任务选择/AP布局与运行预算
 ├── configs/benchmark/oracle_smoke_v0.json         # B3两场景/三布局/三权重接线协议
 ├── configs/benchmark/oracle_full_v1.json          # 完整10任务与预先固定的验收门
+├── configs/ops/four_gpu_queue.json               # 四卡等待阈值与已冻结模型恢复负载
 ├── configs/ops/four_gpu_queue.json               # 四卡连续空闲条件与模型恢复负载
 ├── configs/ops/four_gpu_queue.json               # 四卡连续空闲条件与模型恢复负载
 ├── scripts/
@@ -86,6 +87,7 @@ WIFI+Nav/
 ├── runtime/                                     # 仅服务器：日志/缓存/清单/PID，Git忽略
 ├── tests/test_weighted_planner.py                # 双路径、信息隔离、断图与缓存测试
 ├── tests/test_oracle_gate.py                     # 防止早停/错误前缀/分母变化误判收益
+├── tests/test_gpu_queue.py                       # GPU条件、互斥、竞争、取消与图文验收模拟
 ├── tests/test_gpu_queue.py                       # 忙碌/稳定空闲/复查竞争/互斥/取消测试
 └── .obsidian/                                    # Obsidian 本地工作区设置
 ```

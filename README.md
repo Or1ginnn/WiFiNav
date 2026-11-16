@@ -19,6 +19,7 @@
 - [B3首轮记录](docs/experiments/b3_oracle_2026-11-11.md)：统一规划器、局部目标诊断及闭环结果。
 - [共同执行器修复](docs/experiments/b3_controller_repair_2026-11-12.md)：离散前进裁剪/越层证据与最小修复。
 - [完整B3结果](docs/experiments/b3_full_2026-11-12.md)：70执行/90case、冻结验收门、错误分组与No-Go结论。
+- [四卡资源等待](docs/experiments/gpu_queue_2026-11-16.md)：已部署后台等待器，四卡连续空闲后自动恢复模型并验收；状态/日志/取消入口。
 - [四卡资源等待器](docs/experiments/gpu_queue_2026-11-16.md)：后台检测四卡空闲后恢复模型并图文验收，状态查询与取消方法。
 - [协作规则](AGENTS.md)：新聊天接手与文件维护要求。
 
