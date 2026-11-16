@@ -1,0 +1,25 @@
+{
+  "source_directory_pattern": "episode_{episode_id}_start_lambda0",
+  "manifest_sha256": "8a0caf14400bd73939c97e976cdc5e97c34ce32eb2da35eee936c53a5dd1d326",
+  "diagnostic_subgoals_per_episode": 2,
+  "lambda_values": [
+    0,
+    0.25,
+    0.5,
+    1,
+    2,
+    4,
+    8
+  ],
+  "detour_caps": [
+    0,
+    0.1,
+    0.2,
+    0.5
+  ],
+  "minimum_outage_reductions_m": [
+    0.01,
+    0.1
+  ],
+  "scope": "CPU diagnostic only; first two model-selected subgoals of all ten fixed NoSignal trajectories; no success filtering, no GT goals/reference paths; static truth for route evaluation only; no parameter selection or closed-loop benefit claim"
+}

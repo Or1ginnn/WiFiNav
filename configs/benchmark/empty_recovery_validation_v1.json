@@ -1,0 +1,14 @@
+{
+  "source_batch": "runtime/batches/oracle_full_action_guard_v1",
+  "source_execution_commit": "976bd10",
+  "manifest_sha256": "8a0caf14400bd73939c97e976cdc5e97c34ce32eb2da35eee936c53a5dd1d326",
+  "cases": [
+    {"episode_id": "515", "layout_id": "start", "lambda": 0},
+    {"episode_id": "743", "layout_id": "near", "lambda": 1},
+    {"episode_id": "743", "layout_id": "near", "lambda": 4}
+  ],
+  "interface_version": "v1",
+  "stop_review": "off",
+  "empty_candidate_recovery": true,
+  "scope": "independent three-run engineering verification; cannot replace original B3 or establish navigation non-regression over ten episodes"
+}

@@ -38,6 +38,7 @@ parser.add_argument("--episode-id", type=str)
 parser.add_argument("--output-dir", type=Path)
 parser.add_argument("--interface-version", choices=["v0", "v1"], default="v0")
 parser.add_argument("--stop-review", choices=["auto", "on", "off"], default="auto")
+parser.add_argument("--empty-candidate-recovery", action="store_true")
 parser.add_argument("--planner", choices=["navmesh", "grid"], default="navmesh")
 parser.add_argument("--risk-weight", type=float, default=0.0)
 parser.add_argument("--wireless-instance", type=Path)
@@ -47,6 +48,7 @@ if not 0 <= args.risk_weight < float('inf') or (args.planner != "grid" and args.
 config, dataset, episode, metadata = prepare(args.config, args.episode_id)
 settings = metadata["settings"]
 settings["interface_version"] = args.interface_version
+settings["empty_candidate_recovery"] = args.empty_candidate_recovery
 settings["stop_review_enabled"] = (args.interface_version == "v1" if args.stop_review == "auto"
                                    else args.stop_review == "on")
 model_config = load_json(PROJECT / "configs/model/qwen35b.json")

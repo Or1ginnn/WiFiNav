@@ -35,18 +35,22 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--source-batch', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
+    parser.add_argument('--spec', type=Path, default=PROJECT/'configs/benchmark/oracle_smoke_v0.json')
     args = parser.parse_args()
     output = args.output_dir.resolve()
     if not output.is_relative_to((PROJECT/'runtime').resolve()):
         raise ValueError('Output must stay under runtime')
     output.mkdir(parents=True, exist_ok=False)
-    spec = read(PROJECT/'configs/benchmark/oracle_smoke_v0.json')
+    spec = read(args.spec)
     manifest = read(args.source_batch/'manifest.json')
+    manifest_sha = hashlib.sha256((args.source_batch/'manifest.json').read_bytes()).hexdigest()
+    if spec.get('manifest_sha256') and manifest_sha != spec['manifest_sha256']:
+        raise ValueError('Frozen manifest hash mismatch')
     paths = read(PROJECT/'configs/data/server_paths.json')
     rows = []
     graphs = {}
     for e in manifest['episodes']:
-        directory = args.source_batch/('episode_'+e['episode_id'])
+        directory = args.source_batch/spec.get('source_directory_pattern', 'episode_{episode_id}').format(episode_id=e['episode_id'])
         decisions = [json.loads(l) for l in (directory/'decisions.jsonl').read_text().splitlines()]
         trajectory = [json.loads(l) for l in (directory/'trajectory.jsonl').read_text().splitlines()]
         before = {}; previous = trajectory[0]['pose']['position']
@@ -81,9 +85,37 @@ def main():
                     rows.append(row)
         print('diagnosed',e['episode_id'],len(selected),'subgoals',flush=True)
     result = {'code_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
-              'manifest_sha256':hashlib.sha256((args.source_batch/'manifest.json').read_bytes()).hexdigest(),
+        'manifest_sha256':manifest_sha,
+        'spec':spec, 'spec_sha256':hashlib.sha256(args.spec.read_bytes()).hexdigest(),
+        'source_batch':str(args.source_batch.resolve()),
+        'source_files_sha256':{str(p.relative_to(args.source_batch)):hashlib.sha256(p.read_bytes()).hexdigest()
+            for e in manifest['episodes'] for p in [args.source_batch/spec.get('source_directory_pattern', 'episode_{episode_id}').format(episode_id=e['episode_id'])/name
+                for name in ('metadata.json','decisions.jsonl','trajectory.jsonl')]},
               'selection':'first two logged local subgoals per episode, all 10 frozen episodes; no success filtering',
               'scope':'offline frozen subgoal endpoints, latent static field, no VLN success or executed motion claim', 'rows':rows}
+    if 'detour_caps' in spec:
+        groups = {}
+        for row in rows:
+            groups.setdefault((row['episode_id'], row['decision'], row['layout_id']), []).append(row)
+        comparisons = []
+        for key, group in groups.items():
+            baseline = next(r for r in group if r['lambda'] == 0)
+            valid = [r for r in group if not r['error']]
+            item = {'episode_id':key[0], 'decision':key[1], 'layout_id':key[2],
+                    'errors':sum(bool(r['error']) for r in group),
+                    'unique_paths':len({json.dumps([[round(float(v),3) for v in p] for p in r['path']]) for r in valid}),
+                    'baseline_error':baseline['error'], 'budgets':[]}
+            if not baseline['error']:
+                base = baseline['exposure']
+                for cap in spec['detour_caps']:
+                    eligible = [r for r in valid if r['exposure']['length_m'] <= base['length_m']*(1+cap)+1e-8]
+                    best = min((r['exposure']['outage_m'] for r in eligible), default=base['outage_m'])
+                    gain = base['outage_m']-best
+                    item['budgets'].append({'relative_length_cap':cap, 'baseline_outage_m':base['outage_m'],
+                        'best_outage_m':best, 'outage_reduction_m':gain,
+                        'above_threshold':{str(t):gain > t for t in spec['minimum_outage_reductions_m']}})
+            comparisons.append(item)
+        result['route_space_comparisons'] = comparisons
     (output/'diagnostic.json').write_text(json.dumps(result,indent=2)+'\n')
     print('saved',output/'diagnostic.json',flush=True)
 

@@ -149,3 +149,6 @@ WIFI+Nav/
 ```
 
 源码、配置、数据和实验产物分开管理。大文件、密码、私钥和访问令牌不提交 Git；服务器数据路径和实验版本在环境说明及实验记录中追溯。
+
+- `docs/experiments/empty_recovery_2026-11-17.md`：空候选修订、独立三次闭环协议及CPU候选路径诊断。
+- `scripts/validate_empty_recovery.py`、`configs/benchmark/empty_recovery_validation_v1.json`：独立小验证入口；`configs/benchmark/candidate_routes_diagnostic_v1.json`：固定CPU诊断选择与扫描。

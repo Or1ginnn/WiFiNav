@@ -95,6 +95,8 @@ def main():
                        '--output-dir',str(directory), '--interface-version',spec['interface_version'],
                        '--stop-review',spec['stop_review'], '--planner',spec['planner'],
                        '--risk-weight',str(weight),'--wireless-instance',str(instance_file)]
+            if spec.get('empty_candidate_recovery', False):
+                command.append('--empty-candidate-recovery')
             print('Starting',name,flush=True)
             started = time.perf_counter(); timed_out = False
             with (batch/(name+'.log')).open('x') as log:

@@ -125,7 +125,17 @@ class PixelPolicy:
             "recent_controller_feedback": self.feedback[-6:],
         }, ensure_ascii=False)})
         messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}]
-        choice, record = self._tool(messages, candidates, directory)
+        try:
+            choice, record = self._tool(messages, candidates, directory)
+        except ToolParseError:
+            # Preserve strict parsing and the original retry bound. Only a view
+            # with no measured floor candidates permits this observation action.
+            if candidates or not self.settings.get("empty_candidate_recovery", False):
+                raise
+            choice = {"tool": "look", "degrees": 45, "memory": self.memory,
+                      "reason": "Observe again after invalid tools with no floor candidates"}
+            record = {"attempts": self.settings["max_parse_attempts"],
+                      "fallback": "empty_candidates_after_parse_retries"}
         record["frames"] = frames
         if self.stop_review_enabled and choice["tool"] == "stop":
             review = self._review_stop(instruction, raw_frame or frame, directory)

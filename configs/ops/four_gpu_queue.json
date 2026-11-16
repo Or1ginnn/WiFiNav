@@ -6,7 +6,7 @@
   "stable_samples": 3,
   "maximum_idle_memory_mib": 256,
   "maximum_idle_utilization_percent": 5,
-  "startup_timeout_seconds": 900,
+  "startup_timeout_seconds": 2400,
   "startup_poll_seconds": 5,
   "probe_timeout_seconds": 900,
   "payload": "restore_existing_model_and_text_single_two_image_probe"
