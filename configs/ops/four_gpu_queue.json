@@ -1,0 +1,13 @@
+{
+  "name": "restore_qwen35b",
+  "model_config": "configs/model/qwen35b.json",
+  "gpu_indices": [0, 1, 2, 3],
+  "poll_seconds": 60,
+  "stable_samples": 3,
+  "maximum_idle_memory_mib": 256,
+  "maximum_idle_utilization_percent": 5,
+  "startup_timeout_seconds": 900,
+  "startup_poll_seconds": 5,
+  "probe_timeout_seconds": 900,
+  "payload": "restore_existing_model_and_text_single_two_image_probe"
+}

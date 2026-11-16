@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-13。共同执行器修复及完整B3固定开发集已完成，70执行/90case，当前通信代价方案No-Go，不扩大belief。根目录 `plan.md` 是进度入口；原始资料与全部历史结果保留。
+> 最近整理：2026-11-16。完整B3为No-Go；研究下一步为无候选合法退路和候选路径诊断。新增四卡后台等待器恢复既有模型并验收，新研究实验未排入。根目录 `plan.md` 是进度入口；历史资料与全部结果保留。
 
 ## 当前目录
 
@@ -17,9 +17,12 @@ WIFI+Nav/
 ├── configs/benchmark/pilot_v0.json               # B2固定任务选择/AP布局与运行预算
 ├── configs/benchmark/oracle_smoke_v0.json         # B3两场景/三布局/三权重接线协议
 ├── configs/benchmark/oracle_full_v1.json          # 完整10任务与预先固定的验收门
+├── configs/ops/four_gpu_queue.json               # 四卡连续空闲条件与模型恢复负载
+├── configs/ops/four_gpu_queue.json               # 四卡连续空闲条件与模型恢复负载
 ├── scripts/
 │   ├── download_model.py                        # 模型下载与镜像SHA256核验
 │   ├── serve_model.py                           # 使用已有vLLM环境启动服务
+│   ├── wait_for_gpus.py                         # 等四卡空闲、互斥启动模型并图文验收
 │   ├── bootstrap_model.sh                       # 下载完成后启动服务
 │   ├── probe_model.py                           # 文本/单图/多图服务验收
 │   ├── check_habitat_task.py                    # 真实场景/RGB-D/动作验收
@@ -83,6 +86,7 @@ WIFI+Nav/
 ├── runtime/                                     # 仅服务器：日志/缓存/清单/PID，Git忽略
 ├── tests/test_weighted_planner.py                # 双路径、信息隔离、断图与缓存测试
 ├── tests/test_oracle_gate.py                     # 防止早停/错误前缀/分母变化误判收益
+├── tests/test_gpu_queue.py                       # 忙碌/稳定空闲/复查竞争/互斥/取消测试
 └── .obsidian/                                    # Obsidian 本地工作区设置
 ```
 
@@ -112,6 +116,7 @@ WIFI+Nav/
 | B3共同执行器修复 | [离散动作与单层边界](experiments/b3_controller_repair_2026-11-12.md) | 六条历史轨迹证据、最小动作校验与新批次复跑 |
 | B3完整开发集协议 | [固定10任务验收v1](design/b3_full_protocol_v1.md) | 70次执行/90case、几何入口门、固定配对子集与预先冻结的收益规则 |
 | B3完整运行 | [固定开发集结果](experiments/b3_full_2026-11-12.md) | 实际执行状态、原始产物与正式开发门结论 |
+| 四卡资源等待 | [排队与模型恢复](experiments/gpu_queue_2026-11-16.md) | 空闲条件、后台等待、状态查询与取消；新实验未排入 |
 | 服务器任务与场景 | [DATASETS.md](DATASETS.md) | 实际文件副本，无软链接；任务规模、场景覆盖、复制校验和来源 |
 | 本机/服务器 | [LOCAL_ENVIRONMENT.md](LOCAL_ENVIRONMENT.md) | 本机软件信息、服务器参数登记表和接入核对项 |
 | 历史 RadioNav | [RadioNav v4](archive/radionav/RadioNav-v4.md)、[RadioNavDP v3](archive/radionav/RadioNavDP-v3.md) | X-NavDP 轨迹级未来无线预测方向；不作为现主线 |

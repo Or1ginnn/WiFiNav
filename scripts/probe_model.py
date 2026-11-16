@@ -1,5 +1,6 @@
 """Record task-independent text and image requests after deployment."""
 import base64
+import argparse
 import io
 import json
 from pathlib import Path
@@ -11,6 +12,12 @@ from PIL import Image, ImageDraw
 project = Path(__file__).resolve().parents[1]
 config = json.loads((project / "configs/model/qwen35b.json").read_text())
 runtime = (project / Path(config["runtime_root"]).expanduser()).resolve()
+parser = argparse.ArgumentParser()
+parser.add_argument('--output',type=Path)
+args = parser.parse_args()
+output = args.output.resolve() if args.output else runtime/'manifests/service_probe.json'
+if not output.is_relative_to(runtime) or (args.output and output.exists()):
+    raise ValueError('Use a new probe output file under project runtime')
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
@@ -49,4 +56,5 @@ for name, content in cases:
             "finish_reason": data["choices"][0].get("finish_reason")}
     results.append(item)
     print(json.dumps(item, ensure_ascii=False), flush=True)
-(runtime / "manifests/service_probe.json").write_text(json.dumps(results, ensure_ascii=False, indent=2) + "\n")
+with output.open('x' if args.output else 'w') as stream:
+    stream.write(json.dumps(results, ensure_ascii=False, indent=2) + "\n")
