@@ -180,3 +180,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 ## 2026-11-18 22:47模型恢复现场核实
 
 新队列`runtime/queue/restore_qwen35b_20261117`于北京时间11月18日03:36:27启动模型1436455，03:41:55达到ready；`attempt_001/service_probe.json`确认文本READY、单图红方形、双图红方形/蓝圆形顺序，三项finish_reason均stop。22:47直连localhost:8010的health和v1/models均200，别名wifinav-qwen35b、root为项目models/Qwen3.5-35B-A3B、8K上下文。引擎1437485、四卡worker1437772–1437775均属sunqiuyi，每卡约20857MiB，利用率0%，无其他计算PID。四卡由本项目模型常驻待命，资源恢复阻塞已解除；本轮只核查状态，未启动导航小验证，B3 No-Go不变。
+
+11月18日23:51审查前复核：服务器HEAD1910198、工作区干净；队列负载源码hash匹配、模型固定revision未变，health/models直连200、四卡约20857MiB/0%，历史文本/单图/双图probe真实通过。既定三次闭环目录不存在，本轮仅审核，不运行新导航或更改共享依赖。详见`experiments/benchmark_plan_review_2026-11-18.md`。

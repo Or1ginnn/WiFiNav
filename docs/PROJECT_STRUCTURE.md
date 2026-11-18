@@ -152,3 +152,5 @@ WIFI+Nav/
 
 - `docs/experiments/empty_recovery_2026-11-17.md`：空候选修订、独立三次闭环协议及CPU候选路径诊断。
 - `scripts/validate_empty_recovery.py`、`configs/benchmark/empty_recovery_validation_v1.json`：独立小验证入口；`configs/benchmark/candidate_routes_diagnostic_v1.json`：固定CPU诊断选择与扫描。
+
+- `docs/experiments/benchmark_plan_review_2026-11-18.md`：模型恢复验收与benchmark优先方案的三Agent交叉审核、待冻结质量/评测合约和实施建议。
