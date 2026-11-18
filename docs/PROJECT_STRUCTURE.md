@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-16。完整B3为No-Go；研究下一步为无候选合法退路和候选路径诊断。新增四卡后台等待器恢复既有模型并验收，新研究实验未排入。根目录 `plan.md` 是进度入口；历史资料与全部结果保留。
+> 最近整理：2026-11-19。主线按plan推进benchmark优先BM0–BM6；BM0任务卡/10任务初审已形成，BM4独立三次GPU回归进行中。根plan与最新实验记录为进度入口，旧B3 No-Go和全部原产物保留。
 
 ## 当前目录
 
@@ -154,3 +154,5 @@ WIFI+Nav/
 - `scripts/validate_empty_recovery.py`、`configs/benchmark/empty_recovery_validation_v1.json`：独立小验证入口；`configs/benchmark/candidate_routes_diagnostic_v1.json`：固定CPU诊断选择与扫描。
 
 - `docs/experiments/benchmark_plan_review_2026-11-18.md`：模型恢复验收与benchmark优先方案的三Agent交叉审核、待冻结质量/评测合约和实施建议。
+
+- `docs/design/r2r_conn_benchmark_v1.md`：BM0任务卡、信息权限与benchmark/参考基线边界；`docs/experiments/bm0_task_audit_2026-11-19.md`：原10任务文本/参考高度初审；`scripts/audit_bm0_tasks.py`：CPU源字段/GT层高与hash审计，非筛样。

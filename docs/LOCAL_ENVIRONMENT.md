@@ -182,3 +182,7 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 新队列`runtime/queue/restore_qwen35b_20261117`于北京时间11月18日03:36:27启动模型1436455，03:41:55达到ready；`attempt_001/service_probe.json`确认文本READY、单图红方形、双图红方形/蓝圆形顺序，三项finish_reason均stop。22:47直连localhost:8010的health和v1/models均200，别名wifinav-qwen35b、root为项目models/Qwen3.5-35B-A3B、8K上下文。引擎1437485、四卡worker1437772–1437775均属sunqiuyi，每卡约20857MiB，利用率0%，无其他计算PID。四卡由本项目模型常驻待命，资源恢复阻塞已解除；本轮只核查状态，未启动导航小验证，B3 No-Go不变。
 
 11月18日23:51审查前复核：服务器HEAD1910198、工作区干净；队列负载源码hash匹配、模型固定revision未变，health/models直连200、四卡约20857MiB/0%，历史文本/单图/双图probe真实通过。既定三次闭环目录不存在，本轮仅审核，不运行新导航或更改共享依赖。详见`experiments/benchmark_plan_review_2026-11-18.md`。
+
+## 2026-11-19 BM0与BM4启动
+
+从干净9245a8b开始，四卡仅本项目TP4 worker；health200、独立probe `runtime/manifests/service_probe_20261119_prevalidation.json`文本/单图/双图真实通过，既有Habitat环境29测试通过，未升级依赖。无导航重复进程后，以flock项目锁和独立会话启动三次回归PID2323871，批次`runtime/batches/empty_recovery_v1_20261119`，日志`runtime/logs/empty_recovery_v1_20261119.log`，PID清单`runtime/manifests/empty_recovery_v1_20261119.pid`。运行期间保持服务器9245a8b不变，后续文档同步等批次结束；前两次成功、第三次尚执行，最终结论另记。
