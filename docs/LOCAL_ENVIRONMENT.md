@@ -176,3 +176,7 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 旧恢复队列在00:57四卡空闲后启动，但14分片仅加载8片即超过900秒上限，01:13失败并清理自建进程；健康与图文验收未通过。当前四卡均被其他计算负载占用。仅延长新队列冷启动上限至2400秒，沿用原模型revision、TP4/BF16/8K、共享vLLM/Habitat环境，不调整其他用户任务。独立队列与后续状态见`docs/experiments/gpu_queue_2026-11-16.md`；原B3保持No-Go，修订协议见`docs/experiments/empty_recovery_2026-11-17.md`。
 
 03:14复核：独立新队列PID2773082 waiting/0/3，源码pin匹配、health直连拒绝；原始错误CPU回放及399条路径查询已完成，均无模型/GPU调用，真实Habitat环境29测试通过。源码8047932已push后bundle快进同步；未运行新的闭环导航。
+
+## 2026-11-18 22:47模型恢复现场核实
+
+新队列`runtime/queue/restore_qwen35b_20261117`于北京时间11月18日03:36:27启动模型1436455，03:41:55达到ready；`attempt_001/service_probe.json`确认文本READY、单图红方形、双图红方形/蓝圆形顺序，三项finish_reason均stop。22:47直连localhost:8010的health和v1/models均200，别名wifinav-qwen35b、root为项目models/Qwen3.5-35B-A3B、8K上下文。引擎1437485、四卡worker1437772–1437775均属sunqiuyi，每卡约20857MiB，利用率0%，无其他计算PID。四卡由本项目模型常驻待命，资源恢复阻塞已解除；本轮只核查状态，未启动导航小验证，B3 No-Go不变。
