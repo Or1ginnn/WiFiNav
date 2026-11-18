@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-19。主线按plan推进benchmark优先BM0–BM6；BM0任务卡/10任务初审已形成，BM4独立三次GPU回归进行中。根plan与最新实验记录为进度入口，旧B3 No-Go和全部原产物保留。
+> 最近整理：2026-11-19。benchmark优先路线见根plan的BM0–BM6；BM0任务卡/开发任务初审已形成，BM4独立3次GPU回归已启动（状态以最新实验记录为准）。原完整B3仍No-Go，历史资料与结果保留。
 
 ## 当前目录
 
@@ -156,3 +156,9 @@ WIFI+Nav/
 - `docs/experiments/benchmark_plan_review_2026-11-18.md`：模型恢复验收与benchmark优先方案的三Agent交叉审核、待冻结质量/评测合约和实施建议。
 
 - `docs/design/r2r_conn_benchmark_v1.md`：BM0任务卡、信息权限与benchmark/参考基线边界；`docs/experiments/bm0_task_audit_2026-11-19.md`：原10任务文本/参考高度初审；`scripts/audit_bm0_tasks.py`：CPU源字段/GT层高与hash审计，非筛样。
+
+- `docs/design/r2r_conn_benchmark_v1.md`：BM0任务卡，区分benchmark规则、真值权限与参考导航器限制；正式清单/评分参数仍待BM1–BM3。
+- `docs/experiments/bm0_task_audit_2026-11-19.md`、`scripts/audit_bm0_tasks.py`：原10任务文本/源层高初审与CPU可复现来源诊断，不作正式语义或单层资格标注。
+
+- `docs/design/bm1_manifest_contract_v0.md`、`src/connectivity_vln/evaluation/manifest.py`、`scripts/build_bm1_development.py`：BM1仅开发schema/actor输入分离及CPU试建，未冻结正式资格/清单。
+- `docs/experiments/empty_recovery_validation_2026-11-19.md`：3次工程回归已结束，定点fallback验收通过但导航方法未通过收益门。

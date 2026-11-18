@@ -19,4 +19,18 @@
 
 9条“未显式跨层”不等于已证明单层；离散参考点同高不排除中间楼梯/坡面或复杂连通。语义冲突风险标签不是“必须剔除”标签，也不根据原模型SR给任务分配资格。正式资格阈值、人工歧义流程、排除原因编码在BM1冻结，不能回写旧B3。
 
-复现源字段/指令hash及dense GT层高诊断入口为`scripts/audit_bm0_tasks.py`（CPU，无模型或渲染），输出放独立runtime/diagnostics目录。实际执行commit、配置/hash与产物在运行后补记；本文数值为前述9245a8b现场只读查询结果，不冒称脚本已运行。
+复现源字段/指令hash及dense GT层高诊断入口为`scripts/audit_bm0_tasks.py`（CPU，无模型或渲染），输出放独立runtime/diagnostics目录。表中source-reference数值来自前述9245a8b现场只读查询；脚本已于64b3901执行，实际hash与dense GT结果见下节。
+
+## 可复现CPU源审计已执行
+
+`scripts/audit_bm0_tasks.py`在提交`64b390116fd59aa086c31ac2165b42dfc08e076f`真实执行，产物`runtime/diagnostics/bm0_task_audit_20261119/source_audit.json`，SHA256 `e951498a191306b03ae0ad0e7860114d79296bf28cf5e1cc7be8eb19b1a4d21a`。含10任务指令hash/源group/scene、source reference与dense GT层高统计，未读取策略结果或保留集；没有改变任何资格/样本。
+
+train源SHA256 `340a80133b2157520354ab055a91d98feb2f42e4bbda17b200c911f8788492ea`，train GT SHA256 `b63fa10e5c57d1b80b241c49bdeddc3d481bbe54b41ca0d59f9584c10da7bd5d`。dense GT中515/85高度范围约.0540/.1025m，97仍约.6m，其他7条为0；这些数值不是单层适用性证明。
+
+## 官方来源追溯的已知与未闭合项
+
+[作者数据页](https://jacobkrantz.github.io/vlnce/data)给出的v1-3任务计数/scene计数、episode与GT字段结构，与本项目已有资产盘点相符；该页说明预处理版增加tokens/embeddings及GT actions/locations。目录/格式/计数相符不等于已经与官方包逐字节核对，尤其初始heading/GT版本仍应以hash或规范化内容比较确认；本轮未重复下载250MB预处理包。
+
+[作者仓库](https://github.com/jacobkrantz/VLN-CE)与[Matterport3D官方获取入口](https://niessner.github.io/Matterport/)分别列出任务、代码与场景获取；MP3D入口要求签署其使用协议。本项目不据现有文件或代码许可推断可公开再分发原始payload；许可/授权范围核对仍未完成。当前提交只含自有代码、规则和短诊断，不公开原指令/场景资产。
+
+**剩余BM0缺口：** 视觉地标/语言约束对应审查、人工标注复核与上游包的可追溯对应；不能把助手文本初审当人工语义GT。可以推进[BM1开发schema](../design/bm1_manifest_contract_v0.md)的字段/真值分离审计，但不冻结正式资格或评估集。
