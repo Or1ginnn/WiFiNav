@@ -27,6 +27,6 @@ qualification固定unreviewed，不能用原模型成功/失败或本轮源层�
   --output-dir runtime/diagnostics/bm1_schema_dev_20261119
 ```
 
-本机新增6项有针对性的测试，累计35项通过：正常分离、actor真值字段泄漏、重复case、group/scene跨split、指令变更/缺actor、伪装正式发布或资格通过。实际服务器审计commit/产物与双端结果执行后记录到实验文档。
+新增6项有针对性的测试，本机和真实服务器Habitat环境累计35项均通过：正常分离、actor真值字段泄漏、重复case、group/scene跨split、指令变更/缺actor、伪装正式发布或资格通过。实际服务器审计已在6180a8d执行，10任务/30case全部保留、actor字段分离与group检查通过；commit/hash/产物见[实际验证记录](../experiments/bm1_schema_dev_2026-11-19.md)。
 
 后续BM1：制定源版本固定方式与正式schema文件/迁移策略，冻结单层几何/语言歧义资格规则、人工复核流程、选中/排除原因编码，以及独立开发/保留评估清单。此开发schema不决定任何新评估样本或参数，不算发布质量门通过。

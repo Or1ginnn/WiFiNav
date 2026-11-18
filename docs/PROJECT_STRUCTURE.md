@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-19。benchmark优先路线见根plan的BM0–BM6；BM0任务卡/开发任务初审已形成，BM4独立3次GPU回归已启动（状态以最新实验记录为准）。原完整B3仍No-Go，历史资料与结果保留。
+> 最近整理：2026-11-19。BM0任务卡/源审计已形成但视觉人工复核待闭合；BM4三次定点工程验收通过、导航方法未通过收益门；BM1开发schema在10任务/30case试建通过。当前进度见根plan，原B3 No-Go不变。
 
 ## 当前目录
 
@@ -162,3 +162,5 @@ WIFI+Nav/
 
 - `docs/design/bm1_manifest_contract_v0.md`、`src/connectivity_vln/evaluation/manifest.py`、`scripts/build_bm1_development.py`：BM1仅开发schema/actor输入分离及CPU试建，未冻结正式资格/清单。
 - `docs/experiments/empty_recovery_validation_2026-11-19.md`：3次工程回归已结束，定点fallback验收通过但导航方法未通过收益门。
+
+- `docs/experiments/bm1_schema_dev_2026-11-19.md`：6180a8d开发schema在固定10任务/30case的实际CPU验证与hash；非正式资格/发布验收。

@@ -188,3 +188,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 从干净9245a8b开始，四卡仅本项目TP4 worker；health200、独立probe `runtime/manifests/service_probe_20261119_prevalidation.json`文本/单图/双图真实通过，既有Habitat环境29测试通过，未升级依赖。无导航重复进程后，以flock项目锁和独立会话启动三次回归PID2323871，批次`runtime/batches/empty_recovery_v1_20261119`，日志`runtime/logs/empty_recovery_v1_20261119.log`，PID清单`runtime/manifests/empty_recovery_v1_20261119.pid`。运行期间保持服务器9245a8b不变，后续文档同步等批次结束；前两次成功、第三次尚执行，最终结论另记。
 
 11月19日04:31复核：服务器64b3901且干净，模型health/models200、仅本项目四卡worker（各约21000MiB），无导航进程；3次BM4已结束且源hash匹配。BM0源CPU审计已在64b3901生成，BM4 worker保持9245a8b不混版。BM1开发schema本机测试35通过，待安全同步后执行CPU审计，不动原资产或保留评估集。
+
+11月19日04:35 BM1 CPU审计完成：代码6180a8d经GitHub推送后bundle快进服务器，真实Habitat环境35测试通过；原10任务/30case的开发manifest、actor输入与checks在`runtime/diagnostics/bm1_schema_dev_20261119/`，原数据hash不变，没有模型/保留集调用。04:30一次性唤醒已执行并删除；当前没有新导航批次，模型保留在线。
