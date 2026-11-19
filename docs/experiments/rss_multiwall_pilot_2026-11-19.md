@@ -53,3 +53,9 @@
 - 执行提交 `b986326352d65041a51aa2f0b3e0e5675d3f35a6`。配置 SHA256 `ff415158c21bc04a96122a22bed6178b199c8867c494db245cc3bd67e49c74fa`，固定原 AP 审计数据 SHA256 `436f47b920fc4466898ffd0843c6547385b887202eed1ab9114fc3efaf7984e3`。
 - 入口 `scripts/run_single_floor_multiwall_dev.py --data <原AP审阅数据> --config configs/benchmark/single_floor_multiwall_dev_v1.json --output <独立目录>/report.json`。沿用原 Mitsuba/LLVM 19 CPU 环境，4 个 CPU 核，脚本内计时 16.9 秒。未调用模型。
 - 报告 `runtime/diagnostics/single_floor_multiwall_dev_20261119/report.json`，SHA256 `14b0e78b3643365af2682ad4052360836e2d90d9da76529d297b951febbdd196`。逐场景语义资产、GLB、navmesh 哈希与逐点证据均在报告内。日志 `runtime/logs/single_floor_multiwall_dev_20261119.log`。
+
+## 本机 v5 AP 审阅报告
+
+- 原有 20 个 AP 的 0.40 m 显示网格，合计 14,494 个空间采样位置，每个位置按四组穿透损耗与墙面合并假设生成数据。原始参考路线保留 807 个位置和四组曲线。交互图在 Habitat 原生底图上裁切并显示热力图、达到 −75 dBm 的网格轮廓及鼠标位置的网格 RSSI。留白区域可能未采样。
+- 服务器网格导出 `scripts/export_multiwall_ap_preview.py`，执行提交 `5d55c1d23125d47d578828f553f285320d7968a0`，产物 `runtime/diagnostics/multiwall_ap_preview_20261119/grids.json`，SHA256 `5845f02421d5b5c5016aac548f7d495ffebd8c3245bc7d365b2d6bf32fc070f7`。生成前核对了 AP 初值、参考曲线批次及各场景资产哈希。
+- 本机 `runtime/reports/single_floor_ap_review_20261119_v5/index.html`，SHA256 `519de9063d0dacb105423d121133bb33f663a83d452b1473136831c07389a260`。渲染器额外传入 `--multiwall-report` 与 `--multiwall-grids`。覆盖和曲线对应已计算 AP。草稿可点选、撤销和导出，重算之前保留已计算覆盖与草稿的独立标记。已用本机 Chrome 验证图层、阈值区域、悬停读数、损耗切换、草稿和移动视口，浏览器零外部 HTTP 请求。

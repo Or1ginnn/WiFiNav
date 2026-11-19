@@ -204,3 +204,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 射线追踪试点资产预查：当前五个审阅场景都有 GLB 和 navmesh。`2n8kARJN3HM` 另有 `.house` 与语义 PLY，GLB 的 148 个渲染材料条目无附加射频参数。Habitat 0.3.0 Python 当前无 Sionna、Mitsuba 和 Dr.Jit。已在独立环境 `runtime/envs/sionna_rt_2_2_0_py311` 用 Sionna RT 2.2.0 / LLVM 19.1.2 完成两批 CPU 射线追踪，试点定义见 [BM3 无线协议](design/bm3_radio_and_refusal_v0.md#5-成熟传播模型与-ap-选点试点)。
 
 五场景多墙 RSSI 验收复用同一 Python 3.11 / LLVM 19 CPU 环境，运行在 4 个 CPU 核。结果 `runtime/diagnostics/single_floor_multiwall_dev_20261119/report.json`，日志 `runtime/logs/single_floor_multiwall_dev_20261119.log`。
+
+本机 v5 AP 审阅报告位于 `runtime/reports/single_floor_ap_review_20261119_v5/index.html`。服务器 CPU 只导出 `runtime/diagnostics/multiwall_ap_preview_20261119/grids.json`，本机将多墙网格和曲线嵌入离线 HTML。动态切换图层直接在浏览器完成。

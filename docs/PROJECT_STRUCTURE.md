@@ -173,3 +173,4 @@ WIFI+Nav/
 - `scripts/prepare_rss_pilot.py`、`scripts/run_rss_raytrace_pilot.py` 与 `configs/wireless/rss_pilot_v{1,2}.json`：单层 RSSI / Sionna RT 对照；版本与结果见[试点记录](experiments/rss_propagation_pilot_2026-11-19.md)。
 - `scripts/run_rss_multiwall_pilot.py` 与 `configs/wireless/rss_multiwall_pilot_v1.json`：语义面直达路径与穿透损耗敏感性，见[多墙试点记录](experiments/rss_multiwall_pilot_2026-11-19.md)。
 - `scripts/run_single_floor_multiwall_dev.py` 与 `configs/benchmark/single_floor_multiwall_dev_v1.json`：首版多墙 RSSI 的 5 场景 20 路线开发验收。
+- `scripts/export_multiwall_ap_preview.py`：为已计算的 AP 导出多墙覆盖网格，渲染器嵌入本机 v5 报告。

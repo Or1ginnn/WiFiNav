@@ -9,7 +9,7 @@
 <body>
   <header class="top">
     <div class="container masthead">
-      <div><p class="eyebrow">WiFiNav / R2R-Conn</p><h1>单层任务 · AP 布局审阅</h1><p>按场景查看参考路线，对照信号覆盖，选定要复核的 AP 位置。</p></div>
+      <div><p class="eyebrow">WiFiNav / R2R-Conn</p><h1>单层任务 · AP 布局审阅</h1><p id="subtitle">按场景查看参考路线，对照信号覆盖，选定要复核的 AP 位置。</p></div>
       <div class="top-actions">
         <button id="importBtn" class="quiet">导入草稿</button>
         <button id="export" class="primary">导出 AP 草稿 ↓</button>
@@ -24,7 +24,7 @@
       <div><strong id="sceneCount"></strong><span>MP3D 场景</span></div>
       <div><strong id="excludedCount"></strong><span>按规则排除</span></div>
       <div><strong id="reviewCount"></strong><span>待人工复核</span></div>
-      <a href="#audit">查看筛选证据 ↓</a>
+      <a id="overviewLink" href="#audit">查看筛选证据 ↓</a>
     </div>
     <div class="workspace" id="workspace">
       <aside class="panel task-rail">
@@ -43,6 +43,7 @@
           <div class="segmented" role="group" aria-label="地图图层">
             <button id="floorLayer" aria-pressed="true">Habitat 底图</button>
             <button id="signalLayer" aria-pressed="false">叠加 RSSI</button>
+            <button id="rangeLayer" aria-pressed="false" hidden>覆盖范围</button>
           </div>
           <div class="map-actions" role="group" aria-label="地图缩放">
             <button id="zoomOut" aria-label="缩小地图">−</button>
@@ -51,6 +52,10 @@
             <button id="fit">回到路线</button>
           </div>
         </div>
+        <div class="assumption-bar" id="assumptionBar" hidden>
+          <label for="assumption">多墙仿真假设</label><select id="assumption"></select>
+          <span class="muted" id="assumptionDetails"></span>
+        </div>
         <div class="map-stage" id="mapStage">
           <canvas id="map" aria-label="参考路线、AP 和可选节点地图"></canvas>
           <div class="map-label" id="mapLabel">俯视 X–Z · 米</div>
@@ -58,7 +63,7 @@
         </div>
         <div class="legend">
           <span><i class="line route"></i>参考路线</span><span><i class="dot candidate"></i>可选 AP</span>
-          <span><i class="dot access"></i>当前 AP</span><span><i class="dot origin"></i>初始 AP</span>
+          <span><i class="dot access"></i><span id="apLegend">当前 AP</span></span><span id="initialLegend"><i class="dot origin"></i><span id="initialApLabel">初始 AP</span></span>
         </div>
         <div class="legend" id="coverageLegend"></div>
         <p class="muted map-note" id="mapNote"></p>
@@ -69,15 +74,15 @@
         <label class="candidate-label" for="candidateSelect">从候选点列表选择</label>
         <select id="candidateSelect"></select>
         <div class="inspector-actions"><button id="undo">撤销</button><button id="resetOne">恢复初始位置</button></div>
-        <p class="muted">坐标单位为米。草稿位置需要用 Habitat 原生寻路和信号代理复核。</p>
+        <p class="muted" id="apNote">坐标单位为米。草稿位置需要用 Habitat 原生寻路和信号代理复核。</p>
         <details><summary>任务与几何证据</summary><dl id="taskFacts"></dl></details>
       </aside>
       <section class="panel profile">
-        <div class="task-heading"><h2>参考路线的 RSSI</h2><label class="muted"><input id="showNoise" type="checkbox"> 显示初始带噪样例</label></div>
+        <div class="task-heading"><h2>参考路线的 RSSI</h2><label class="muted" id="noiseOption"><input id="showNoise" type="checkbox"> 显示初始带噪样例</label></div>
         <div class="profile-plot"><canvas id="chart" aria-label="按路线距离绘制的 RSSI 曲线"></canvas></div>
-        <div class="legend"><span><i class="line baseline"></i>初始 AP · 原生代理</span><span id="previewKey" hidden><i class="line access"></i>草稿 AP · 网格估计</span><span id="noiseKey" hidden><i class="line noise"></i>初始 AP · 带噪样例</span></div>
+        <div class="legend"><span><i class="line baseline"></i><span id="baselineLabel">初始 AP · 原生代理</span></span><span id="previewKey" hidden><i class="line access"></i><span id="comparisonLabel">草稿 AP · 网格估计</span></span><span id="noiseKey" hidden><i class="line noise"></i>初始 AP · 带噪样例</span></div>
         <div id="routeMetrics" class="metrics"></div>
-        <p class="muted">横轴是参考路线累计距离，着色区域对应偏弱与断连阈值。草稿曲线使用网格估计，和初始原生曲线的差异也包含网格误差。</p>
+        <p class="muted" id="profileNote">横轴是参考路线累计距离，着色区域对应偏弱与断连阈值。草稿曲线使用网格估计，和初始原生曲线的差异也包含网格误差。</p>
       </section>
     </div>
     <details class="panel fold" id="layouts"><summary>全部任务的 AP 坐标</summary><div class="table-wrap" id="layoutTable"></div></details>
@@ -93,7 +98,7 @@
     </details>
     <details class="panel fold" id="provenance"><summary>数据来源与无线参数</summary><dl id="sourceFacts"></dl></details>
   </main>
-  <footer class="container footer">单层开发审阅 · AP 高度使用地面代理坐标 · 无线模型采用距离损耗与可走路径绕行代理 · 本地草稿可导出保存</footer>
+  <footer class="container footer" id="footer">单层开发审阅 · AP 高度使用地面代理坐标 · 无线模型采用距离损耗与可走路径绕行代理 · 本地草稿可导出保存</footer>
   <script id="payload" type="application/json">__PAYLOAD__</script>
   <script>__SCRIPT__</script>
 </body>

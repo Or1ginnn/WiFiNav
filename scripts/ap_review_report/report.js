@@ -3,6 +3,7 @@ const $ = id => document.getElementById(id);
 const D = JSON.parse($("payload").textContent);
 const tasks = D.tasks;
 const topdown = D.topdown;
+const multiwall = D.multiwall;
 const audit = new Map(D.scope.map(row => [String(row.episode_id), row]));
 const hashes = D.metadata.source_sha256;
 const spec = D.metadata.specification;
@@ -14,13 +15,24 @@ const xyz = position => position.map(value => value.toFixed(3)).join(", ");
 const pointFor = (task, node) => node === task.default_ap_node ? task.default_ap_position : task.nodes[node];
 const emptyView = (extent = "route") => ({zoom: 1, x: 0, y: 0, extent});
 const history = new Map();
-let taskIndex = 0, view = emptyView(), showSignal = !topdown, saved = {};
+let taskIndex = 0, view = emptyView(), showSignal = !!multiwall || !topdown, saved = {};
+let assumption = multiwall ? Object.keys(tasks[0].multiwall.assumptions)[0] : null;
+let signalMode = "heatmap", gridCellPixels = 0;
 let storageAvailable = true, drag = null, projection, previewCache;
 const map = $("map"), chart = $("chart");
 const ctx = map.getContext("2d"), plot = chart.getContext("2d");
 const current = () => tasks[taskIndex];
 const selectedNode = task => saved[task.episode_id] ?? task.default_ap_node;
 const changed = task => selectedNode(task) !== task.default_ap_node;
+const mwLabels = {
+  connected_in_all: "四组均全程覆盖",
+  sensitive: "覆盖对参数敏感",
+  outage_in_all: "四组均有模拟断连段"
+};
+function assumptionLabel(key) {
+  const [band, spacing] = key.split("_");
+  return (band === "low" ? "低损耗" : "高损耗") + " · 合并距离 " + spacing + " m";
+}
 function setDraft(message = "") {
   $("draftStatus").textContent = [
     Object.keys(saved).length + " 个布点已修改",
@@ -149,6 +161,12 @@ function distances(task, start) {
 }
 
 function preview(task) {
+  if (multiwall) {
+    if (previewCache?.task === task && previewCache.assumption === assumption) return previewCache;
+    previewCache = {task, assumption, signal: task.multiwall.grid_rssi_dbm[assumption],
+      route: task.multiwall.assumptions[assumption].samples_dbm};
+    return previewCache;
+  }
   const node = selectedNode(task);
   if (previewCache?.task === task && previewCache.node === node) return previewCache;
   const ap = pointFor(task, node);
@@ -218,21 +236,43 @@ function floorFor(task) {
 }
 function coverageFor(task, floor) {
   const estimate = preview(task);
-  if (estimate.bitmap) return estimate.bitmap;
+  estimate.bitmaps ||= {};
+  if (estimate.bitmaps[signalMode]) return estimate.bitmaps[signalMode];
   const bitmap = document.createElement("canvas");
   bitmap.width = floor.bitmap.width;
   bitmap.height = floor.bitmap.height;
   const raster = bitmap.getContext("2d");
   const cell = spec.map_grid_resolution_m / floor.step;
+  const radio = multiwall?.config || task.wireless_config;
+  const range = signalMode === "range";
   for (let i = 0; i < task.base_grid_nodes; i++) {
+    const rssi = estimate.signal[i];
+    if (range && (rssi === null || rssi < radio.outage_threshold_dbm)) continue;
     const [x, , z] = task.nodes[i];
-    raster.fillStyle = coverageColor(estimate.signal[i], task.wireless_config);
-    raster.fillRect((x - floor.left) / floor.step - cell / 2,
-      (z - floor.top) / floor.step - cell / 2, cell, cell);
+    raster.fillStyle = range ? "#fff" : coverageColor(rssi, radio);
+    const px = (x - floor.left) / floor.step - cell / 2;
+    const py = (z - floor.top) / floor.step - cell / 2;
+    raster.fillRect(Math.round(px), Math.round(py), Math.round(px + cell) - Math.round(px),
+      Math.round(py + cell) - Math.round(py));
   }
   raster.globalCompositeOperation = "destination-in";
   raster.drawImage(floor.bitmap, 0, 0);
-  estimate.bitmap = bitmap;
+  if (range) {
+    const width = bitmap.width, height = bitmap.height;
+    const image = raster.getImageData(0, 0, width, height);
+    const solid = Uint8Array.from({length: width * height}, (_, i) => image.data[i * 4 + 3] > 127 ? 1 : 0);
+    for (let row = 0; row < height; row++) {
+      for (let col = 0; col < width; col++) {
+        const i = row * width + col;
+        if (!solid[i]) continue;
+        const edge = row === 0 || col === 0 || row === height - 1 || col === width - 1 ||
+          !solid[i - 1] || !solid[i + 1] || !solid[i - width] || !solid[i + width];
+        image.data.set(edge ? [16, 105, 83, 255] : [89, 169, 142, 115], i * 4);
+      }
+    }
+    raster.putImageData(image, 0, 0);
+  }
+  estimate.bitmaps[signalMode] = bitmap;
   return bitmap;
 }
 function drawMap() {
@@ -252,6 +292,7 @@ function drawMap() {
     height / 2 + view.y + (z - (top + bottom) / 2) * scale
   ];
   const cell = spec.map_grid_resolution_m * scale;
+  gridCellPixels = cell;
   if (floor) {
     const [x, y] = projection([floor.left, 0, floor.top]);
     ctx.save();
@@ -267,7 +308,7 @@ function drawMap() {
     for (let i = 0; i < task.base_grid_nodes; i++) {
       const [x, y] = projection(task.nodes[i]);
       if (x < -cell || y < -cell || x > width + cell || y > height + cell) continue;
-      ctx.fillStyle = showSignal ? coverageColor(signal[i], task.wireless_config) : colors.floor;
+      ctx.fillStyle = showSignal ? coverageColor(signal[i], multiwall?.config || task.wireless_config) : colors.floor;
       ctx.fillRect(x - cell / 2, y - cell / 2, cell + .35, cell + .35);
     }
   }
@@ -313,8 +354,9 @@ function drawMap() {
   }
   marker(task.start_position, "起点", "#0c4659", "#fff", "left");
   marker(task.goal_position, "目标", "#0c4659", "#fff", "right");
-  if (changed(task)) marker(task.default_ap_position, "初始 AP", "#fff", "#74429c", "left");
-  marker(pointFor(task, selectedNode(task)), "当前 AP", "#ab4817", "#fff", "right");
+  if (changed(task)) marker(task.default_ap_position, multiwall ? "已计算 AP" : "初始 AP", "#fff", "#74429c", "left");
+  marker(pointFor(task, selectedNode(task)), multiwall ? (changed(task) ? "草稿 AP" : "已计算 AP") : "当前 AP",
+    "#ab4817", "#fff", "right");
   const bar = [5, 2, 1, .5, .2].find(m => m * scale <= 110) || .2;
   ctx.fillStyle = "#fff";
   ctx.fillRect(8, height - 37, bar * scale + 20, 29);
@@ -334,10 +376,13 @@ function routeSummary(values, lengths, config) {
   return {minimum_dbm: Math.min(...values), weak_length_m: weak, outage_length_m: outage};
 }
 function drawChart() {
-  const task = current(), config = task.wireless_config;
-  const edited = changed(task), showNoise = $("showNoise").checked;
-  const baseline = task.route_native_rssi_dbm, noise = task.route_measured_rssi_dbm;
-  const trial = edited ? preview(task).route : [];
+  const task = current(), config = multiwall?.config || task.wireless_config;
+  const edited = changed(task), showNoise = !multiwall && $("showNoise").checked;
+  const profiles = task.multiwall?.assumptions;
+  const peer = multiwall ? assumption.replace(/^(low|high)/, band => band === "low" ? "high" : "low") : null;
+  const baseline = multiwall ? profiles[assumption].samples_dbm : task.route_native_rssi_dbm;
+  const noise = task.route_measured_rssi_dbm;
+  const trial = multiwall ? profiles[peer].samples_dbm : edited ? preview(task).route : [];
   const distance = [0];
   for (const length of task.route_lengths_m) distance.push(distance.at(-1) + length);
   const {width, height} = canvasSize(chart, plot);
@@ -389,16 +434,25 @@ function drawChart() {
   }
   if (showNoise) series(noise, "#74429c", [3, 3]);
   series(baseline, "#165d85");
-  if (edited) series(trial, "#ab4817", [6, 3]);
+  if (multiwall || edited) series(trial, "#ab4817", [6, 3]);
   $("noiseKey").hidden = !showNoise;
-  $("previewKey").hidden = !edited;
+  $("previewKey").hidden = !multiwall && !edited;
   function summarize(label, metrics) {
     if (!metrics || metrics.available === false) return "<p>" + label + " · 路线数据缺失</p>";
     return "<p><strong>" + label + "</strong> · 最低 " + metrics.minimum_dbm.toFixed(1) +
       " dBm · 弱信号 " + metrics.weak_length_m.toFixed(2) + " m · 断连 " + metrics.outage_length_m.toFixed(2) + " m</p>";
   }
-  $("routeMetrics").innerHTML = summarize("初始 AP · 原生代理", task.initial_route_metrics) +
-    (edited ? summarize("草稿 AP · 网格估计", routeSummary(trial, task.route_lengths_m, config)) : "");
+  if (multiwall) {
+    const outage = Object.values(profiles).map(item => item.outage_length_m);
+    const minOutage = Math.min(...outage).toFixed(2), maxOutage = Math.max(...outage).toFixed(2);
+    $("baselineLabel").textContent = "当前查看 · " + assumptionLabel(assumption);
+    $("comparisonLabel").textContent = "对照 · " + assumptionLabel(peer);
+    $("routeMetrics").innerHTML = summarize("已计算 AP · 当前假设", profiles[assumption]) +
+      "<p>四组假设的断连段总长度 " + (minOutage === maxOutage ? minOutage : minOutage + "–" + maxOutage) + " m</p>";
+  } else {
+    $("routeMetrics").innerHTML = summarize("初始 AP · 原生代理", task.initial_route_metrics) +
+      (edited ? summarize("草稿 AP · 网格估计", routeSummary(trial, task.route_lengths_m, config)) : "");
+  }
 }
 
 function facts(rows) {
@@ -410,17 +464,21 @@ function render() {
   $("mobileTask").value = String(taskIndex);
   for (const [entry, button] of taskButtons) {
     button.setAttribute("aria-current", String(entry === task));
-    button.innerHTML = "任务 " + escape(entry.episode_id) + (changed(entry) ? "<small>已改</small>" : "");
+    const flag = entry.multiwall?.coverage_status;
+    const hint = changed(entry) ? "已改" : flag === "sensitive" ? "敏感" : flag === "outage_in_all" ? "低覆盖" : "";
+    button.innerHTML = "任务 " + escape(entry.episode_id) + (hint ? "<small>" + hint + "</small>" : "");
   }
   $("sceneLabel").textContent = sceneName(task) + " · 路径组 " + task.trajectory_id;
-  $("mapLabel").textContent = topdown ? "Habitat · 楼层切片 Y = " + task.floor_y.toFixed(2) + " m" : "俯视 X–Z · 米";
+  const floorLabel = topdown ? "Habitat · Y = " + task.floor_y.toFixed(2) + " m" : "俯视 X–Z · 米";
+  $("mapLabel").textContent = floorLabel + (multiwall && showSignal ? " · 已计算 AP 覆盖" : "");
   $("taskTitle").textContent = "任务 " + task.episode_id;
   $("instruction").textContent = task.instruction;
-  $("editBadge").textContent = edited ? "草稿 · 待原生复核" : "初始布局";
-  $("editBadge").classList.toggle("edited", edited);
+  const flag = task.multiwall?.coverage_status;
+  $("editBadge").textContent = edited ? "草稿位置 · 待重算" : multiwall ? mwLabels[flag] : "初始布局";
+  $("editBadge").className = "status " + (edited ? "edited" : flag || "");
   $("apFacts").innerHTML = [
-    ["当前", pointFor(task, node), node],
-    ["初始", task.default_ap_position, task.default_ap_node]
+    ...(multiwall && !edited ? [] : [[multiwall ? "草稿" : "当前", pointFor(task, node), node]]),
+    [multiwall ? "已计算" : "初始", task.default_ap_position, task.default_ap_node]
   ].map(([label, position, index]) => '<div class="ap-box"><strong>' + label + ' AP · 节点 ' + index +
     '</strong><code>X, Y, Z<br>' + xyz(position) + '</code></div>').join("");
   $("taskFacts").innerHTML = facts([
@@ -430,8 +488,10 @@ function render() {
     ["原生路线", row.native_geometry_check === "passed" ? "可达，符合楼层容差" : row.native_geometry_check],
     ["起点 XYZ", xyz(task.start_position)],
     ["目标 XYZ", xyz(task.goal_position)],
-    ["网格与原生路线差异", "初始 AP 平均 " + task.preview_vs_native.mean_absolute_db.toFixed(2) + " dB，最大 " +
-      task.preview_vs_native.maximum_absolute_db.toFixed(2) + " dB"],
+    ...(multiwall ? [["仿真分类", mwLabels[flag]]] : [
+      ["网格与原生路线差异", "初始 AP 平均 " + task.preview_vs_native.mean_absolute_db.toFixed(2) + " dB，最大 " +
+        task.preview_vs_native.maximum_absolute_db.toFixed(2) + " dB"]
+    ]),
     ["Navmesh SHA256", task.navmesh_sha256]
   ]);
   if ($("candidateSelect").dataset.task !== task.episode_id) {
@@ -443,26 +503,50 @@ function render() {
   $("candidateSelect").value = String(node);
   $("undo").disabled = !history.get(task.episode_id)?.length;
   $("resetOne").disabled = !edited;
-  const {weak_threshold_dbm: weak, outage_threshold_dbm: outage} = task.wireless_config;
-  $("coverageLegend").innerHTML = [
+  const {weak_threshold_dbm: weak, outage_threshold_dbm: outage} = multiwall?.config || task.wireless_config;
+  const bands = multiwall && signalMode === "range" ? [["#59a98e", "覆盖 ≥ " + outage]] : [
     [colors.good, "正常 ≥ " + weak],
     [colors.weak, "偏弱 " + outage + " 至 < " + weak],
     [colors.outage, "断连 < " + outage],
-    [colors.missing, "网格不可达"]
-  ].map(([fill, label]) => '<span><i class="swatch" style="background:' + fill + '"></i>' + label + '</span>').join("") + "<span>单位 dBm</span>";
+    ...(multiwall ? [] : [[colors.missing, "网格不可达"]])
+  ];
+  $("coverageLegend").innerHTML = bands.map(([fill, label]) => '<span><i class="swatch" style="background:' + fill + '"></i>' + label + '</span>').join("") + "<span>单位 dBm</span>";
   $("coverageLegend").hidden = !showSignal;
+  if (multiwall) {
+    $("initialLegend").hidden = !edited;
+    $("apLegend").textContent = edited ? "草稿 AP" : "已计算 AP";
+    $("initialApLabel").textContent = "已计算 AP";
+    const [band] = assumption.split("_");
+    const {wall, door, window: glass} = multiwall.config.loss_db_per_crossing[band];
+    $("assumptionDetails").textContent = "墙 " + wall + " / 门 " + door + " / 窗 " + glass + " dB 每处";
+    $("apNote").textContent = edited ? "草稿坐标已保存。图上覆盖和曲线仍对应已计算 AP，导出后需要重新计算草稿位置。"
+      : "坐标单位为米，Y 为地面锚点。多墙计算使用地面以上 " + multiwall.config.ap_height_above_floor_m + " m 的发射位置。";
+    const mapDescription = signalMode === "range" && showSignal ?
+      "绿色轮廓显示当前假设下达到 " + outage + " dBm 的已采样区域。留白包含未达阈值或未采样位置。" :
+      "热图按当前假设显示已计算 AP 的多墙 RSSI。灰色可走区域表示网格未采样。";
+    $("mapNote").textContent = mapDescription +
+      (edited ? " 紫色空心标记是已计算 AP，橙色是待重算草稿。" : " 点击空心候选点可以试放 AP。");
+  }
   drawMap();
   drawChart();
   if ($("layouts").open) renderLayouts();
 }
-function setLayer(signal) {
+function setLayer(signal, mode = "heatmap") {
   showSignal = signal;
-  $("signalLayer").setAttribute("aria-pressed", String(signal));
+  signalMode = mode;
+  $("hover").hidden = true;
+  $("signalLayer").setAttribute("aria-pressed", String(signal && mode === "heatmap"));
+  $("rangeLayer").setAttribute("aria-pressed", String(signal && mode === "range"));
   $("floorLayer").setAttribute("aria-pressed", String(!signal));
   $("coverageLegend").hidden = !signal;
-  drawMap();
+  if (multiwall) {
+    render();
+  } else {
+    drawMap();
+  }
 }
 $("signalLayer").onclick = () => setLayer(true);
+$("rangeLayer").onclick = () => setLayer(true, "range");
 $("floorLayer").onclick = () => setLayer(false);
 $("floorLayer").textContent = topdown ? "Habitat 底图" : "可走网格";
 $("fitFloor").hidden = !topdown;
@@ -496,6 +580,22 @@ function closestCandidate(x, y) {
   }
   return best;
 }
+function sampledRssiAt(x, y) {
+  const task = current();
+  const limit = gridCellPixels / 2;
+  let index = -1, distance = Infinity;
+  for (let i = 0; i < task.base_grid_nodes; i++) {
+    const [nx, ny] = projection(task.nodes[i]);
+    const dx = Math.abs(nx - x), dy = Math.abs(ny - y);
+    if (dx > limit || dy > limit) continue;
+    const squared = dx * dx + dy * dy;
+    if (squared < distance) {
+      distance = squared;
+      index = i;
+    }
+  }
+  return index < 0 ? null : preview(task).signal[index];
+}
 const localPoint = event => {
   const box = map.getBoundingClientRect();
   return [event.clientX - box.left, event.clientY - box.top];
@@ -520,9 +620,12 @@ map.onpointermove = event => {
     return;
   }
   const [x, y] = localPoint(event), node = closestCandidate(x, y), tip = $("hover");
-  tip.hidden = node === null;
-  if (node !== null) {
-    tip.textContent = "候选 " + node + " · 点击设为 AP";
+  const rssi = multiwall && showSignal ? sampledRssiAt(x, y) : null;
+  const text = [node === null ? "" : "候选 " + node + " · 点击试放",
+    rssi === null ? "" : "已计算 AP " + rssi.toFixed(1) + " dBm"].filter(Boolean).join(" · ");
+  tip.hidden = !text;
+  if (text) {
+    tip.textContent = text;
     tip.style.left = Math.max(4, Math.min(map.clientWidth - tip.offsetWidth - 4, x + 10)) + "px";
     tip.style.top = Math.max(4, y - 35) + "px";
   }
@@ -543,11 +646,11 @@ map.onlostpointercapture = event => finishPointer(event, false);
 map.onpointerleave = () => { $("hover").hidden = true; };
 
 function renderLayouts() {
-  $("layoutTable").innerHTML = "<table><thead><tr><th>任务</th><th>场景</th><th>初始 AP XYZ（m）</th><th>当前 AP XYZ（m）</th><th>状态</th></tr></thead><tbody>" +
+  $("layoutTable").innerHTML = "<table><thead><tr><th>任务</th><th>场景</th><th>已计算 AP XYZ（m）</th><th>草稿 AP XYZ（m）</th><th>已计算覆盖</th></tr></thead><tbody>" +
     tasks.map((task, i) => "<tr><td><button data-task='" + i + "'>" + escape(task.episode_id) +
       "</button></td><td>" + escape(sceneName(task)) + "</td><td><code>" + xyz(task.default_ap_position) +
-      "</code></td><td><code>" + xyz(pointFor(task, selectedNode(task))) + "</code></td><td>" +
-      (changed(task) ? "草稿 · 待复核" : "初始") + "</td></tr>").join("") + "</tbody></table>";
+      "</code></td><td><code>" + (changed(task) ? xyz(pointFor(task, selectedNode(task))) : "—") + "</code></td><td>" +
+      (multiwall ? mwLabels[task.multiwall.coverage_status] : "初始 · navmesh 代理") + "</td></tr>").join("") + "</tbody></table>";
 }
 $("layouts").ontoggle = () => { if ($("layouts").open) renderLayouts(); };
 $("layoutTable").onclick = event => {
@@ -595,7 +698,7 @@ $("audit").ontoggle = renderAudit;
 $("scopeQuery").oninput = $("scopeFilter").onchange = () => { pageIndex = 0; renderAudit(); };
 $("previousPage").onclick = () => { pageIndex--; renderAudit(); };
 $("nextPage").onclick = () => { pageIndex++; renderAudit(); };
-document.querySelector('a[href="#audit"]').onclick = () => { $("audit").open = true; };
+$("overviewLink").onclick = () => { $(multiwall ? "layouts" : "audit").open = true; };
 
 const sourceFiles = Object.keys(hashes).filter(key => key.endsWith(".json.gz") || key.includes("configs/benchmark/single_floor_ap_review"));
 $("export").onclick = () => {
@@ -665,6 +768,30 @@ $("taskCount").textContent = number.format(tasks.length);
 $("sceneCount").textContent = number.format(sceneGroups.size);
 $("excludedCount").textContent = number.format(stats.scope_counts.excluded || 0);
 $("reviewCount").textContent = number.format(stats.scope_counts.review || 0);
+if (multiwall) {
+  const counts = multiwall.summary.status_counts;
+  for (const [id, value, label] of [
+    ["taskCount", tasks.length, "已计算的 AP 布局"],
+    ["sceneCount", counts.connected_in_all, "四组均全程覆盖"],
+    ["excludedCount", counts.sensitive, "覆盖对参数敏感"],
+    ["reviewCount", counts.outage_in_all, "四组均有模拟断连段"]
+  ]) {
+    $(id).textContent = number.format(value);
+    $(id).nextElementSibling.textContent = label;
+  }
+  $("subtitle").textContent = sceneGroups.size + " 个场景 · " + tasks.length + " 个 AP 布局 · 按墙体损耗假设审阅覆盖";
+  $("overviewLink").href = "#layouts";
+  $("overviewLink").textContent = "查看全部 AP 坐标 ↓";
+  $("signalLayer").textContent = "RSSI 热图";
+  $("rangeLayer").hidden = !topdown;
+  $("assumptionBar").hidden = false;
+  $("assumption").replaceChildren(...Object.keys(tasks[0].multiwall.assumptions).map(key => new Option(assumptionLabel(key), key)));
+  $("assumption").value = assumption;
+  $("assumption").onchange = event => { assumption = event.target.value; render(); };
+  $("noiseOption").hidden = true;
+  $("profileNote").textContent = "两条曲线使用同一个已计算 AP，对比高低损耗档。横轴为参考路线累计距离，着色对应仿真阈值。";
+  $("footer").textContent = "单层开发审阅 · RSSI 使用语义多墙模型 · 墙体损耗待实测校准 · AP 草稿可导出";
+}
 $("sourceFacts").innerHTML = facts([
   ["构建提交", D.metadata.execution_commit],
   ["构建时间（UTC）", D.metadata.created_at_utc],
@@ -673,10 +800,18 @@ $("sourceFacts").innerHTML = facts([
     spec.ap_preferred_lateral_offset_m + " m，吸附到距路线 " + spec.ap_route_corridor_m + " m 内的可达候选"],
   ["可走网格", spec.map_grid_resolution_m + " m"],
   ...(topdown ? [["Habitat 底图", "PathFinder · " + topdown.habitat_sim_version + " · 5 cm/像素 · 高度容差 ±" + topdown.height_tolerance_m + " m"]] : []),
+  ...(multiwall ? [
+    ["多墙路线版本", multiwall.execution_commit],
+    ["多墙网格版本", multiwall.grid_commit],
+    ["模型", "三维直达距离与语义墙、门、窗穿透损耗"],
+    ["参考功率和阈值", multiwall.config.reference_rss_1m_dbm + " dBm @ 1 m，弱信号 " +
+      multiwall.config.weak_threshold_dbm + " dBm，断连 " + multiwall.config.outage_threshold_dbm + " dBm"],
+  ] : [
   ["无线代理", radio.reference_rssi_dbm_at_1m + " dBm @ 1 m，损耗指数 " + radio.path_loss_exponent +
     "，绕行惩罚 " + radio.obstruction_db_per_excess_meter + " dB/m（上限 " + radio.max_obstruction_penalty_db + " dB）"],
   ["阴影 / 噪声", "阴影 σ " + radio.spatial_shadow_sigma_db + " dB / " + radio.spatial_shadow_cell_m +
     " m；观测噪声 σ " + radio.observation_noise_sigma_db + " dB；种子 " + radio.seed],
+  ]),
   ...sourceFiles.map(key => [key.split("/").at(-1) + " SHA256", hashes[key]])
 ]);
 const resizeObserver = new ResizeObserver(() => { drawMap(); drawChart(); });
@@ -684,4 +819,4 @@ resizeObserver.observe($("mapStage"));
 resizeObserver.observe(chart.parentElement);
 setDraft();
 setLayer(showSignal);
-render();
+if (!multiwall) render();

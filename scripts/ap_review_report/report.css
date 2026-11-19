@@ -57,6 +57,11 @@ a { color: var(--blue); }
 .toolbar { justify-content: space-between; margin: 12px 0 8px; }
 .segmented, .map-actions { display: flex; gap: 5px; }
 .toolbar button { font-size: 12px; }
+.assumption-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 10px; font-size: 12px; }
+.assumption-bar select { padding: 4px 7px; }
+.status.sensitive { color: #83430b; background: #fff0de; }
+.status.outage_in_all { color: #713780; background: #f2e4f2; }
+.status.connected_in_all { color: #17685f; background: #e2f2ed; }
 .segmented button[aria-pressed=true] { color: white; background: var(--blue); border-color: var(--blue); }
 .map-stage { height: clamp(340px, 46vh, 550px); background: #ecf1f3; border: 1px solid #d4e0e5; border-radius: 9px; position: relative; overflow: hidden; }
 canvas { display: block; width: 100%; height: 100%; }
