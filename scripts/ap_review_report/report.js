@@ -1014,9 +1014,9 @@ if (multiwall) {
   const counts = multiwall.summary.status_counts;
   for (const [id, value, label] of [
     ["taskCount", tasks.length, "已计算的 AP 布局"],
-    ["sceneCount", counts.connected_in_all, mwLabels.connected_in_all],
-    ["excludedCount", counts.sensitive, mwLabels.sensitive],
-    ["reviewCount", counts.outage_in_all, mwLabels.outage_in_all]
+    ["sceneCount", counts.connected_in_all || 0, mwLabels.connected_in_all],
+    ["excludedCount", counts.sensitive || 0, mwLabels.sensitive],
+    ["reviewCount", counts.outage_in_all || 0, mwLabels.outage_in_all]
   ]) {
     $(id).textContent = number.format(value);
     $(id).nextElementSibling.textContent = label;

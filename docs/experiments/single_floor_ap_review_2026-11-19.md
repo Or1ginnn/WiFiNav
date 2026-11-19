@@ -90,3 +90,32 @@
 - 导出脚本 `scripts/export_ap_review_topdown.py`，执行提交 `c3e10da101134ac0b03739b77c181da99fb42b66`。输入为复查批次 `ap_review_data.json`，按 navmesh SHA256 确认场景资源，逐任务核对起终点、初始 AP、全部候选和路线采样共 4,124 个位置。核对允许 ±2 像素边界余量。
 - 服务器图层数据 `runtime/diagnostics/single_floor_ap_review_20261119_topdown/habitat_topdown.json`，SHA256 `fbff3375028edeadccaa24fb40d2ada92441b305a0cbabf47df06f6b5f33fa0b`。
 - 本机生成报告时给渲染器增加 `--topdown <地图数据JSON>`，报告为 `runtime/reports/single_floor_ap_review_20261119_v4/index.html`，SHA256 `4a421096bbbfaf7d8e01226239a606e49cea671c0c002d6c8703c514b072d1b1`。Chrome 检查整层、回到路线、叠加 RSSI、点击 AP 及导入导出。
+
+## AP 草稿验收与重算
+
+在本机报告逐任务审阅，完成后点击「导出 AP 草稿」。服务器在独立目录确认草稿与原任务、坐标、navmesh 和参数指纹一致，对每个改动 AP 到参考路线的全部采样点做原生同层可达核验，然后生成新的布局、参数和验收记录。任何失败都需要保留该草稿供复核。所有成功的计算仍是单层开发审阅，手工校正集的用途和冻结条件另由 benchmark 协议决定。
+
+服务器入口如下。`draft` 指向上传到项目 `runtime/` 的 JSON，`revision` 指向一个尚未创建的输出目录。
+
+```bash
+base=runtime/diagnostics/single_floor_ap_review_20261119_reaudit
+draft=runtime/diagnostics/ap_review_drafts_20261120/wifinav-ap-review-edits.json
+revision=runtime/diagnostics/single_floor_ap_revision_01
+habitat=/opt/anaconda3/envs/habitat0.3.0/bin/python
+radio=runtime/envs/sionna_rt_2_2_0_py311/bin/python
+
+"$habitat" scripts/prepare_ap_review_revision.py --data "$base/ap_review_data.json" \
+  --audit "$base/source_scope_audit.json" --draft "$draft" \
+  --multiwall-config configs/benchmark/single_floor_multiwall_dev_v1.json --output-dir "$revision" &&
+"$radio" scripts/run_single_floor_multiwall_dev.py --data "$revision/ap_review_data.json" \
+  --config "$revision/multiwall_config.json" --output "$revision/report.json" &&
+"$radio" scripts/export_multiwall_ap_preview.py --data "$revision/ap_review_data.json" \
+  --multiwall-report "$revision/report.json" --output "$revision/grids.json" &&
+"$habitat" scripts/export_ap_review_topdown.py --data "$revision/ap_review_data.json" \
+  --output "$revision/habitat_topdown.json" &&
+"$radio" scripts/export_ap_review_scene_views.py --data "$revision/ap_review_data.json" \
+  --topdown "$revision/habitat_topdown.json" --multiwall-report "$revision/report.json" \
+  --basis-decoder runtime/tools/basisu_v1_60/decode_basis_ppm --output "$revision/views.json"
+```
+
+`revision.json` 记录原始输入、草稿、派生输入的 SHA256，以及逐个改动的位置和原生核验。服务器的 `report.json` 与 `grids.json` 分别提供四组多墙曲线和楼层网格。将本批生成的布局、审计、底图、报告、网格、纹理 JSON 复制到本机，在本机运行 `render_ap_review_html.py` 生成新版。JSON 与 HTML 留在各项目 `runtime/`，源任务、全量筛选统计和已有布局报告保留。若基于已重算报告继续编辑，使用它对应的布局、审计和多墙配置作为下一批输入。

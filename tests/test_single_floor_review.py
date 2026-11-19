@@ -1,8 +1,10 @@
 from pathlib import Path
+from copy import deepcopy
 import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from connectivity_vln.benchmark.single_floor import scope_status,distances,preview_rssi,route_metrics
+from scripts.prepare_ap_review_revision import selected_nodes
 
 
 class ScopeTests(unittest.TestCase):
@@ -58,6 +60,38 @@ class ScopeTests(unittest.TestCase):
         self.assertIsNone(preview_rssi([2,0,0],[0,0,0],ds[2],0,config))
         self.assertLess(preview_rssi([2,0,0],[0,0,0],4,0,config),preview_rssi([2,0,0],[0,0,0],2,0,config))
         self.assertFalse(route_metrics([-50,None],[1])['available'])
+
+
+class DraftTests(unittest.TestCase):
+    def setUp(self):
+        self.metadata = dict(execution_commit='abc', source_sha256={'source': 'hash'}, specification={'scope': 'train'})
+        self.task = dict(episode_id='1', trajectory_id='2', scene_id='scene', navmesh_sha256='mesh',
+                         default_ap_node=0, default_ap_position=[0, 0, 0], ap_candidate_nodes=[0, 1],
+                         nodes=[[0, 0, 0], [1, 0, 0], [2, 0, 0]])
+        self.data = dict(metadata=self.metadata, tasks=[self.task])
+        self.row = dict(episode_id='1', trajectory_id='2', scene_id='scene', navmesh_sha256='mesh',
+                        initial_ap_node=0, initial_ap_position=[0, 0, 0], selected_ap_node=1,
+                        selected_ap_position=[1, 0, 0], changed=True, native_revalidation_required=True)
+        self.draft = dict(self.metadata, format='wifinav-ap-review-edits-v1', changes=[self.row])
+
+    def test_valid_draft_preserves_source(self):
+        original = deepcopy(self.data)
+        self.assertEqual(selected_nodes(self.data, self.draft), {'1': 1})
+        self.assertEqual(self.data, original)
+        self.row.update(selected_ap_node=0, selected_ap_position=[0, 0, 0], changed=False,
+                        native_revalidation_required=False)
+        self.assertEqual(selected_nodes(self.data, self.draft), {'1': 0})
+
+    def test_stale_and_invalid_drafts_are_rejected(self):
+        for field, invalid in [('navmesh_sha256', 'old'), ('initial_ap_position', [.1, 0, 0]),
+                               ('selected_ap_node', True), ('selected_ap_node', 2),
+                               ('selected_ap_position', [2, 0, 0]), ('native_revalidation_required', False)]:
+            with self.subTest(field=field, value=invalid):
+                draft = dict(self.draft, changes=[{**self.row, field: invalid}])
+                with self.assertRaises(ValueError):
+                    selected_nodes(self.data, draft)
+        with self.assertRaises(ValueError):
+            selected_nodes(self.data, dict(self.draft, execution_commit='unrelated'))
 
 
 if __name__=='__main__':unittest.main()

@@ -65,6 +65,32 @@ def graph_for_route(pf,raw,route,spec):
     return graph,route_nodes,base_count
 
 
+def wireless_preview(pf, scene_id, points, adjacency, route_nodes, lengths, ap_node, config):
+    ap = points[ap_node]
+    field = SignalField(pf, scene_id, ap, config)
+    shadow = [field._shadow(p) for p in points]
+    geodesics = distances(adjacency, ap_node)
+    approximate = [preview_rssi(p, ap, d, s, config) for p, d, s in zip(points, geodesics, shadow)]
+    samples = [field.query(points[node], i) for i, node in enumerate(route_nodes)]
+    if any(not math.isfinite(sample['navmesh_geodesic_to_ap_m']) for sample in samples):
+        raise RuntimeError(f"AP in {scene_id} lacks native reachability to the reference route")
+    truth = [float(sample['rssi_truth_dbm']) for sample in samples]
+    measured = [float(sample['rssi_measured_dbm']) for sample in samples]
+    delta = [abs(a - b) for a, b in zip(truth, (approximate[n] for n in route_nodes)) if b is not None]
+    return {
+        'route_native_rssi_dbm': np.round(truth, 3).tolist(),
+        'route_measured_rssi_dbm': np.round(measured, 3).tolist(),
+        'shadow_db': np.round(shadow, 6).tolist(),
+        'wireless_config': config,
+        'initial_route_metrics': route_metrics(truth, lengths, config['weak_threshold_dbm'], config['outage_threshold_dbm']),
+        'preview_vs_native': {
+            'mean_absolute_db': float(np.mean(delta)) if delta else None,
+            'maximum_absolute_db': max(delta) if delta else None,
+            'grid_unreachable_nodes': sum(value is None for value in approximate),
+        },
+    }
+
+
 def prepare_task(pf,raw,route,spec,wireless):
     graph,route_nodes,base_count=graph_for_route(pf,raw,route,spec)
     points=np.asarray(graph.points);lengths=[float(np.linalg.norm(b-a)) for a,b in zip(route,route[1:])]
@@ -80,19 +106,7 @@ def prepare_task(pf,raw,route,spec,wireless):
     if not candidates:raise RuntimeError('No AP floor-proxy candidate for selected task; task is not replaced based on radio quality')
     default=min(candidates,key=lambda n:(float(np.linalg.norm((points[n]-target)[[0,2]])),n))
     config=dict(wireless,layout_id='single_floor_ap_review_'+str(raw['episode_id']),ap_floor_position=points[default].tolist())
-    field=SignalField(pf,raw['scene_id'],points[default],config)
-    shadow=[field._shadow(p) for p in points]
-    approx_dist=distances(graph.edges,default)
-    approx=[preview_rssi(p,points[default],d,s,config) for p,d,s in zip(points,approx_dist,shadow)]
-    # Native RSSI queries are expensive pathfinder calls. Query the reference
-    # route only; a full query at every display-grid node is unnecessary here.
-    route_samples=[field.query(points[n],sample_index) for sample_index,n in enumerate(route_nodes)]
-    if any(not math.isfinite(sample['navmesh_geodesic_to_ap_m']) for sample in route_samples):
-        raise RuntimeError(f"Initial AP lacks native reachability to reference route for episode {raw['episode_id']}")
-    route_values=[float(sample['rssi_truth_dbm']) for sample in route_samples]
-    route_measured_values=[float(sample['rssi_measured_dbm']) for sample in route_samples]
-    route_preview=[approx[n] for n in route_nodes]
-    delta=[abs(a-b) for a,b in zip(route_values,route_preview) if b is not None]
+    preview=wireless_preview(pf,raw['scene_id'],points,graph.edges,route_nodes,lengths,default,config)
     edges=[[a,b,round(float(length),6)] for a,row in enumerate(graph.edges) for b,length in row if a<b]
     return {'episode_id':str(raw['episode_id']),'trajectory_id':str(raw['trajectory_id']),
         'scene_id':raw['scene_id'],'instruction':raw['instruction']['instruction_text'],
@@ -101,13 +115,7 @@ def prepare_task(pf,raw,route,spec,wireless):
         'floor_y':float(raw['start_position'][1]),'nodes':np.round(points,6).tolist(),'edges':edges,
         'route_nodes':route_nodes,'route_lengths_m':lengths,'base_grid_nodes':base_count,
         'default_ap_node':default,'ap_candidate_nodes':candidates,
-        'default_ap_position':points[default].tolist(),'route_native_rssi_dbm':np.round(route_values,3).tolist(),
-        'route_measured_rssi_dbm':np.round(route_measured_values,3).tolist(),
-        'shadow_db':np.round(shadow,6).tolist(),'wireless_config':config,
-        'initial_route_metrics':route_metrics(route_values,lengths,config['weak_threshold_dbm'],config['outage_threshold_dbm']),
-        'preview_vs_native':{'mean_absolute_db':float(np.mean(delta)) if delta else None,
-                             'maximum_absolute_db':max(delta) if delta else None,
-                             'grid_unreachable_nodes':sum(v is None for v in approx)},
+        'default_ap_position':points[default].tolist(),**preview,
         'review_status':'draft_unreviewed_not_semantic_or_physical_ground_truth'}
 
 
