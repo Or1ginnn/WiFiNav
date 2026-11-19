@@ -32,3 +32,24 @@
 - 语义 PLY SHA256 `224ec2eda057c15c7822c3de74852576f8d28ce4d78b1ac4ba60337857d5549a`，house SHA256 `a4a2003cf551c5427c9910330739af4016c61aefc78c6a2381c23ff3f69b3b54`。
 - 入口 `scripts/run_rss_multiwall_pilot.py --input <配对输入> --config <多墙试点配置> --output <新目录>/report.json`。沿用项目内的 Python 3.11、Mitsuba/Dr.Jit CPU 环境和 LLVM 19，单批约 5.3 秒（脚本内部计时），模型调用数 0。
 - 原始结果在服务器 `runtime/diagnostics/rss_multiwall_pilot_20261119/report.json`（SHA256 `69910e5fcb1ca41f618356aea21a214b6f97e508312e243639b913913097007b`），日志为 `runtime/logs/rss_multiwall_pilot_20261119.log`。
+
+## 用户确认采用与五场景开发验收
+
+用户确认首版 RSSI 传播模型采用语义多墙。实际构建配置为 `configs/benchmark/single_floor_multiwall_dev_v1.json`，`rss_backend=semantic_multiwall`。开发验收沿用原审阅的 20 条路线及其各自的 AP 初值，按同一组损耗与墙面合并条件重算参考路线，每条任务生成四条曲线。使用同一 −75 dBm 仿真阈值，保留敏感分类。这个批次用于验证场景覆盖和接口；正式布局生成规则、穿透损耗和评测标签仍待校准。
+
+| 场景 | 地面位置对齐 | 四假设全程覆盖 | 假设敏感 | 四假设均含低于阈值的路段 |
+|---|---:|---:|---:|---:|
+| 17DRP5sb8fy | 149/149 | 3 | 1 | 0 |
+| 1LXtFkjw3qL | 160/160 | 2 | 2 | 0 |
+| 1pXnuDYAj8r | 213/213 | 1 | 2 | 1 |
+| 29hnd4uzFmX | 131/131 | 3 | 1 | 0 |
+| 2n8kARJN3HM | 174/174 | 2 | 2 | 0 |
+| 合计 | 827/827 | 11 | 8 | 1 |
+
+20/20 路线、80/80 剖面完整，全部语义网格可解析。807 个 AP→路线点链路中，242 个命中结构面。坐标核查独立使用 GLB 物理场景，包含 807 个参考采样位置和 20 个 AP 锚点。AP 坐标与原审阅批次逐条相等。旧两 AP 试点用新代码重算，340 个交点列表、全部曲线及 AP 排序逐项一致。
+
+敏感布局为 575、743、818、214、825、208、235、512，应优先核查墙面分类及穿透参数。493 在四组假设下都有低于阈值的参考路线段，范围 0.21–1.58 m，是否存在仍符合原指令的可在线替代路线待独立核查。当前结果是沿参考路线的模拟覆盖，语义映射与地面对齐通过提供的是工程证据。实际 RSSI、墙体损耗及真实掉线待实测验证。
+
+- 执行提交 `b986326352d65041a51aa2f0b3e0e5675d3f35a6`。配置 SHA256 `ff415158c21bc04a96122a22bed6178b199c8867c494db245cc3bd67e49c74fa`，固定原 AP 审计数据 SHA256 `436f47b920fc4466898ffd0843c6547385b887202eed1ab9114fc3efaf7984e3`。
+- 入口 `scripts/run_single_floor_multiwall_dev.py --data <原AP审阅数据> --config configs/benchmark/single_floor_multiwall_dev_v1.json --output <独立目录>/report.json`。沿用原 Mitsuba/LLVM 19 CPU 环境，4 个 CPU 核，脚本内计时 16.9 秒。未调用模型。
+- 报告 `runtime/diagnostics/single_floor_multiwall_dev_20261119/report.json`，SHA256 `14b0e78b3643365af2682ad4052360836e2d90d9da76529d297b951febbdd196`。逐场景语义资产、GLB、navmesh 哈希与逐点证据均在报告内。日志 `runtime/logs/single_floor_multiwall_dev_20261119.log`。
