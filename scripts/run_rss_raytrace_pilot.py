@@ -80,12 +80,12 @@ def free_space_check(config):
     return {"tx_effective_power_dbm": power, "max_error_db": float(np.max(error)), "cells": int(error.size)}
 
 
-def floor_check(scene, points, tolerance, labels):
+def floor_check(mi_scene, points, tolerance, labels):
     """Compare physical floor hits to known Habitat points after axis conversion."""
     transformed = np.array([gltf_xyz(p) for p in points])
     ray = mi.Ray3f(mi.Point3f(transformed[:, 0], transformed[:, 1], transformed[:, 2] + tolerance),
                      mi.Vector3f(0, 0, -1))
-    hit = scene.mi_scene.ray_intersect(ray)
+    hit = mi_scene.ray_intersect(ray)
     errors = np.abs(np.asarray(hit.p.z) - transformed[:, 2])
     matched = np.asarray(hit.is_valid()) & (errors <= tolerance)
     count = int(np.count_nonzero(matched))
@@ -211,7 +211,7 @@ def main():
             "pilot-mesh": {"type": "ply", "filename": str(mesh_ply), "bsdf": material},
         }))
         if alignment is None:
-            alignment = floor_check(scene, points + positions, config["height_alignment_tolerance_m"],
+            alignment = floor_check(scene.mi_scene, points + positions, config["height_alignment_tolerance_m"],
                                     labels + [f"ap:{layout['id']}" for layout in layouts])
             print("alignment", alignment, flush=True)
         add_transmitters(scene, config, [

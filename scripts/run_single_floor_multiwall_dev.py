@@ -51,9 +51,7 @@ def check_mesh_alignment(mesh_path, batch):
     for layout in batch["layouts"]:
         points.append(layout["ap_floor_xyz"])
         labels.append(f"ap:{layout['target_episode_id']}")
-    # Reuse the floor probe from the pilot. It only requires mi_scene.
-    from sionna.rt import Scene
-    return floor_check(Scene(mi_scene=scene), points, batch["config"]["height_alignment_tolerance_m"], labels)
+    return floor_check(scene, points, batch["config"]["height_alignment_tolerance_m"], labels)
 
 
 def run_scene(scene, tasks, asset_root, config):
