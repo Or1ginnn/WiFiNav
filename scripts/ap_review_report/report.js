@@ -15,13 +15,13 @@ const sceneName = task => task.scene_id.split("/").at(-2);
 const escape = value => String(value ?? "—").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
 const xyz = position => position.map(value => value.toFixed(3)).join(", ");
 const pointFor = (task, node) => node === task.default_ap_node ? task.default_ap_position : task.nodes[node];
-const emptyView = (extent = circleEnabled ? "ap" : "route") => ({zoom: 1, x: 0, y: 0, extent});
+const emptyView = (extent = "route") => ({zoom: 1, x: 0, y: 0, extent});
 const history = new Map();
-let taskIndex = 0, view = emptyView(), showSignal = !!multiwall || !topdown, saved = {};
+let taskIndex = 0, view = emptyView(circleEnabled ? "floor" : "route"), showSignal = !!multiwall || !topdown, saved = {};
 let assumption = multiwall ? Object.keys(tasks[0].multiwall.assumptions)[0] : null;
 let signalMode = "heatmap", gridCellPixels = 0;
 let viewRadius = 5, navOnly = false;
-let fullHeatmap = false;
+let fullHeatmap = circleEnabled;
 let showCandidates = !circleEnabled;
 let storageAvailable = true, drag = null, projection, previewCache;
 const map = $("map"), chart = $("chart");
@@ -82,7 +82,7 @@ function applyNode(node, remember = true) {
 }
 function chooseTask(index, scroll = false) {
   taskIndex = index;
-  view = emptyView(fullHeatmap ? "floor" : undefined);
+  view = emptyView(circleEnabled ? (fullHeatmap ? "floor" : "ap") : "route");
   $("hover").hidden = true;
   render();
   if (scroll) $("workspace").scrollIntoView({block: "start"});
@@ -633,18 +633,15 @@ function render() {
     $("initialApLabel").textContent = "已计算 AP";
     const [band] = assumption.split("_");
     const {wall, door, window: glass} = multiwall.config.loss_db_per_crossing[band];
+    $("assumptionBadge").textContent = assumptionLabel(assumption);
     $("assumptionDetails").textContent = "墙 " + wall + " / 门 " + door + " / 窗 " + glass + " dB 每处";
     $("apNote").textContent = edited ? "草稿坐标已保存。图上覆盖和曲线仍对应已计算 AP，导出后需要重新计算草稿位置。"
       : "坐标单位为米，Y 为地面锚点。多墙计算使用地面以上 " + multiwall.config.ap_height_above_floor_m + " m 的发射位置。";
     $("radiusOption").hidden = !ring;
-    $("fullHeatmapOption").hidden = !ring;
     const extent = ring ? sampledCoverage(task, outage) : null;
     const mapDescription = ring ?
-      (fullHeatmap ? "整层热力图显示全部已采样位置。" : "当前热力图裁到圈内。") +
-      "虚线为距已计算 AP " + viewRadius + " m 的参考圈。圈外有 " + extent.outside +
-      " 个采样点达到 " + outage + " dBm，" +
-      (extent.farthest === null ? "本层网格没有达标点。" :
-        "已采样的最远达标点距 AP " + extent.farthest.toFixed(1) + " m。") :
+      "虚线为 " + viewRadius + " m 参照圈 · 圈外 " + extent.outside + " 个采样点 ≥ " + outage + " dBm" +
+      (extent.farthest === null ? "。" : " · 最远达标点 " + extent.farthest.toFixed(1) + " m。") :
       signalMode === "range" && showSignal ?
         "绿色轮廓显示当前假设下达到 " + outage + " dBm 的已采样区域。留白包含未达阈值或未采样位置。" :
         "场景底图保留路线、AP 标记和可选点。";
@@ -673,24 +670,23 @@ $("signalLayer").onclick = () => setLayer(true);
 $("rangeLayer").onclick = () => setLayer(true, "range");
 $("floorLayer").onclick = () => setLayer(false);
 $("floorLayer").textContent = sceneViews ? "场景底图" : topdown ? "Habitat 底图" : "可走网格";
-$("fitFloor").hidden = !topdown;
-$("fitFloor").onclick = () => { view = emptyView("floor"); drawMap(); };
-$("fit").onclick = () => { view = emptyView("route"); drawMap(); };
-$("fitAp").hidden = !circleEnabled;
-$("fitAp").onclick = () => { view = emptyView("ap"); drawMap(); };
-$("viewRadius").onchange = event => {
-  viewRadius = Number(event.target.value);
-  if (!fullHeatmap) view = emptyView("ap");
+$("floorViewOption").hidden = !topdown;
+$("apViewOption").hidden = !circleEnabled;
+$("mapView").onchange = event => {
+  view = emptyView(event.target.value);
+  event.target.value = "";
   $("hover").hidden = true;
-  render();
+  drawMap();
 };
-$("fullHeatmap").onchange = event => {
-  fullHeatmap = event.target.checked;
+$("heatDisplay").onchange = event => {
+  fullHeatmap = event.target.value === "full";
+  if (!fullHeatmap) viewRadius = Number(event.target.value);
   view = emptyView(fullHeatmap ? "floor" : "ap");
   $("hover").hidden = true;
   render();
 };
 $("navOption").hidden = !sceneViews;
+$("displayOptions").hidden = !(sceneViews || multiwall);
 $("navOnly").onchange = event => { navOnly = event.target.checked; render(); };
 $("candidateOption").hidden = !circleEnabled;
 $("showCandidates").checked = showCandidates;
@@ -948,7 +944,8 @@ if (multiwall) {
   $("subtitle").textContent = sceneGroups.size + " 个场景 · " + tasks.length + " 个 AP 布局 · 按墙体损耗假设审阅覆盖";
   $("overviewLink").href = "#layouts";
   $("overviewLink").textContent = "查看全部 AP 坐标 ↓";
-  $("signalLayer").textContent = circleEnabled ? "AP 热力圈" : "RSSI 热图";
+  $("signalLayer").textContent = "信号热图";
+  $("rangeLayer").textContent = "达标范围";
   $("rangeLayer").hidden = !topdown;
   $("assumptionBar").hidden = false;
   $("assumption").replaceChildren(...Object.keys(tasks[0].multiwall.assumptions).map(key => new Option(assumptionLabel(key), key)));

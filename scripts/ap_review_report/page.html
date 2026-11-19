@@ -45,32 +45,47 @@
             <button id="signalLayer" aria-pressed="false">叠加 RSSI</button>
             <button id="rangeLayer" aria-pressed="false" hidden>覆盖范围</button>
           </div>
-          <div class="map-actions" role="group" aria-label="地图缩放">
-            <button id="zoomOut" aria-label="缩小地图">−</button>
-            <button id="zoomIn" aria-label="放大地图">+</button>
-            <button id="fitFloor">整层</button>
-            <button id="fitAp" hidden>聚焦 AP</button>
-            <button id="fit">回到路线</button>
-          </div>
-        </div>
-        <div class="assumption-bar" id="assumptionBar" hidden>
-          <label for="assumption">多墙仿真假设</label><select id="assumption"></select>
-          <span class="muted" id="assumptionDetails"></span>
-          <label id="radiusOption" hidden>热力圈半径 <select id="viewRadius"><option value="3">3 m</option><option value="5" selected>5 m</option><option value="8">8 m</option></select></label>
-          <label id="fullHeatmapOption" hidden><input id="fullHeatmap" type="checkbox"> 显示整层热力图</label>
-          <label class="nav-toggle" id="navOption" hidden><input id="navOnly" type="checkbox"> 仅看可走区域</label>
+          <label id="radiusOption" class="heat-display" hidden>
+            热图范围
+            <select id="heatDisplay">
+              <option value="full">整层</option>
+              <option value="3">3 米圈</option>
+              <option value="5">5 米圈</option>
+              <option value="8">8 米圈</option>
+            </select>
+          </label>
         </div>
         <div class="map-stage" id="mapStage">
           <canvas id="map" aria-label="参考路线、AP 和可选节点地图"></canvas>
           <div class="map-label" id="mapLabel">俯视 X–Z · 米</div>
           <div id="hover" class="map-tooltip" hidden></div>
+          <div class="map-actions" role="group" aria-label="地图缩放">
+            <button id="zoomOut" aria-label="缩小地图">−</button>
+            <button id="zoomIn" aria-label="放大地图">+</button>
+            <select id="mapView" aria-label="定位地图">
+              <option value="" disabled selected>定位</option>
+              <option value="floor" id="floorViewOption">整层场景</option>
+              <option value="route">回到路线</option>
+              <option value="ap" id="apViewOption">聚焦 AP</option>
+            </select>
+          </div>
         </div>
-        <div class="legend">
-          <span><i class="line route"></i>参考路线</span><span id="candidateLegend"><i class="dot candidate"></i>可选 AP</span>
-          <span><i class="dot access"></i><span id="apLegend">当前 AP</span></span><span id="initialLegend"><i class="dot origin"></i><span id="initialApLabel">初始 AP</span></span>
+        <div class="map-meta">
+          <div class="legend">
+            <span><i class="line route"></i>参考路线</span><span id="candidateLegend"><i class="dot candidate"></i>可选 AP</span>
+            <span><i class="dot access"></i><span id="apLegend">当前 AP</span></span><span id="initialLegend"><i class="dot origin"></i><span id="initialApLabel">初始 AP</span></span>
+          </div>
+          <div class="legend" id="coverageLegend"></div>
         </div>
-        <div class="legend" id="coverageLegend"></div>
         <p class="muted map-note" id="mapNote"></p>
+        <details class="display-options" id="displayOptions" hidden>
+          <summary>显示设置 <span class="muted" id="assumptionBadge"></span></summary>
+          <div class="assumption-bar" id="assumptionBar" hidden>
+            <label for="assumption">墙损假设</label><select id="assumption"></select>
+            <span class="muted" id="assumptionDetails"></span>
+          </div>
+          <label class="muted" id="navOption" hidden><input id="navOnly" type="checkbox"> 仅看可走区域</label>
+        </details>
       </section>
       <aside class="panel inspector">
         <h2>AP 位置</h2>
