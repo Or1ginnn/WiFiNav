@@ -336,30 +336,86 @@ function coverageFor(task, floor, mode) {
   if (range) {
     const width = bitmap.width, height = bitmap.height;
     const image = raster.getImageData(0, 0, width, height);
-    const solid = Uint8Array.from({length: width * height}, (_, i) => image.data[i * 4 + 3] > 127 ? 1 : 0);
-    const outline = new Path2D();
-    function edge(x1, y1, x2, y2) {
-      outline.moveTo(x1, y1);
-      outline.lineTo(x2, y2);
-    }
-    // Trace the exposed edges of the threshold mask, including holes and islands.
-    for (let row = 0; row < height; row++) {
-      for (let col = 0; col < width; col++) {
-        const i = row * width + col;
-        if (!solid[i]) continue;
-        if (row === 0 || !solid[i - width]) edge(col, row, col + 1, row);
-        if (row === height - 1 || !solid[i + width]) edge(col, row + 1, col + 1, row + 1);
-        if (col === 0 || !solid[i - 1]) edge(col, row, col, row + 1);
-        if (col === width - 1 || !solid[i + 1]) edge(col + 1, row, col + 1, row + 1);
-        image.data.set([89, 169, 142, 115], i * 4);
-      }
+    for (let i = 0; i < image.data.length; i += 4) {
+      if (image.data[i + 3]) image.data.set([89, 169, 142, 115], i);
     }
     raster.putImageData(image, 0, 0);
-    estimate.coverageOutline = outline;
   }
   estimate.bitmaps[mode] = bitmap;
   return bitmap;
 }
+
+const cellKey = (col, row) => col + "," + row;
+const gridDirections = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
+function traceOuterCoverage(connected, startCol, startRow) {
+  // Walk clockwise along grid edges, with the connected cells on the right.
+  // At a shared corner, follow the same filled cell before crossing the corner.
+  const rightCells = [[0, 0], [-1, 0], [-1, -1], [0, -1]];
+  const leftCells = [[0, -1], [0, 0], [-1, 0], [-1, -1]];
+  const path = new Path2D();
+  path.moveTo(startCol, startRow);
+  let col = startCol, row = startRow, direction = 0;
+  do {
+    const [dx, dy] = gridDirections[direction];
+    col += dx;
+    row += dy;
+    path.lineTo(col, row);
+    direction = [(direction + 1) % 4, direction, (direction + 3) % 4].find(next => {
+      const [rx, ry] = rightCells[next], [lx, ly] = leftCells[next];
+      return connected.has(cellKey(col + rx, row + ry)) && !connected.has(cellKey(col + lx, row + ly));
+    });
+  } while (col !== startCol || row !== startRow || direction !== 0);
+  path.closePath();
+  return path;
+}
+
+function apCoverageFor(task) {
+  const estimate = preview(task);
+  if (estimate.apCoverage !== undefined) return estimate.apCoverage;
+  const step = spec.map_grid_resolution_m;
+  const [originX, , originZ] = task.nodes[0];
+  const gridPoint = ([x, , z]) => [Math.round((x - originX) / step), Math.round((z - originZ) / step)];
+  const threshold = multiwall.config.outage_threshold_dbm;
+  const eligible = new Set();
+  for (let i = 0; i < task.base_grid_nodes; i++) {
+    const value = estimate.signal[i];
+    if (value !== null && value >= threshold) eligible.add(cellKey(...gridPoint(task.nodes[i])));
+  }
+  const [apCol, apRow] = gridPoint(task.default_ap_position);
+  const seed = cellKey(apCol, apRow);
+  if (!eligible.has(seed)) {
+    estimate.apCoverage = null;
+    return null;
+  }
+  const connected = new Set([seed]);
+  const queue = [[apCol, apRow]];
+  let left = apCol, right = apCol, top = apRow, bottom = apRow, firstCol = apCol;
+  for (const [col, row] of queue) {
+    if (row < top || (row === top && col < firstCol)) firstCol = col;
+    left = Math.min(left, col);
+    right = Math.max(right, col);
+    top = Math.min(top, row);
+    bottom = Math.max(bottom, row);
+    for (const [dx, dy] of gridDirections) {
+      const next = [col + dx, row + dy];
+      const key = cellKey(...next);
+      if (!eligible.has(key) || connected.has(key)) continue;
+      connected.add(key);
+      queue.push(next);
+    }
+  }
+  // The vertices of each sampling cell lie half a grid step from its center.
+  const x = originX - step / 2, z = originZ - step / 2;
+  estimate.apCoverage = {
+    outline: traceOuterCoverage(connected, firstCol, top),
+    origin: [x, 0, z],
+    bounds: {left: x + left * step, right: x + (right + 1) * step,
+      top: z + top * step, bottom: z + (bottom + 1) * step}
+  };
+  return estimate.apCoverage;
+}
+
 function boundaryVisible() {
   return topdown && multiwall && showSignal && (signalMode === "range" || showBoundary);
 }
@@ -372,13 +428,17 @@ function drawMap() {
   const floor = floorFor(task), entireFloor = floor && view.extent === "floor";
   const [ax, , az] = task.default_ap_position;
   const atAp = view.extent === "ap";
+  const coverage = boundaryVisible() ? apCoverageFor(task) : null;
   const apFocusHalfWidth = 5;
-  const left = atAp ? ax - apFocusHalfWidth : entireFloor ? floor.left : Math.min(...xs);
-  const right = atAp ? ax + apFocusHalfWidth : entireFloor ? floor.left + floor.width : Math.max(...xs);
-  const top = atAp ? az - apFocusHalfWidth : entireFloor ? floor.top : Math.min(...zs);
-  const bottom = atAp ? az + apFocusHalfWidth : entireFloor ? floor.top + floor.height : Math.max(...zs);
+  const apBounds = coverage?.bounds || {left: ax - apFocusHalfWidth, right: ax + apFocusHalfWidth,
+    top: az - apFocusHalfWidth, bottom: az + apFocusHalfWidth};
+  const left = atAp ? apBounds.left : entireFloor ? floor.left : Math.min(...xs);
+  const right = atAp ? apBounds.right : entireFloor ? floor.left + floor.width : Math.max(...xs);
+  const top = atAp ? apBounds.top : entireFloor ? floor.top : Math.min(...zs);
+  const bottom = atAp ? apBounds.bottom : entireFloor ? floor.top + floor.height : Math.max(...zs);
   const padding = atAp ? 1.15 : 3;
-  const scale = Math.min(width / (right - left + padding), height / (bottom - top + padding)) * view.zoom;
+  const availableHeight = atAp && coverage ? height - 96 : height;
+  const scale = Math.min(width / (right - left + padding), availableHeight / (bottom - top + padding)) * view.zoom;
   projection = ([x, , z]) => [
     width / 2 + view.x + (x - (left + right) / 2) * scale,
     height / 2 + view.y + (z - (top + bottom) / 2) * scale
@@ -403,20 +463,19 @@ function drawMap() {
       ctx.globalAlpha = texturedReview && signalMode === "heatmap" ? .80 : .86;
       ctx.drawImage(coverageFor(task, floor, signalMode), x, y, floor.width * scale, floor.height * scale);
     }
-    if (boundaryVisible()) {
-      coverageFor(task, floor, "range");
-      const path = preview(task).coverageOutline;
-      const pixelScale = floor.step * scale;
-      ctx.translate(x, y);
-      ctx.scale(pixelScale, pixelScale);
+    if (coverage) {
+      const [outlineX, outlineY] = projection(coverage.origin);
+      ctx.translate(outlineX, outlineY);
+      ctx.scale(cell, cell);
       ctx.globalAlpha = 1;
+      ctx.lineJoin = "round";
       ctx.lineCap = "round";
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 4.5 / pixelScale;
-      ctx.stroke(path);
+      ctx.lineWidth = 5.5 / cell;
+      ctx.stroke(coverage.outline);
       ctx.strokeStyle = "#0d6557";
-      ctx.lineWidth = 2 / pixelScale;
-      ctx.stroke(path);
+      ctx.lineWidth = 2.5 / cell;
+      ctx.stroke(coverage.outline);
     }
     ctx.restore();
   } else {
@@ -646,8 +705,10 @@ function render() {
   $("coverageLegend").hidden = !showSignal;
   $("candidateLegend").hidden = !showCandidates;
   $("boundaryOption").hidden = !(multiwall && topdown && heatmap);
-  $("boundaryLegend").hidden = !boundaryVisible();
-  $("boundaryLabel").textContent = "覆盖边界 ≥ " + outage + " dBm";
+  const coverage = boundaryVisible() ? apCoverageFor(task) : null;
+  $("boundaryLegend").hidden = !coverage;
+  $("boundaryLabel").textContent = "AP 覆盖圈 ≥ " + outage + " dBm";
+  $("apViewOption").textContent = coverage ? "聚焦 AP 覆盖圈" : "聚焦 AP";
   if (multiwall) {
     $("initialLegend").hidden = !edited;
     $("apLegend").textContent = edited ? "草稿 AP" : "已计算 AP";
@@ -663,7 +724,8 @@ function render() {
       const {eligible, farthest} = sampledCoverage(task, outage);
       mapDescription = eligible + " 个采样点 ≥ " + outage + " dBm";
       mapDescription += farthest === null ? "。" : " · 最远达标点距 AP " + farthest.toFixed(1) + " m。";
-      if (boundaryVisible()) mapDescription += " 绿色轮廓沿已采样的达标区域描绘，中间可有缺口。";
+      if (coverage) mapDescription += " 绿色外圈围住 AP 所在的连续达标网格区。圈内细节可看「达标范围」。";
+      else if (boundaryVisible()) mapDescription += " 当前 AP 所在网格没有达标采样。";
     }
     $("mapNote").textContent = mapDescription +
       (edited ? " 紫色空心标记是已计算 AP，橙色是待重算草稿。" : showCandidates ? " 点击空心候选点可以试放 AP。" : "");
