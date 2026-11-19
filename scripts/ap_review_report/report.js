@@ -356,19 +356,27 @@ function drawMap() {
   const floor = floorFor(task), entireFloor = floor && view.extent === "floor";
   const [ax, , az] = task.default_ap_position;
   const atAp = view.extent === "ap";
-  const left = atAp ? ax - viewRadius : entireFloor ? floor.left : Math.min(...xs);
-  const right = atAp ? ax + viewRadius : entireFloor ? floor.left + floor.width : Math.max(...xs);
-  const top = atAp ? az - viewRadius : entireFloor ? floor.top : Math.min(...zs);
-  const bottom = atAp ? az + viewRadius : entireFloor ? floor.top + floor.height : Math.max(...zs);
+  const ring = circleEnabled && showSignal && signalMode === "heatmap" && !fullHeatmap;
+  let left = atAp ? ax - viewRadius : entireFloor ? floor.left : Math.min(...xs);
+  let right = atAp ? ax + viewRadius : entireFloor ? floor.left + floor.width : Math.max(...xs);
+  let top = atAp ? az - viewRadius : entireFloor ? floor.top : Math.min(...zs);
+  let bottom = atAp ? az + viewRadius : entireFloor ? floor.top + floor.height : Math.max(...zs);
+  if (ring && !atAp) {
+    left = Math.min(left, ax - viewRadius);
+    right = Math.max(right, ax + viewRadius);
+    top = Math.min(top, az - viewRadius);
+    bottom = Math.max(bottom, az + viewRadius);
+  }
   const padding = atAp ? 1.15 : 3;
-  const scale = Math.min(width / (right - left + padding), height / (bottom - top + padding)) * view.zoom;
+  // Keep the fitted circle clear of the map label and the controls along the edges.
+  const fitHeight = ring ? height - 96 : height;
+  const scale = Math.min(width / (right - left + padding), fitHeight / (bottom - top + padding)) * view.zoom;
   projection = ([x, , z]) => [
     width / 2 + view.x + (x - (left + right) / 2) * scale,
     height / 2 + view.y + (z - (top + bottom) / 2) * scale
   ];
   const cell = spec.map_grid_resolution_m * scale;
   gridCellPixels = cell;
-  const ring = circleEnabled && showSignal && signalMode === "heatmap";
   const [apX, apY] = projection(task.default_ap_position);
   if (floor) {
     const [x, y] = projection([floor.left, 0, floor.top]);
@@ -385,14 +393,14 @@ function drawMap() {
         source.height * source.meters_per_pixel * scale);
     }
     if (showSignal) {
-      if (ring && !fullHeatmap) {
+      if (ring) {
         ctx.beginPath();
         ctx.arc(apX, apY, viewRadius * scale, 0, 2 * Math.PI);
         ctx.clip();
         ctx.fillStyle = "#f9faf333";
         ctx.fillRect(0, 0, width, height);
       }
-      ctx.globalAlpha = ring ? .80 : .86;
+      ctx.globalAlpha = circleEnabled && signalMode === "heatmap" ? .80 : .86;
       ctx.drawImage(coverageFor(task, floor), x, y, floor.width * scale, floor.height * scale);
     }
     ctx.restore();
@@ -580,8 +588,8 @@ function render() {
   $("sceneLabel").textContent = sceneName(task) + " · 路径组 " + task.trajectory_id;
   const floorName = sceneViews && !navOnly ? "Matterport 场景俯视" : "Habitat 可走区域";
   const floorLabel = topdown ? floorName + " · Y = " + task.floor_y.toFixed(2) + " m" : "俯视 X–Z · 米";
-  const ring = circleEnabled && showSignal && signalMode === "heatmap";
-  $("mapLabel").textContent = floorLabel + (ring ? (fullHeatmap ? " · 整层热力图" : " · " + viewRadius + " m 热力圈") :
+  const heatmap = circleEnabled && showSignal && signalMode === "heatmap";
+  $("mapLabel").textContent = floorLabel + (heatmap ? (fullHeatmap ? " · 整层热力图" : " · 半径 " + viewRadius + " m 热力圈") :
     multiwall && showSignal ? " · 已计算 AP 覆盖" : "");
   $("taskTitle").textContent = "任务 " + task.episode_id;
   $("instruction").textContent = task.instruction;
@@ -622,7 +630,7 @@ function render() {
     [colors.outage, "断连 < " + outage],
     ...(multiwall ? [] : [[colors.missing, "网格不可达"]])
   ];
-  $("coverageLegend").innerHTML = ring ?
+  $("coverageLegend").innerHTML = heatmap ?
     '<span class="signal-scale"><span class="ramp"></span><span class="ticks"><span>≤−95</span><span>−85</span><span>−75</span><span>−63</span><span>≥−48 dBm</span></span></span><span>弱 ← 信号 → 强</span>' :
     bands.map(([fill, label]) => '<span><i class="swatch" style="background:' + fill + '"></i>' + label + '</span>').join("") + "<span>单位 dBm</span>";
   $("coverageLegend").hidden = !showSignal;
@@ -637,14 +645,17 @@ function render() {
     $("assumptionDetails").textContent = "墙 " + wall + " / 门 " + door + " / 窗 " + glass + " dB 每处";
     $("apNote").textContent = edited ? "草稿坐标已保存。图上覆盖和曲线仍对应已计算 AP，导出后需要重新计算草稿位置。"
       : "坐标单位为米，Y 为地面锚点。多墙计算使用地面以上 " + multiwall.config.ap_height_above_floor_m + " m 的发射位置。";
-    $("radiusOption").hidden = !ring;
-    const extent = ring ? sampledCoverage(task, outage) : null;
-    const mapDescription = ring ?
-      "虚线为 " + viewRadius + " m 参照圈 · 圈外 " + extent.outside + " 个采样点 ≥ " + outage + " dBm" +
-      (extent.farthest === null ? "。" : " · 最远达标点 " + extent.farthest.toFixed(1) + " m。") :
-      signalMode === "range" && showSignal ?
-        "绿色轮廓显示当前假设下达到 " + outage + " dBm 的已采样区域。留白包含未达阈值或未采样位置。" :
-        "场景底图保留路线、AP 标记和可选点。";
+    $("radiusOption").hidden = !heatmap;
+    let mapDescription = "场景底图保留路线、AP 标记和可选点。";
+    if (heatmap) {
+      const {eligible, outside, farthest} = sampledCoverage(task, outage);
+      mapDescription = fullHeatmap ?
+        eligible + " 个采样点 ≥ " + outage + " dBm" :
+        "虚线是热力图显示范围 · 圈外仍有 " + outside + " 个采样点 ≥ " + outage + " dBm";
+      mapDescription += farthest === null ? "。" : " · 最远达标点距 AP " + farthest.toFixed(1) + " m。";
+    } else if (signalMode === "range" && showSignal) {
+      mapDescription = "绿色轮廓显示当前假设下达到 " + outage + " dBm 的已采样区域。留白包含未达阈值或未采样位置。";
+    }
     $("mapNote").textContent = mapDescription +
       (edited ? " 紫色空心标记是已计算 AP，橙色是待重算草稿。" : showCandidates ? " 点击空心候选点可以试放 AP。" : "");
   }
@@ -727,15 +738,16 @@ function closestCandidate(x, y) {
 function sampledCoverage(task, threshold) {
   const [ax, , az] = task.default_ap_position;
   const signal = preview(task).signal;
-  let outside = 0, farthest = null;
+  let eligible = 0, outside = 0, farthest = null;
   for (let i = 0; i < task.base_grid_nodes; i++) {
     if (signal[i] === null || signal[i] < threshold) continue;
+    eligible++;
     const [x, , z] = task.nodes[i];
     const distance = Math.hypot(x - ax, z - az);
     if (distance > viewRadius) outside++;
     farthest = farthest === null ? distance : Math.max(farthest, distance);
   }
-  return {outside, farthest};
+  return {eligible, outside, farthest};
 }
 function sampledRssiAt(x, y) {
   const task = current();
