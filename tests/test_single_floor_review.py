@@ -22,6 +22,28 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(status,'excluded')
         self.assertIn('explicit_vertical_instruction',reasons)
 
+    def test_nearby_stairs_and_floor_descriptors_are_not_vertical_commands(self):
+        for text in (
+            'Walk down the hallway, past the stairs.',
+            'Walk around the upstairs hallway.',
+            'Walk down two steps toward the table.',
+            'Stop at the bottom of the stairs.',
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(self.status(text)[0], 'review')
+
+    def test_explicit_stair_and_elevator_movements(self):
+        for text in (
+            'Go straight down the hall and up the stairs.',
+            'Head upstairs and stop.',
+            'Descend the staircase.',
+            'Take the elevator.',
+        ):
+            with self.subTest(text=text):
+                status, _, evidence = self.status(text)
+                self.assertEqual(status, 'excluded')
+                self.assertTrue(evidence['vertical_phrase'])
+
     def test_ambiguous_and_negated_stairs_require_review(self):
         self.assertEqual(self.status('Stop near the stairs')[0],'review')
         self.assertEqual(self.status('Do not go up the stairs')[0],'review')

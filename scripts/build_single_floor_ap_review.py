@@ -5,6 +5,7 @@ from datetime import datetime,timezone
 import gzip
 import hashlib
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -86,6 +87,8 @@ def prepare_task(pf,raw,route,spec,wireless):
     # Native RSSI queries are expensive pathfinder calls. Query the reference
     # route only; a full query at every display-grid node is unnecessary here.
     route_samples=[field.query(points[n],sample_index) for sample_index,n in enumerate(route_nodes)]
+    if any(not math.isfinite(sample['navmesh_geodesic_to_ap_m']) for sample in route_samples):
+        raise RuntimeError(f"Initial AP lacks native reachability to reference route for episode {raw['episode_id']}")
     route_values=[float(sample['rssi_truth_dbm']) for sample in route_samples]
     route_measured_values=[float(sample['rssi_measured_dbm']) for sample in route_samples]
     route_preview=[approx[n] for n in route_nodes]
@@ -124,6 +127,7 @@ def main():
         if str(e['episode_id']) not in gt:status,reasons,info='excluded',['missing_dense_gt'],{}
         else:status,reasons,info=scope_status(e['instruction']['instruction_text'],e['start_position'],[g['position'] for g in e['goals']],e['reference_path'],gt[str(e['episode_id'])]['locations'],spec['height_tolerance_m'],spec['height_epsilon_m'])
         row={'episode_id':str(e['episode_id']),'trajectory_id':str(e['trajectory_id']),'scene_id':e['scene_id'],
+             'instruction':e['instruction']['instruction_text'],
              'scope_status':status,'reasons':reasons,**info,'selection_status':'not_selected_budget' if status=='candidate' else status,
              'native_geometry_check':'not_run'}
         if row['episode_id'] in row_by_id:raise ValueError('Duplicate source episode')
@@ -163,7 +167,7 @@ def main():
         'execution_commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=PROJECT,text=True).strip(),
         'model_calls':0,'model_revision':None,'model_use':'not_applicable_cpu_construction','gpu_rendering':False,'specification':spec,'statistics':stats,'scene_checks':scene_records,
         'source_sha256':{str(p.relative_to(PROJECT)):sha(p) for p in [source,gtfile,spec_path,Path(__file__).resolve(),PROJECT/'src/connectivity_vln/benchmark/single_floor.py',PROJECT/spec['wireless_base_config'],PROJECT/'src/connectivity_vln/navigation/weighted_planner.py',PROJECT/'src/connectivity_vln/signal_simulation/route_a.py']},
-        'field_note':'Initial map uses native-navmesh route_a latent proxy. Edited map is a separately labelled grid-geodesic preview; native revalidation required.',
+        'field_note':'Both initial and edited maps use grid-geodesic previews. The initial reference route uses native-navmesh route_a queries; edits require native revalidation.',
         'not_a_held_out_or_navigation_result':True}
     for name,obj in [('source_scope_audit.json',{'metadata':metadata,'episodes':rows}),('ap_review_data.json',{'metadata':metadata,'tasks':selected})]:
         (out/name).write_text(json.dumps(obj,ensure_ascii=False,allow_nan=False,separators=(',',':'))+'\n')

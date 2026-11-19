@@ -3,9 +3,20 @@ import heapq
 import math
 import re
 
-VERTICAL = re.compile(r'\b(?:up|down|ascend\w*|descend\w*|climb\w*)\b.{0,35}\b(?:stairs?|staircase|steps?|flight)\b|\b(?:upstairs|downstairs|up-stairs|down-stairs)\b|\b(?:take|use|enter)\b.{0,20}\b(?:elevator|lift)\b', re.I)
-AMBIGUOUS = re.compile(r'\b(?:stairs?|staircase|steps?|elevator|lift|landing|upper|lower|second floor|third floor|next floor)\b', re.I)
-NEGATION = re.compile(r"\b(?:not|never|avoid|don't|without)\b", re.I)
+_DETERMINER = r'(?:(?:the|a|one|two|first|second|next|short|small|few)\s+){0,4}'
+_STAIR = r'(?:stairs?|staircases?|flights?(?:\s+of\s+(?:stairs|steps))?|sets?\s+of\s+(?:stairs|steps))'
+VERTICAL = re.compile(
+    rf'\b(?:(?:up|down)\s+{_DETERMINER}{_STAIR}'
+    rf'|(?:ascend|descend|climb)\s+(?:(?:up|down)\s+)?{_DETERMINER}{_STAIR}'
+    r'|(?:go|walk|move|head|proceed|continue|run|come|turn)\s+(?:(?:directly|straight|back)\s+)?(?:up|down)-?stairs'
+    r'|(?:take|use)\s+(?:(?:the|an)\s+)?(?:elevator|lift))\b',
+    re.I,
+)
+AMBIGUOUS = re.compile(
+    r'\b(?:stairs?|staircases?|steps?|(?:up|down)-?stairs|elevator|lift|landing|upper|lower|second floor|third floor|next floor)\b',
+    re.I,
+)
+NEGATION = re.compile(r"\b(?:not|never|avoid|don['’]t|without|instead of)\b", re.I)
 
 
 def scope_status(text, start, goals, reference, dense_gt, tolerance=.2, epsilon=1e-4):
@@ -17,6 +28,8 @@ def scope_status(text, start, goals, reference, dense_gt, tolerance=.2, epsilon=
             'max_height_from_start_m':max(abs(y-start[1]) for y in ys)}
     reasons = []
     vertical = VERTICAL.search(text)
+    if vertical:
+        info['vertical_phrase'] = vertical.group()
     if vertical and not NEGATION.search(text):
         reasons.append('explicit_vertical_instruction')
     if reasons:
