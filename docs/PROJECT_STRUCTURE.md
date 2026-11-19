@@ -164,3 +164,5 @@ WIFI+Nav/
 - `docs/experiments/empty_recovery_validation_2026-11-19.md`：3次工程回归已结束，定点fallback验收通过但导航方法未通过收益门。
 
 - `docs/experiments/bm1_schema_dev_2026-11-19.md`：6180a8d开发schema在固定10任务/30case的实际CPU验证与hash；非正式资格/发布验收。
+
+- `docs/design/bm3_radio_and_refusal_v0.md`、`src/connectivity_vln/evaluation/radio_metrics_v1.py`、`tests/test_radio_metrics_v1.py`：路线兼容AP/拒绝/跨层规范与独立latent暴露参考计算器；不替换旧评分，在线机制待实现。
