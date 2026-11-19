@@ -85,7 +85,9 @@ def prepare_task(pf,raw,route,spec,wireless):
     approx=[preview_rssi(p,points[default],d,s,config) for p,d,s in zip(points,approx_dist,shadow)]
     # Native RSSI queries are expensive pathfinder calls. Query the reference
     # route only; a full query at every display-grid node is unnecessary here.
-    route_values=[float(field.query(points[n],0)['rssi_truth_dbm']) for n in route_nodes]
+    route_samples=[field.query(points[n],sample_index) for sample_index,n in enumerate(route_nodes)]
+    route_values=[float(sample['rssi_truth_dbm']) for sample in route_samples]
+    route_measured_values=[float(sample['rssi_measured_dbm']) for sample in route_samples]
     route_preview=[approx[n] for n in route_nodes]
     delta=[abs(a-b) for a,b in zip(route_values,route_preview) if b is not None]
     edges=[[a,b,round(float(length),6)] for a,row in enumerate(graph.edges) for b,length in row if a<b]
@@ -97,6 +99,7 @@ def prepare_task(pf,raw,route,spec,wireless):
         'route_nodes':route_nodes,'route_lengths_m':lengths,'base_grid_nodes':base_count,
         'default_ap_node':default,'ap_candidate_nodes':candidates,
         'default_ap_position':points[default].tolist(),'route_native_rssi_dbm':np.round(route_values,3).tolist(),
+        'route_measured_rssi_dbm':np.round(route_measured_values,3).tolist(),
         'shadow_db':np.round(shadow,6).tolist(),'wireless_config':config,
         'initial_route_metrics':route_metrics(route_values,lengths,config['weak_threshold_dbm'],config['outage_threshold_dbm']),
         'preview_vs_native':{'mean_absolute_db':float(np.mean(delta)) if delta else None,
