@@ -210,3 +210,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 本机 v6 报告 `runtime/reports/single_floor_ap_review_20261119_v6/index.html`。服务器四核 CPU 从已校验的 GLB 生成纹理切片，结果为 `runtime/diagnostics/ap_scene_views_20261119_v3/views.json`，源色彩通过项目内 Basis Universal v1_60 解码器读取。浏览器直接加载嵌入图，无需服务。
 
 2026-11-20 草稿重算验收复用 Habitat 0.3.0 与 `runtime/envs/sionna_rt_2_2_0_py311`。CPU 产物在 `runtime/diagnostics/single_floor_ap_revision_smoke_20261120/`，本机生成测试 HTML 后用 Chrome 检查。用户审阅入口仍是本机 v12。见[草稿验收及命令](experiments/single_floor_ap_review_2026-11-19.md#ap-草稿验收与重算)。
+
+同日 BM1/BM2 单层诊断复用 Habitat 0.3.0 环境的 Python，在 CPU 读取已生成的导航图和多墙数据。执行提交 `2f337e7`，服务器结果与本机逐字节一致，见[诊断记录](experiments/single_floor_route_opportunity_2026-11-20.md#独立验证结果)。
