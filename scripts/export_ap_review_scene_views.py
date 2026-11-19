@@ -44,7 +44,7 @@ class Textures:
             raise ValueError("Mesh buffer chunk missing")
         self.material = {row["name"]: row for row in self.gltf["materials"]}
 
-    @lru_cache(maxsize=8)
+    @lru_cache(maxsize=12)
     def decode(self, image_index):
         image = self.gltf["images"][image_index]
         view = self.gltf["bufferViews"][image["bufferView"]]
@@ -111,6 +111,8 @@ def render_floor(physical, floor, textures):
     world_z = top + (np.arange(height, dtype=np.float32) + .5) * step
     depth = np.full((height, width), base - FLOOR_MARGIN_BELOW_M, dtype=np.float32)
     rgba = np.zeros((height, width, 4), dtype=np.uint8)
+    material_pixels = np.full((height, width), -1, dtype=np.int32)
+    uv_pixels = np.zeros((height, width, 2), dtype=np.float32)
     textured = 0
     for start in range(0, height, 96):
         end = min(height, start + 96)
@@ -123,16 +125,26 @@ def render_floor(physical, floor, textures):
             continue
         primitive = np.asarray(hit.prim_index)[visible]
         uvs = np.column_stack((np.asarray(hit.uv.x)[visible], np.asarray(hit.uv.y)[visible]))
-        group = assignments[primitive]
-        rgb = np.empty((len(primitive), 3), dtype=np.uint8)
-        for material in np.unique(group):
-            selection = group == material
-            pixels, is_textured = textures.colors(materials[material], uvs[selection])
-            rgb[selection] = np.clip(pixels, 0, 255)
-            textured += int(selection.sum()) if is_textured else 0
-        rgba[start:end, :, :3].reshape(-1, 3)[visible] = rgb
-        rgba[start:end, :, 3].reshape(-1)[visible] = 255
+        material_pixels[start:end].reshape(-1)[visible] = assignments[primitive]
+        uv_pixels[start:end].reshape(-1, 2)[visible] = uvs
         depth[start:end].reshape(-1)[visible] = elevation[visible]
+    # Shade a texture in a single pass for the whole floor, rather than
+    # decoding it again in each ray batch.
+    order = np.argsort(material_pixels, axis=None, kind="stable")
+    materials_flat = material_pixels.ravel()
+    order = order[materials_flat[order] >= 0]
+    groups = materials_flat[order]
+    boundaries = np.r_[0, np.flatnonzero(np.diff(groups)) + 1, len(groups)]
+    linear_rgba = rgba.reshape(-1, 4)
+    linear_uv = uv_pixels.reshape(-1, 2)
+    for left, right in zip(boundaries, boundaries[1:]):
+        if left == right:
+            continue
+        selection = order[left:right]
+        pixels, is_textured = textures.colors(materials[groups[left]], linear_uv[selection])
+        linear_rgba[selection, :3] = np.clip(pixels, 0, 255)
+        linear_rgba[selection, 3] = 255
+        textured += len(selection) if is_textured else 0
     seen = rgba[:, :, 3] > 0
     if not seen.any() or not textured:
         raise RuntimeError("Cutaway did not render the scene textures")
