@@ -190,3 +190,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 11月19日04:31复核：服务器64b3901且干净，模型health/models200、仅本项目四卡worker（各约21000MiB），无导航进程；3次BM4已结束且源hash匹配。BM0源CPU审计已在64b3901生成，BM4 worker保持9245a8b不混版。BM1开发schema本机测试35通过，待安全同步后执行CPU审计，不动原资产或保留评估集。
 
 11月19日04:35 BM1 CPU审计完成：代码6180a8d经GitHub推送后bundle快进服务器，真实Habitat环境35测试通过；原10任务/30case的开发manifest、actor输入与checks在`runtime/diagnostics/bm1_schema_dev_20261119/`，原数据hash不变，没有模型/保留集调用。04:30一次性唤醒已执行并删除；当前没有新导航批次，模型保留在线。
+
+11月19日本轮BM3规范更新：f522403已push并在服务器干净工作区bundle快进同步，沿用原Habitat环境44测试通过（35既有+9新无线积分测试），未安装包、重启模型或运行导航。新增离线latent暴露模块不替换原route_a/旧评分；多层规划/传播和在线拒绝尚未实现或验收。
