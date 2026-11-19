@@ -197,4 +197,4 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 
 项目代码`07037c2`经GitHub发布后由bundle快进同步到服务器。服务器复用`/opt/anaconda3/envs/habitat0.3.0/bin/python`及Habitat-Sim 0.3.0 PathFinder，在CPU上读取项目`data/datasets`和5个MP3D navmesh；没有调用Qwen、GPU渲染、导航推理或更改共享环境。筛选/布局原始开发数据保存在服务器`runtime/diagnostics/single_floor_ap_review_20261119_retry01/`，日志`runtime/logs/single_floor_ap_review_20261119_retry01.log`；首次失败日志保留在同目录前缀无`retry01`的日志中。服务器HEAD、工作区和构建结果记录见[本轮实验记录](experiments/single_floor_ap_review_2026-11-19.md)。
 
-本机从服务器复制审阅数据副本后生成单文件HTML：`runtime/reports/single_floor_ap_review_20261119/index.html`。该HTML、源审计和AP数据副本被`.gitignore`忽略，不上传GitHub或服务器。浏览器自动化策略禁止打开本地`file:`URL，因此未做GUI截图验收；文件完整性、自包含性和内联JavaScript语法已检查。用户可在本机从Finder或浏览器地址栏打开该HTML。
+本机从服务器复制审阅数据副本后生成单文件HTML：`runtime/reports/single_floor_ap_review_20261119/index.html`。该HTML、源审计和AP数据副本被`.gitignore`忽略，不上传GitHub或服务器。浏览器自动化策略禁止打开本地`file:`URL，因此未做GUI截图验收；文件完整性、自包含性、内联JavaScript语法及动态粗网格RSSI预览逻辑已检查。用户可在本机从Finder或浏览器地址栏打开该HTML。

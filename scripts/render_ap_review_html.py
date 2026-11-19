@@ -2,7 +2,9 @@
 """Render a self-contained, offline AP placement review page from CPU audit data."""
 import argparse
 import gzip
+import heapq
 import json
+import math
 from pathlib import Path
 
 
@@ -17,6 +19,33 @@ def compact_payload(audit, data):
         ]
         route = [nodes[index] for index in task["route_nodes"]]
         rssi = task["route_native_rssi_dbm"]
+        adjacency = [[] for _ in nodes]
+        for source, target, length in task["edges"]:
+            adjacency[source].append((target, length))
+            adjacency[target].append((source, length))
+        graph_dist = [math.inf] * len(nodes)
+        graph_dist[task["default_ap_node"]] = 0.0
+        queue = [(0.0, task["default_ap_node"])]
+        while queue:
+            cost, source = heapq.heappop(queue)
+            if cost != graph_dist[source]:
+                continue
+            for target, length in adjacency[source]:
+                candidate = cost + length
+                if candidate < graph_dist[target]:
+                    graph_dist[target] = candidate
+                    heapq.heappush(queue, (candidate, target))
+        config, ap = task["wireless_config"], task["default_ap_position"]
+        grid = []
+        for index in range(task["base_grid_nodes"]):
+            point, geodesic = nodes[index], graph_dist[index]
+            value = None
+            if math.isfinite(geodesic):
+                horizontal = max(math.hypot(point[0]-ap[0], point[2]-ap[2]), 1.0)
+                excess = max(0.0, geodesic-horizontal)
+                obstruction = min(config["max_obstruction_penalty_db"], excess*config["obstruction_db_per_excess_meter"])
+                value = config["reference_rssi_dbm_at_1m"] - 10*config["path_loss_exponent"]*math.log10(horizontal) - obstruction + task["shadow_db"][index]
+            grid.append({"x": point[0], "z": point[2], "rssi": value})
         tasks.append({
             "episode_id": str(task["episode_id"]),
             "trajectory_id": str(task["trajectory_id"]),
@@ -27,6 +56,11 @@ def compact_payload(audit, data):
             "goal": task["goal_position"],
             "floor_y": task["floor_y"],
             "route": route,
+            "grid_preview": grid,
+            "graph_nodes": nodes,
+            "graph_edges": [[edge[0], edge[1]] for edge in task["edges"]],
+            "shadow_db": task["shadow_db"],
+            "base_grid_nodes": task["base_grid_nodes"],
             "route_rssi_dbm_initial": rssi,
             "route_metrics_initial": task["initial_route_metrics"],
             "ap_candidates": candidates,
@@ -62,7 +96,7 @@ PAGE = r'''<!doctype html>
 <section class="card"><h2>本地校正文件</h2><div class="row"><button id="export" class="primary">导出 AP 修改 JSON</button><label><button id="importBtn">导入 JSON</button><input id="importFile" type="file" accept="application/json" class="hide"></label></div><p class="muted">浏览器自动保存草稿。导出文件可留作人工确认记录；改点后仍须用 Habitat 原生 navmesh/RSSI 场复核，再冻结新 layout 版本。</p><div id="draftStatus" class="muted"></div></section>
 <section class="card"><h2>单层筛选审计</h2><div id="scopeStats" class="kv"></div><p class="muted">显式上下楼、源路径/密集 GT 高度超界按规则排除；歧义指令进入复核。关键词和高度规则只是范围筛选，不能替代人工语义/视觉复核。被排除源任务没有删除。</p><button id="toggleScope">查看排除与待复核记录</button><div id="scopeTable" class="tablewrap hide"></div></section>
 <section class="card"><h2>生成来源</h2><div class="kv" id="sourceFacts"></div></section></aside>
-<main class="main"><section class="card"><div class="row" style="justify-content:space-between"><h2>任务路线与合法 AP 候选位置</h2><span id="editBadge" class="tag"></span></div><div class="canvasbox"><canvas id="map"></canvas></div><div class="legend"><span><i class="dot" style="background:#237b9d"></i>原参考路线</span><span><i class="dot" style="background:#54a56b"></i>合法 AP 候选点</span><span><i class="dot" style="background:#de7d2c"></i>初始 AP</span><span><i class="dot" style="background:#be3d4b"></i>当前 AP</span><span><i class="dot" style="background:#232d36"></i>起点 / 目标</span></div><p class="muted">图只显示路线与经 navmesh 验证的 AP 候选点，不是建筑平面图。滚轮缩放，拖动平移；点击绿色点修改位置。没有墙体/房间语义标注。</p></section>
+<main class="main"><section class="card"><div class="row" style="justify-content:space-between"><h2>任务路线与合法 AP 候选位置</h2><span id="editBadge" class="tag"></span></div><div class="canvasbox"><canvas id="map"></canvas></div><div class="legend"><span><i class="dot" style="background:#237b9d"></i>原参考路线</span><span><i class="dot" style="background:#54a56b"></i>合法 AP 候选点</span><span><i class="dot" style="background:#de7d2c"></i>初始 AP</span><span><i class="dot" style="background:#be3d4b"></i>当前 AP</span><span><i class="dot" style="background:#232d36"></i>起点 / 目标</span></div><p class="muted">底图按当前AP用0.4m可走图节点和Dijkstra距离即时重算RSSI估计；紫&lt;-75、粉-75至-67、黄-67至-58、绿&gt;-58 dBm。路线曲线仍是初始AP的原生查询；网格热图不是原生逐点查询或建筑平面图，所有改点都要再由Habitat原生场复核。点击绿色合法候选可改AP。</p></section>
 <section class="card"><h2>初始 AP 下的参考路线 RSSI（原生代理查询）</h2><canvas id="chart" class="chart"></canvas><p id="radioNote" class="muted"></p><div id="routeMetrics" class="kv"></div></section>
 <section class="card"><h2>20 个任务的 AP 位置清单</h2><p class="muted">当前表格同步显示初始或你在本机草稿中选择的位置；每个任务是一种独立布局实例。</p><div id="layoutTable" class="tablewrap"></div></section>
 <section class="card"><h2>任务筛选与排除清单</h2><p class="muted">源 train split 中全部 episode 均记录状态、原因与高度证据；人工复核状态未被自动规则代替。</p><div id="allRows" class="tablewrap"></div></section></main></div><div class="footer">范围：MP3D + R2R-CE train 的开发审阅样本；AP 场为对数距离 + navmesh 测地绕行代理 + 空间阴影/观测噪声。修改 AP 后的 RSSI 数值不是实时重算值，需导出并用服务器 Habitat 原生场景复核。该报告不是导航结果、held-out benchmark 或物理 WiFi 覆盖图。</div>
@@ -79,16 +113,19 @@ function persist(){try{localStorage.setItem(key,JSON.stringify(saved));storageAv
 function xyz(p){return p.map(v=>Number(v).toFixed(3)).join(', ')+' m'}
 function facts(){const t=current(),a=choice(t),r=t.scope_audit,m=t.route_metrics_initial;
 document.getElementById('taskTitle').innerHTML=`<span class="tag">${esc(t.scene_id)}</span> <span class="tag">episode ${esc(t.episode_id)}</span> <span class="tag">路径组 ${esc(t.trajectory_id)}</span>`;
-document.getElementById('taskFacts').innerHTML=`<b>范围状态</b><span>${esc(r.scope_status)} · ${esc(r.reasons.join(', ')||'无自动排除原因')}</span><b>源 split</b><span>train</span><b>高度范围</b><span>${Number(r.height_range_m||0).toFixed(3)} m</span><b>起点 X,Y,Z</b><span class="mono">${xyz(t.start)}</span><b>目标 X,Y,Z</b><span class="mono">${xyz(t.goal)}</span><b>参考路径</b><span>${m.length_m.toFixed(2)} m · ${t.route.length} 个采样点</span><b>候选 AP</b><span>${t.ap_candidates.length}</span><b>Navmesh SHA256</b><span class="mono">${t.navmesh_sha256}</span>`;
+document.getElementById('taskFacts').innerHTML=`<b>范围状态</b><span>${esc(r.scope_status)} · ${esc(r.reasons.join(', ')||'无自动排除原因')}</span><b>源 split</b><span>train</span><b>高度范围</b><span>${Number(r.height_range_m||0).toFixed(3)} m</span><b>起点 X,Y,Z</b><span class="mono">${xyz(t.start)}</span><b>目标 X,Y,Z</b><span class="mono">${xyz(t.goal)}</span><b>参考路径</b><span>${m.length_m.toFixed(2)} m · ${t.route.length} 个采样点</span><b>候选 AP</b><span>${t.ap_candidates.length}</span><b>粗网格/参考路线误差</b><span>mean ${t.grid_preview_error.mean_absolute_db==null?'—':t.grid_preview_error.mean_absolute_db.toFixed(2)+' dB'} · max ${t.grid_preview_error.maximum_absolute_db==null?'—':t.grid_preview_error.maximum_absolute_db.toFixed(2)+' dB'}</span><b>Navmesh SHA256</b><span class="mono">${t.navmesh_sha256}</span>`;
 document.getElementById('instruction').textContent=t.instruction;
 document.getElementById('apFacts').innerHTML=`<b>初始坐标</b><span class="mono">${t.initial_ap.map(v=>Number(v).toFixed(3)).join(', ')}</span><b>当前坐标</b><span class="mono">${a.position.map(v=>Number(v).toFixed(3)).join(', ')}</span><b>楼层代理高度</b><span>${Number(a.position[1]).toFixed(3)} m</span><b>节点编号</b><span>${a.node}</span><b>修改状态</b><span>${saved[t.episode_id]?'待原生复核':'初始候选'}</span>`;
-document.getElementById('editBadge').textContent=saved[t.episode_id]?'已修改 · 待原生复核':'初始 AP';
-document.getElementById('radioNote').textContent=`初始 AP 的 native route_a RSSI；阈值 weak=${t.wireless_config.weak_threshold_dbm} dBm / outage=${t.wireless_config.outage_threshold_dbm} dBm。坐标改动后不沿用这组值作为新位置真值。`;
-document.getElementById('routeMetrics').innerHTML=`<b>弱信号路径长度</b><span>${m.available?m.weak_length_m.toFixed(2)+' m':'不可用'}</span><b>断连路径长度</b><span>${m.available?m.outage_length_m.toFixed(2)+' m':'不可用'}</span><b>断连长度比例</b><span>${m.outage_length_ratio==null?'不可用':(100*m.outage_length_ratio).toFixed(1)+'%'}</span><b>路线最低 RSSI</b><span>${m.minimum_dbm==null?'不可用':m.minimum_dbm.toFixed(1)+' dBm'}</span><b>改点后状态</b><span>${saved[t.episode_id]?'RSSI 待重新计算':'当前曲线匹配初始 AP'}</span>`;
+document.getElementById('editBadge').textContent=saved[t.episode_id]?'已修改 · 粗网格已更新，待原生复核':'初始 AP · 粗网格热图';
+document.getElementById('radioNote').textContent=`路线曲线为初始 AP 的 native route_a RSSI；底图按当前AP即时重算0.4m图节点路径损耗/测地绕行估计，阈值 weak=${t.wireless_config.weak_threshold_dbm} dBm / outage=${t.wireless_config.outage_threshold_dbm} dBm。改点后曲线仍对应初始AP，底图只作粗估并待原生验证。`;
+document.getElementById('routeMetrics').innerHTML=`<b>弱信号路径长度</b><span>${m.available?m.weak_length_m.toFixed(2)+' m':'不可用'}</span><b>断连路径长度</b><span>${m.available?m.outage_length_m.toFixed(2)+' m':'不可用'}</span><b>断连长度比例</b><span>${m.outage_length_ratio==null?'不可用':(100*m.outage_length_ratio).toFixed(1)+'%'}</span><b>路线最低 RSSI</b><span>${m.minimum_dbm==null?'不可用':m.minimum_dbm.toFixed(1)+' dBm'}</span><b>路线曲线</b><span>初始 AP 原生值；改点后需原生重算</span>`;
 drawMap();drawChart();drawLayoutTable()}
 function resize(c,context){const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;c.width=Math.max(1,Math.floor(r.width*d));c.height=Math.max(1,Math.floor(r.height*d));context.setTransform(d,0,0,d,0,0);return {w:r.width,h:r.height}}
-function projectSetup(t,w,h){const all=t.route.concat(t.ap_candidates.map(p=>[p.x,p.y,p.z]));let xmin=Infinity,xmax=-Infinity,zmin=Infinity,zmax=-Infinity;for(const p of all){xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);zmin=Math.min(zmin,p[2]);zmax=Math.max(zmax,p[2])}let pad=30;let k=Math.min((w-2*pad)/Math.max(xmax-xmin,.5),(h-2*pad)/Math.max(zmax-zmin,.5))*view.scale;let cx=(xmin+xmax)/2,cz=(zmin+zmax)/2;return p=>({x:w/2+(p[0]-cx)*k+view.dx,y:h/2+(p[2]-cz)*k+view.dy})}
+const gridCache=new Map();
+function gridFor(t,apNode){if(apNode===t.initial_ap_node)return t.grid_preview;const key=t.episode_id+':'+apNode;if(gridCache.has(key))return gridCache.get(key);const nodes=t.graph_nodes,adj=Array.from({length:nodes.length},()=>[]);for(const [a,b] of t.graph_edges){const x=nodes[a],y=nodes[b],len=Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2]);adj[a].push([b,len]);adj[b].push([a,len])}const dist=new Float64Array(nodes.length);dist.fill(Infinity);dist[apNode]=0;const heap=[];function push(v){let i=heap.length;heap.push(v);while(i){let p=(i-1)>>1;if(heap[p][0]<=v[0])break;heap[i]=heap[p];i=p;heap[i]=v}}function pop(){const top=heap[0],last=heap.pop();if(heap.length){let i=0;heap[0]=last;while(true){let l=i*2+1,r=l+1,b=i;if(l<heap.length&&heap[l][0]<heap[b][0])b=l;if(r<heap.length&&heap[r][0]<heap[b][0])b=r;if(b===i)break;[heap[i],heap[b]]=[heap[b],heap[i]];i=b}}return top}push([0,apNode]);while(heap.length){const [cost,u]=pop();if(cost!==dist[u])continue;for(const [v,len] of adj[u]){const n=cost+len;if(n<dist[v]){dist[v]=n;push([n,v])}}}const c=t.wireless_config,ap=nodes[apNode],result=[];for(let i=0;i<t.base_grid_nodes;i++){const p=nodes[i],horizontal=Math.max(Math.hypot(p[0]-ap[0],p[2]-ap[2]),1);let rssi=null;if(Number.isFinite(dist[i])){const excess=Math.max(0,dist[i]-horizontal),obstruction=Math.min(c.max_obstruction_penalty_db,excess*c.obstruction_db_per_excess_meter);rssi=c.reference_rssi_dbm_at_1m-10*c.path_loss_exponent*Math.log10(horizontal)-obstruction+t.shadow_db[i]}result.push({x:p[0],z:p[2],rssi})}gridCache.set(key,result);return result}
+function projectSetup(t,w,h){const all=t.graph_nodes;let xmin=Infinity,xmax=-Infinity,zmin=Infinity,zmax=-Infinity;for(const p of all){xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);zmin=Math.min(zmin,p[2]);zmax=Math.max(zmax,p[2])}let pad=30;let k=Math.min((w-2*pad)/Math.max(xmax-xmin,.5),(h-2*pad)/Math.max(zmax-zmin,.5))*view.scale;let cx=(xmin+xmax)/2,cz=(zmin+zmax)/2;return p=>({x:w/2+(p[0]-cx)*k+view.dx,y:h/2+(p[2]-cz)*k+view.dy})}
 function drawMap(){const {w,h}=resize(map,ctx),t=current(),tr=projectSetup(t,w,h);ctx.clearRect(0,0,w,h);ctx.fillStyle='#fbfcfd';ctx.fillRect(0,0,w,h);
+for(const p of gridFor(t,choice(t).node)){const q=tr([p.x,0,p.z]);ctx.fillStyle=p.rssi==null?'#d9dee3':(p.rssi<-75?'#7f3c8d':p.rssi<-67?'#d45087':p.rssi<-58?'#f4b942':'#4caf9b');ctx.beginPath();ctx.arc(q.x,q.y,3.0,0,Math.PI*2);ctx.fill()}
 ctx.fillStyle='#54a56b';for(const p of t.ap_candidates){const q=tr([p.x,p.y,p.z]);ctx.beginPath();ctx.arc(q.x,q.y,2.1,0,Math.PI*2);ctx.fill()}
 ctx.strokeStyle='#237b9d';ctx.lineWidth=3;ctx.beginPath();t.route.forEach((p,i)=>{let q=tr(p);if(i)ctx.lineTo(q.x,q.y);else ctx.moveTo(q.x,q.y)});ctx.stroke();
 function marker(p,color,label,r){const q=tr(p);ctx.fillStyle=color;ctx.beginPath();ctx.arc(q.x,q.y,r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#18242d';ctx.font='12px sans-serif';ctx.fillText(label,q.x+7,q.y-7)}
