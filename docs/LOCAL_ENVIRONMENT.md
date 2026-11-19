@@ -200,3 +200,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 保留初版与 v2 本机报告。复审改用服务器 CPU 独立产物 `runtime/diagnostics/single_floor_ap_review_20261119_reaudit/`，日志 `runtime/logs/single_floor_ap_review_20261119_reaudit.log`，执行提交 `666cc3e`。本机离线报告位于 `runtime/reports/single_floor_ap_review_20261119_v3/index.html`，已用隔离的本机 Chrome 打开并检查地图点击、覆盖和曲线更新、撤销、导入导出、审计搜索以及窄屏显示。报告和本地草稿留在本机；服务器保存 CPU 构造数据。
 
 本机 v4 报告加入 Habitat 原生俯视图，路径为 `runtime/reports/single_floor_ap_review_20261119_v4/index.html`。服务器复用 Habitat-Sim 0.3.0 的 CPU PathFinder，独立导出 `runtime/diagnostics/single_floor_ap_review_20261119_topdown/habitat_topdown.json`。地图与 HTML 成品不入 Git；HTML 仅在本机生成。
+
+射线追踪试点资产预查：当前五个审阅场景都有 GLB 和 navmesh。`2n8kARJN3HM` 另有 `.house` 与语义 PLY，GLB 的 148 个渲染材料条目无附加射频参数。Habitat 0.3.0 Python 当前无 Sionna、Mitsuba 和 Dr.Jit。独立射线追踪环境及覆盖图尚未建立，试点定义见 [BM3 无线协议](design/bm3_radio_and_refusal_v0.md#5-成熟传播模型与-ap-选点试点)。
