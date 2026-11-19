@@ -276,7 +276,7 @@ BM4沿用既定工程验收，不为它重写旧样本；BM0–BM3无需等待BM
 - AP初值取参考路径约35%处1.5m侧向目标附近的合法可达网格点；路线周边2m候选供人工选择，不按弱覆盖结果优化。AP为仿真floor proxy，不代表物理墙/顶安装。
 - HTML独立离线单文件，在本机`runtime/reports/single_floor_ap_review_20261119/index.html`生成，内含任务/指令/路线/AP初值/筛选证据和原生初始路线RSSI曲线；可点击吸附合法候选、撤销/导入导出，编辑草稿留浏览器本地。HTML和编辑JSON不提交Git、不传服务器。编辑后RSSI需原生场重新查询。
 - 生成入口：`scripts/build_single_floor_ap_review.py`（服务器CPU，输出`runtime/diagnostics/single_floor_ap_review_20261119/`）；本机用`python3 scripts/render_ap_review_html.py --audit .../source_scope_audit.json --data .../ap_review_data.json --output runtime/reports/single_floor_ap_review_20261119/index.html`生成。执行commit、源/scene/navmesh/config hash、任务清单、排除比例、原生RSSI和候选数须写入运行记录；空输出/不足20条时停止，不按结果补替换。
-- 状态：配置/实现/报告模板正在审阅。只有实际完成服务器生成、完整性核对并本机生成HTML后，才把20个任务/AP位置和排除比例记录为实测事实；语义人工复核、编辑后原生重算和正式资格冻结仍未完成。
+- 状态：配置/实现/报告模板已提交；首个服务器CPU尝试在生成第一个场景时被粗网格`try_step`对已验证原生路径采样点的重复检查中止，未产出任务/AP数据。已将显示折线改为沿原生navmesh路径采样后直接保留，并会用新独立目录重跑，旧失败日志/目录保留；真实20任务/AP与本机HTML仍待验收。语义人工复核、编辑后原生重算和正式资格冻结仍未完成。
 
 **资源备选（尚未实施）：** 用户正在考虑申请单张完整80GB A800，未确认已分配、未连接新机器、未迁移模型或改动当前TP4配置。同模型BF16单卡在8K/单请求/最多3图下是否有足够余量须实际验收；不能把容量估算当部署成功。模型服务与Habitat渲染分别核验。缩减上下文或量化会改变实验条件，需独立记录并重新验证基线。
 
