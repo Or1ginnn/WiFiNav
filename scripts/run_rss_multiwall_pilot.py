@@ -162,10 +162,16 @@ def evaluate(batch, config):
     routes, layouts = batch["routes"], batch["layouts"]
     ap_height = batch["config"]["ap_height_above_floor_m"]
     antennas = [gltf_xyz(layout["ap_floor_xyz"], ap_height) for layout in layouts]
-    receive_z = batch["floor_y"] + batch["config"]["rx_height_above_floor_m"]
+    rx_height = batch["config"]["rx_height_above_floor_m"]
+    pairs = {route["episode_id"]: [] for route in routes}
     links = []
     for layout_index, antenna in enumerate(antennas):
+        target = layouts[layout_index].get("target_episode_id")
         for route in routes:
+            if target is not None and target != route["episode_id"]:
+                continue
+            pairs[route["episode_id"]].append(layout_index)
+            receive_z = route.get("floor_y", batch.get("floor_y")) + rx_height
             for idx, point in enumerate(route["points_xyz"]):
                 rx = gltf_xyz(point)
                 rx[2] = receive_z
@@ -176,7 +182,7 @@ def evaluate(batch, config):
     upper = np.maximum(txs.max(axis=0), rxs.max(axis=0)) + 0.01
     scene, triangles, metadata = make_scene(ply, house, lower, upper)
     hits, lengths = mesh_hits(scene, triangles, txs, rxs, config["ray_epsilon_m"], config["max_hits_per_ray"])
-    if not any(hits) or all(hits):
+    if config.get("require_mixed_links", True) and (not any(hits) or all(hits)):
         raise ValueError("No mix of blocked and unobstructed pilot links; review semantic geometry")
     ref = batch["config"]["reference_rss_1m_dbm"]
     free_space = ref - 20 * np.log10(np.maximum(lengths, 1.0))
@@ -195,12 +201,15 @@ def evaluate(batch, config):
             results[name] = {}
             for route in routes:
                 eid = route["episode_id"]
-                rows = [values[i, eid] for i in range(len(layouts))]
+                rows = [values[i, eid] for i in pairs[eid]]
+                if not rows:
+                    raise ValueError(f"No AP layout assigned to {eid}")
                 results[name][eid] = [
                     {"samples_dbm": row, **summarize_profile(row, route, batch["config"])} for row in rows
                 ]
             preferences[name] = {
-                eid: preference(*rows, batch["config"]) for eid, rows in results[name].items()
+                eid: preference(*rows, batch["config"])
+                for eid, rows in results[name].items() if len(rows) == 2
             }
     return {
         "source_sha256": {str(p.relative_to(ROOT)): sha(p) for p in (ply, house)},

@@ -1,0 +1,21 @@
+{
+  "name": "single_floor_multiwall_dev_v1",
+  "rss_backend": "semantic_multiwall",
+  "source_ap_review_sha256": "436f47b920fc4466898ffd0843c6547385b887202eed1ab9114fc3efaf7984e3",
+  "task_count": 20,
+  "scene_count": 5,
+  "reference_rss_1m_dbm": -48.0,
+  "weak_threshold_dbm": -67.0,
+  "outage_threshold_dbm": -75.0,
+  "ap_height_above_floor_m": 1.6,
+  "rx_height_above_floor_m": 0.6,
+  "height_alignment_tolerance_m": 0.30,
+  "ray_epsilon_m": 0.0001,
+  "max_hits_per_ray": 64,
+  "require_mixed_links": false,
+  "merge_distance_m": [0.20, 0.35],
+  "loss_db_per_crossing": {
+    "low": {"wall": 3.0, "door": 2.0, "window": 2.0},
+    "high": {"wall": 8.0, "door": 5.0, "window": 4.0}
+  }
+}
