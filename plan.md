@@ -2,7 +2,7 @@
 
 > **项目交接首页。** 后续每次方案变化、里程碑完成、关键实验结果或阻塞都要更新此文件。状态按当前可验证事实填写；没有代码、日志或结果证据的事项不记为完成。
 >
-> 最近更新：2026-11-19。用户明确首版先做单层；明确要求上楼的任务从新派生集排除但保留源数据，模糊/仅高度变化任务转人工复核。当前在构建20任务/5场景的路线兼容AP布局审阅批次，并生成只留本机的可交互HTML报告；AP改点需原生信号场复核。旧B3、BM4与30case开发原型全部保留。
+> 最近更新：2026-11-19。用户明确首版先做单层；明确要求上楼的任务从新派生集排除但保留源数据，模糊/仅高度变化任务转人工复核。20任务/5场景的AP布局审阅数据已完成，本机可交互HTML报告已生成；等人工校正后再做原生信号场复核。旧B3、BM4与30case开发原型全部保留。
 
 ## 1. 当前项目定位
 
@@ -124,7 +124,7 @@
 | 导航框架集成 | 已实现本项目首版：深度候选点、Qwen工具决策、局部navmesh规划与Habitat动作反馈；属于自建开发基线，不冒称AgenticNav复现 |
 | 服务器与模型服务 | 11月18日22:47确认在线：health/models=200，别名`wifinav-qwen35b`，模型PID1436455；四卡worker归属本项目。队列`restore_qwen35b_20261117`已于03:41 ready，文本/单图/双图通过；原始probe及时间见排队记录 |
 | 代码 / 数据 / 实验 | B1与B2首轮工程运行完成：10任务/30回放，原始结果与失败完整留在服务器runtime；摘要见B2实验记录。data/models/runtime均Git忽略；没有保留评估集或论文级结论 |
-| 当前执行项 | **BM1单层开发审阅/AP布局进行中**：按预定规则从train筛选20任务/5场景，另外保留全量排除/复核记录；AP初值按参考路径附近的几何规则选定，提供本机离线HTML人工校正并要求改点原生复核。源任务/旧B3不改，报告不入GitHub/服务器。BM0视觉人工复核/源包许可仍待；原B3 No-Go保留 |
+| 当前执行项 | **BM1首轮20任务/AP审阅已产出，待人工校正**：train全量筛选统计和5场景的20条不同路径及合法AP候选已生成；本机HTML可点击修改位置并本地保存/导出。原始数据/旧B3不改，HTML不入GitHub/服务器。BM0语义视觉人工复核/源包许可仍待；原B3 No-Go保留 |
 | 本地版本管理 | 已初始化Git，分支main；初始文档提交 `6a2cdd5`。托管为用户确认的公开仓库 `Or1ginnn/WiFiNav`，本机已合并远端历史，合并提交 `0f6ade2`；用户已明确授权全部现有材料和历史公开，首次push成功；main已跟踪origin/main |
 | 版本同步约定 | 本机、GitHub、服务器通过main同步；用户已授权研究与本次运维信息公开，无待确认公开范围；确切提交以git log/status为准 |
 | 待闭合事项 | 工具解析与STOP/无进展可靠性、通信加权规划与绕行协议、B3 Oracle价值、源资产官方版本/许可对应 |
@@ -221,8 +221,8 @@ Q和D的CPU构建/审计可以先开展；正式小对照需工程回归和相�
 | ID | 任务/依赖 | 明确产物 | 完成标准 | 当前状态 |
 |---|---|---|---|---|
 | BM0 | 任务卡与权限/源协议核对 | `docs/design/r2r_conn_benchmark_v1.md`，源资产/版本引用，原10任务语言冲突诊断 | 原指令主track、单层/已知几何/理想位姿、成功/STOP/预算、信息权限及非目标明确；语义歧义可追溯 | 进行中：任务卡/助手文本与源参考层高初审已形成，视觉与人工复核/源版本追溯待闭合 |
-| BM1 | manifest/schema与划分/资格规范，依赖BM0 | schema、版本化生成配置/入口、scene/path-group映射、单层适用性与跨层排除记录、清单及hash | 单层范围/可达规则先冻结，歧义先复核；源字段可追溯、无group泄漏、无策略结果依赖；数据留服务器data/，公开可再分发元数据/配置 | 进行中：开发schema原型在10任务/30case试建通过；现执行独立单层资格审计与20任务/5场景AP布局审阅。明确上楼任务excluded但保留原始记录；纯高度起伏/歧义转review，不自动判跨层。新批次与本机HTML待生成 |
-| BM2 | 自然集QA及独立受控诊断，依赖BM0/1 | 覆盖/起终连通/长度/楼层/机会分层报告、受控双路径诊断说明 | 全选样分母与排除原因完整；无机会负例保留；不把半径当覆盖等级，不把受控集当自然泛化 | 部分进行：本轮先固定每任务1个路线附近AP候选与原生RSSI路线曲线；全覆盖/路径选择空间和通信机会分层仍待审 |
+| BM1 | manifest/schema与划分/资格规范，依赖BM0 | schema、版本化生成配置/入口、scene/path-group映射、单层适用性与跨层排除记录、清单及hash | 单层范围/可达规则先冻结，歧义先复核；源字段可追溯、无group泄漏、无策略结果依赖；数据留服务器data/，公开可再分发元数据/配置 | 首轮开发审阅数据已生成：train 10,819条，规则初筛排除1,971、待review 2,161；固定5场景×4任务，共20条不同source path，20/20路线与AP几何检查通过；本机HTML可编辑。尚待人工语义/视觉复核与用户AP校正，不能视作正式资格/发布清单 |
+| BM2 | 自然集QA及独立受控诊断，依赖BM0/1 | 覆盖/起终连通/长度/楼层/机会分层报告、受控双路径诊断说明 | 全选样分母与排除原因完整；无机会负例保留；不把半径当覆盖等级，不把受控集当自然泛化 | 部分完成：小批路线兼容AP和原生RSSI曲线已生成；当前代理下20/20参考路线上有弱信号段、3/20含断连段，但布局按几何预设而非按信号挑选。全覆盖/路径选择空间与机会分层仍待审 |
 | BM3 | 信号与公开评测合约，依赖BM0，可与BM1/2并行 | 无线/拒绝协议、truth/observation边界、固定全集评分、parity与缺测测试 | 单位/时间/积分/缺测可复现；拒绝/到达/失败分开，多层场适用性明确 | 进行中：新协议与独立latent暴露计算器已实现，双端44测试通过；未接在线拒绝/多层传播或替换旧评分 |
 | BM4 | 既定3次导航工程回归 | `empty_recovery_validation_v1.json`规定的独立批次、日志/配置/源码hash/summary | 515成功保留；743分支触发则检查合法LOOK，未触发明确记未验证；全部失败与预算保留，不声称全10任务无退化 | 定点工程验收通过：9245a8b独立3次结束，无异常/timeout；515成功、743两次触发退路，λ1成功但偏离、λ4失败；不代表B3通过 |
 | BM5 | 新协议小对照与成本确认，依赖BM0–BM4相关验收 | 独立版本/manifest/配置、NoSignal与StaticMap报告、分组/完整性与成本统计 | 运行前冻结选样、λ、导航损失与绕行预算；NoSignal仅满足条件可跨AP回放，StaticMap真实闭环；不替换旧70次 | 待设计；参数/规模未冻结 |
@@ -275,8 +275,8 @@ BM4沿用既定工程验收，不为它重写旧样本；BM0–BM3无需等待BM
 - 明确指令上楼/下楼或乘电梯的任务标记`excluded`，但全量源任务仍保留在审计清单；仅高度变化/几何不符或语义歧义标记`review`，不得自动当作楼梯真值。对候选以原生navmesh验证路径和合法AP位置，不读策略成败或RSSI收益选样。
 - AP初值取参考路径约35%处1.5m侧向目标附近的合法可达网格点；路线周边2m候选供人工选择，不按弱覆盖结果优化。AP为仿真floor proxy，不代表物理墙/顶安装。
 - HTML独立离线单文件，在本机`runtime/reports/single_floor_ap_review_20261119/index.html`生成，内含任务/指令/路线/AP初值/筛选证据和原生初始路线RSSI曲线；可点击吸附合法候选、撤销/导入导出，编辑草稿留浏览器本地。HTML和编辑JSON不提交Git、不传服务器。编辑后RSSI需原生场重新查询。
-- 生成入口：`scripts/build_single_floor_ap_review.py`（服务器CPU，输出`runtime/diagnostics/single_floor_ap_review_20261119/`）；本机用`python3 scripts/render_ap_review_html.py --audit .../source_scope_audit.json --data .../ap_review_data.json --output runtime/reports/single_floor_ap_review_20261119/index.html`生成。执行commit、源/scene/navmesh/config hash、任务清单、排除比例、原生RSSI和候选数须写入运行记录；空输出/不足20条时停止，不按结果补替换。
-- 状态：配置/实现/报告模板已提交；首个服务器CPU尝试在生成第一个场景时被粗网格`try_step`对已验证原生路径采样点的重复检查中止，未产出任务/AP数据。已将显示折线改为沿原生navmesh路径采样后直接保留，并会用新独立目录重跑，旧失败日志/目录保留；真实20任务/AP与本机HTML仍待验收。语义人工复核、编辑后原生重算和正式资格冻结仍未完成。
+- 生成入口：`scripts/build_single_floor_ap_review.py`（服务器CPU，实际输出`runtime/diagnostics/single_floor_ap_review_20261119_retry01/`）；本机用`python3 scripts/render_ap_review_html.py --audit .../source_scope_audit.json --data .../ap_review_data.json --output runtime/reports/single_floor_ap_review_20261119/index.html`生成。执行commit、源/scene/navmesh/config hash、任务清单、排除比例、原生RSSI和候选数见[运行记录](docs/experiments/single_floor_ap_review_2026-11-19.md)。空输出/不足20条时停止，不按结果补替换。
+- 状态：已完成首轮数据构建与本机报告。train 10,819条：6,687 candidate、1,971条明确垂直移动词规则标记excluded、2,161条review；从5个scene选20条不同source path，原生navmesh参考路线通过，每条有70–293个合法AP候选，默认点距路线≤2m。初始路线长均值9.10m、范围6.13–14.81m；代理信号下20/20有弱信号段、3/20有断连段。首次失败因粗网格`try_step`错误拒绝已验证原生路线折线，日志留存；修正后输出见[实验记录](docs/experiments/single_floor_ap_review_2026-11-19.md)。本机可交互HTML为`runtime/reports/single_floor_ap_review_20261119/index.html`（SHA256 `26462ff980cdcfba69ebdaf48ab55d40243034eca7792ed0e731d47f5f4fec17`），未上传。下一步人工查看指令/楼层与AP位置；若改AP，导出后原生重算RSSI并冻结布局版本。语义视觉人工审核、源许可、正式资格和benchmark规模仍未闭合。
 
 **资源备选（尚未实施）：** 用户正在考虑申请单张完整80GB A800，未确认已分配、未连接新机器、未迁移模型或改动当前TP4配置。同模型BF16单卡在8K/单请求/最多3图下是否有足够余量须实际验收；不能把容量估算当部署成功。模型服务与Habitat渲染分别核验。缩减上下文或量化会改变实验条件，需独立记录并重新验证基线。
 
@@ -298,6 +298,7 @@ BM4沿用既定工程验收，不为它重写旧样本；BM0–BM3无需等待BM
 - [BM1开发清单合约](docs/design/bm1_manifest_contract_v0.md)：开发schema与actor/评测真值分离、测试入口，正式资格未冻结。
 - [BM4三次真实工程回归](docs/experiments/empty_recovery_validation_2026-11-19.md)：最新定点验收与导航失败/偏离记录。
 - [首版任务卡与构建规范v1](docs/design/r2r_conn_benchmark_v1.md)：BM0当前产物；[原10任务初审](docs/experiments/bm0_task_audit_2026-11-19.md)记录文本/层高证据与未闭合项。
+- [单层20任务/AP布局审阅结果](docs/experiments/single_floor_ap_review_2026-11-19.md)：完整筛选统计、源/配置hash、scene/task ID、代理RSSI描述与限制；任务AP坐标在本机HTML报告和忽略目录数据副本中。
 - [Benchmark优先方案审查与验收](docs/experiments/benchmark_plan_review_2026-11-18.md)：多Agent问题清单与验收证据；其中已采纳的计划调整以本文件1.2/5/6节为准，详细规范/参数仍待BM0–BM3冻结。
 - [R2R-Conn任务与benchmark制作计划v0](docs/design/r2r_conn_benchmark_plan_v0.md)：历史v0任务与制作依据；其旧进度及笼统扩展依赖不作为当前顺序，现按本文件BM0–BM6推进。
 

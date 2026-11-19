@@ -192,3 +192,9 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 11月19日04:35 BM1 CPU审计完成：代码6180a8d经GitHub推送后bundle快进服务器，真实Habitat环境35测试通过；原10任务/30case的开发manifest、actor输入与checks在`runtime/diagnostics/bm1_schema_dev_20261119/`，原数据hash不变，没有模型/保留集调用。04:30一次性唤醒已执行并删除；当前没有新导航批次，模型保留在线。
 
 11月19日本轮BM3规范更新：f522403已push并在服务器干净工作区bundle快进同步，沿用原Habitat环境44测试通过（35既有+9新无线积分测试），未安装包、重启模型或运行导航。新增离线latent暴露模块不替换原route_a/旧评分；多层规划/传播和在线拒绝尚未实现或验收。
+
+## 2026-11-19 单层20任务 AP 布局审阅
+
+项目代码`07037c2`经GitHub发布后由bundle快进同步到服务器。服务器复用`/opt/anaconda3/envs/habitat0.3.0/bin/python`及Habitat-Sim 0.3.0 PathFinder，在CPU上读取项目`data/datasets`和5个MP3D navmesh；没有调用Qwen、GPU渲染、导航推理或更改共享环境。筛选/布局原始开发数据保存在服务器`runtime/diagnostics/single_floor_ap_review_20261119_retry01/`，日志`runtime/logs/single_floor_ap_review_20261119_retry01.log`；首次失败日志保留在同目录前缀无`retry01`的日志中。服务器HEAD、工作区和构建结果记录见[本轮实验记录](experiments/single_floor_ap_review_2026-11-19.md)。
+
+本机从服务器复制审阅数据副本后生成单文件HTML：`runtime/reports/single_floor_ap_review_20261119/index.html`。该HTML、源审计和AP数据副本被`.gitignore`忽略，不上传GitHub或服务器。浏览器自动化策略禁止打开本地`file:`URL，因此未做GUI截图验收；文件完整性、自包含性和内联JavaScript语法已检查。用户可在本机从Finder或浏览器地址栏打开该HTML。
