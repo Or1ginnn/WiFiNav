@@ -30,9 +30,9 @@ const current = () => tasks[taskIndex];
 const selectedNode = task => saved[task.episode_id] ?? task.default_ap_node;
 const changed = task => selectedNode(task) !== task.default_ap_node;
 const mwLabels = {
-  connected_in_all: "四组均全程覆盖",
-  sensitive: "覆盖对参数敏感",
-  outage_in_all: "四组均有模拟断连段"
+  connected_in_all: "四组断连段均为 0 m",
+  sensitive: "断连段对参数敏感",
+  outage_in_all: "四组均有断连段"
 };
 function assumptionLabel(key) {
   const [band, spacing] = key.split("_");
@@ -67,22 +67,28 @@ function persist(message) {
   }
   setDraft(message);
 }
+function rememberNode(task, node) {
+  const stack = history.get(task.episode_id) || [];
+  stack.push(node);
+  history.set(task.episode_id, stack);
+}
 function applyNode(node, remember = true) {
   const task = current(), previous = selectedNode(task);
   if (!task.ap_candidate_nodes.includes(node) || node === previous) return;
-  if (remember) {
-    const stack = history.get(task.episode_id) || [];
-    stack.push(previous);
-    history.set(task.episode_id, stack);
-  }
+  if (remember) rememberNode(task, previous);
   if (node === task.default_ap_node) delete saved[task.episode_id];
   else saved[task.episode_id] = node;
   persist();
   render();
 }
+function layerExtent() {
+  if (showSignal && signalMode === "range" && topdown) return "floor";
+  if (!circleEnabled) return "route";
+  return showSignal && signalMode === "heatmap" && !fullHeatmap ? "ap" : "floor";
+}
 function chooseTask(index, scroll = false) {
   taskIndex = index;
-  view = emptyView(circleEnabled ? (fullHeatmap ? "floor" : "ap") : "route");
+  view = emptyView(layerExtent());
   $("hover").hidden = true;
   render();
   if (scroll) $("workspace").scrollIntoView({block: "start"});
@@ -560,12 +566,17 @@ function drawChart() {
       " dBm · 弱信号 " + metrics.weak_length_m.toFixed(2) + " m · 断连 " + metrics.outage_length_m.toFixed(2) + " m</p>";
   }
   if (multiwall) {
-    const outage = Object.values(profiles).map(item => item.outage_length_m);
+    const allProfiles = Object.values(profiles);
+    const outage = allProfiles.map(item => item.outage_length_m);
     const minOutage = Math.min(...outage).toFixed(2), maxOutage = Math.max(...outage).toFixed(2);
+    const {outage_threshold_dbm: threshold} = config;
+    const below = baseline.filter(value => value < threshold).length;
+    const groupsBelow = allProfiles.filter(item => item.minimum_dbm < threshold).length;
     $("baselineLabel").textContent = "当前查看 · " + assumptionLabel(assumption);
     $("comparisonLabel").textContent = "对照 · " + assumptionLabel(peer);
     $("routeMetrics").innerHTML = summarize("已计算 AP · 当前假设", profiles[assumption]) +
-      "<p>四组假设的断连段总长度 " + (minOutage === maxOutage ? minOutage : minOutage + "–" + maxOutage) + " m</p>";
+      "<p>当前 " + below + "/" + baseline.length + " 个沿线采样点低于 " + threshold + " dBm · 四组中 " + groupsBelow + " 组有低读数</p>" +
+      "<p>四组断连段长度 " + (minOutage === maxOutage ? minOutage : minOutage + "–" + maxOutage) + " m（按段均值）</p>";
   } else {
     $("routeMetrics").innerHTML = summarize("初始 AP · 原生代理", task.initial_route_metrics) +
       (edited ? summarize("草稿 AP · 网格估计", routeSummary(trial, task.route_lengths_m, config)) : "");
@@ -664,8 +675,12 @@ function render() {
   if ($("layouts").open) renderLayouts();
 }
 function setLayer(signal, mode = "heatmap") {
+  const previousExtent = layerExtent();
+  const enteringRange = signal && mode === "range" && (!showSignal || signalMode !== mode);
   showSignal = signal;
   signalMode = mode;
+  const extent = layerExtent();
+  if (enteringRange || extent !== previousExtent) view = emptyView(extent);
   $("hover").hidden = true;
   $("signalLayer").setAttribute("aria-pressed", String(signal && mode === "heatmap"));
   $("rangeLayer").setAttribute("aria-pressed", String(signal && mode === "range"));
@@ -921,10 +936,11 @@ function importEdits(data) {
     seen.add(task);
     if (edit.selected_ap_node !== task.default_ap_node) imported[task.episode_id] = edit.selected_ap_node;
   }
-  // Keep the current draft intact until every imported row has passed validation.
+  // Record undo entries only after every imported row has passed validation.
+  const affected = tasks.filter(task => (imported[task.episode_id] ?? task.default_ap_node) !== selectedNode(task));
+  for (const task of affected) rememberNode(task, selectedNode(task));
   saved = imported;
-  history.clear();
-  persist("已导入");
+  persist(affected.length ? "已导入 · 可按任务撤销" : "已导入");
   render();
 }
 $("importFile").onchange = async event => {
@@ -946,9 +962,9 @@ if (multiwall) {
   const counts = multiwall.summary.status_counts;
   for (const [id, value, label] of [
     ["taskCount", tasks.length, "已计算的 AP 布局"],
-    ["sceneCount", counts.connected_in_all, "四组均全程覆盖"],
-    ["excludedCount", counts.sensitive, "覆盖对参数敏感"],
-    ["reviewCount", counts.outage_in_all, "四组均有模拟断连段"]
+    ["sceneCount", counts.connected_in_all, mwLabels.connected_in_all],
+    ["excludedCount", counts.sensitive, mwLabels.sensitive],
+    ["reviewCount", counts.outage_in_all, mwLabels.outage_in_all]
   ]) {
     $(id).textContent = number.format(value);
     $(id).nextElementSibling.textContent = label;
@@ -964,7 +980,7 @@ if (multiwall) {
   $("assumption").value = assumption;
   $("assumption").onchange = event => { assumption = event.target.value; render(); };
   $("noiseOption").hidden = true;
-  $("profileNote").textContent = "两条曲线使用同一个已计算 AP，对比高低损耗档。横轴为参考路线累计距离，着色对应仿真阈值。";
+  $("profileNote").textContent = "两条曲线使用同一个已计算 AP，对比高低损耗档。断连段按相邻采样点的平均 RSSI 判定，低读数按采样点单独统计。";
   $("footer").textContent = "单层开发审阅 · RSSI 使用语义多墙模型 · 墙体损耗待实测校准 · AP 草稿可导出";
 }
 $("sourceFacts").innerHTML = facts([
