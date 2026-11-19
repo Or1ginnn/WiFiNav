@@ -59,3 +59,10 @@
 - 原有 20 个 AP 的 0.40 m 显示网格，合计 14,494 个空间采样位置，每个位置按四组穿透损耗与墙面合并假设生成数据。原始参考路线保留 807 个位置和四组曲线。交互图在 Habitat 原生底图上裁切并显示热力图、达到 −75 dBm 的网格轮廓及鼠标位置的网格 RSSI。留白区域可能未采样。
 - 服务器网格导出 `scripts/export_multiwall_ap_preview.py`，执行提交 `5d55c1d23125d47d578828f553f285320d7968a0`，产物 `runtime/diagnostics/multiwall_ap_preview_20261119/grids.json`，SHA256 `5845f02421d5b5c5016aac548f7d495ffebd8c3245bc7d365b2d6bf32fc070f7`。生成前核对了 AP 初值、参考曲线批次及各场景资产哈希。
 - 本机 `runtime/reports/single_floor_ap_review_20261119_v5/index.html`，SHA256 `519de9063d0dacb105423d121133bb33f663a83d452b1473136831c07389a260`。渲染器额外传入 `--multiwall-report` 与 `--multiwall-grids`。覆盖和曲线对应已计算 AP。草稿可点选、撤销和导出，重算之前保留已计算覆盖与草稿的独立标记。已用本机 Chrome 验证图层、阈值区域、悬停读数、损耗切换、草稿和移动视口，浏览器零外部 HTTP 请求。
+
+## 本机 v6 纹理俯视图和 AP 热力圈
+
+- 从 5 个已核验 Matterport GLB 生成 9 张原始纹理俯视切片，射线从 navmesh 高度以上 1.65 m 开始向下，保留同层可见表面。分辨率为 2.5 cm/像素，2,634,787 个可见像素均有原纹理，切片记录米制左上角并对齐 Habitat X–Z 坐标。它保留扫描可见的房间与家具和扫描缺损。
+- AP 热力圈默认 5 m，可切换 3 / 5 / 8 m。圈内对 0.40 m RSSI 网格的近邻数据做显示插值并裁切到可通行区域，弱强用连续色标，圈外及未采样处保留场景底图。虚线圆为查看窗口。单独的「覆盖范围」仍按 −75 dBm 显示阈值轮廓，模型和布局均沿用 v5 数据。已计算 AP 与草稿分开展示。
+- 导出脚本 `scripts/export_ap_review_scene_views.py`，执行提交 `2ef3ad0c6af7b0950ae63dcfc3739e2293978228`。原场景 Basis 纹理由 [Basis Universal v1_60](https://github.com/BinomialLLC/basis_universal/tree/v1_60/transcoder) 解码，提交 `323239a6a5ffa57d6570cfc403be99156e33a8b0`，项目只保存解码入口。CPU 用时 69.1 秒；服务器产物 `runtime/diagnostics/ap_scene_views_20261119_v3/views.json`，SHA256 `d148ed6c9c7bf5c27d746d79bce16bfeb73d300e328ecdf3602c15d0d600a7cc`。较早两次日志保留，其中第二次渲染成功但序列化前错误复用了坐标变量。
+- 当前报告 `runtime/reports/single_floor_ap_review_20261119_v6/index.html`，SHA256 `8f0d17f6590a0cd45b1aff3a02446b8a2a3b4ee6667473ac5c457efe106b4f47`，渲染器增加 `--scene-views <视图 JSON>`。已在 Chrome 验证全部 9 张纹理解码、AP 居中、半径调整、覆盖与场景层切换、草稿操作和窄屏，HTML 与实际材质图仅在本机报告中使用。

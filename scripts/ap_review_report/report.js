@@ -4,6 +4,8 @@ const D = JSON.parse($("payload").textContent);
 const tasks = D.tasks;
 const topdown = D.topdown;
 const multiwall = D.multiwall;
+const sceneViews = D.scene_views;
+const circleEnabled = !!(sceneViews && multiwall);
 const audit = new Map(D.scope.map(row => [String(row.episode_id), row]));
 const hashes = D.metadata.source_sha256;
 const spec = D.metadata.specification;
@@ -13,11 +15,13 @@ const sceneName = task => task.scene_id.split("/").at(-2);
 const escape = value => String(value ?? "—").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
 const xyz = position => position.map(value => value.toFixed(3)).join(", ");
 const pointFor = (task, node) => node === task.default_ap_node ? task.default_ap_position : task.nodes[node];
-const emptyView = (extent = "route") => ({zoom: 1, x: 0, y: 0, extent});
+const emptyView = (extent = circleEnabled ? "ap" : "route") => ({zoom: 1, x: 0, y: 0, extent});
 const history = new Map();
 let taskIndex = 0, view = emptyView(), showSignal = !!multiwall || !topdown, saved = {};
 let assumption = multiwall ? Object.keys(tasks[0].multiwall.assumptions)[0] : null;
 let signalMode = "heatmap", gridCellPixels = 0;
+let viewRadius = 5, navOnly = false;
+let showCandidates = !circleEnabled;
 let storageAvailable = true, drag = null, projection, previewCache;
 const map = $("map"), chart = $("chart");
 const ctx = map.getContext("2d"), plot = chart.getContext("2d");
@@ -204,6 +208,69 @@ function coverageColor(rssi, config) {
   return colors.good;
 }
 const floorCache = new Map();
+const sceneCache = new Map();
+function sceneImageFor(task) {
+  if (!sceneViews || navOnly) return null;
+  const key = topdown.episodes[task.episode_id];
+  if (!sceneCache.has(key)) {
+    const source = sceneViews.maps[key];
+    const image = new Image();
+    image.onload = drawMap;
+    image.src = "data:image/webp;base64," + source.rgba_webp_base64;
+    sceneCache.set(key, {source, image});
+  }
+  return sceneCache.get(key);
+}
+
+const stops = [[-95, [40, 48, 104]], [-85, [81, 64, 154]], [-75, [188, 69, 153]],
+  [-63, [245, 148, 87]], [-48, [229, 70, 47]]];
+function heatColor(dbm) {
+  let i = 1;
+  while (i < stops.length - 1 && dbm > stops[i][0]) i++;
+  const [low, a] = stops[i - 1], [high, b] = stops[i];
+  const factor = Math.min(1, Math.max(0, (dbm - low) / (high - low)));
+  return a.map((channel, n) => Math.round(channel + (b[n] - channel) * factor));
+}
+
+function paintHeatmap(raster, task, floor, signal, width, height, cell) {
+  const size = width * height;
+  const totals = new Float32Array(size), weights = new Float32Array(size);
+  const nearest = new Float32Array(size), nearestDist = new Float32Array(size).fill(Infinity);
+  const minimum = new Float32Array(size).fill(Infinity), maximum = new Float32Array(size).fill(-Infinity);
+  const radius = cell * .85, maxDistance = radius ** 2;
+  for (let i = 0; i < task.base_grid_nodes; i++) {
+    const value = signal[i];
+    if (value === null) continue;
+    const [x, , z] = task.nodes[i];
+    const px = (x - floor.left) / floor.step - .5, py = (z - floor.top) / floor.step - .5;
+    for (let row = Math.max(0, Math.ceil(py - radius)); row <= Math.min(height - 1, Math.floor(py + radius)); row++) {
+      for (let col = Math.max(0, Math.ceil(px - radius)); col <= Math.min(width - 1, Math.floor(px + radius)); col++) {
+        const distance = (row - py) ** 2 + (col - px) ** 2;
+        if (distance >= maxDistance) continue;
+        const k = row * width + col;
+        const weight = (1 - distance / maxDistance) ** 2;
+        totals[k] += value * weight;
+        weights[k] += weight;
+        minimum[k] = Math.min(minimum[k], value);
+        maximum[k] = Math.max(maximum[k], value);
+        if (distance < nearestDist[k]) {
+          nearestDist[k] = distance;
+          nearest[k] = value;
+        }
+      }
+    }
+  }
+  const image = raster.createImageData(width, height);
+  for (let k = 0; k < size; k++) {
+    if (!weights[k]) continue;
+    // Preserve sharp wall-induced transitions; blend nearby readings where
+    // they agree and only over a single sampling interval.
+    const value = maximum[k] - minimum[k] > 6 ? nearest[k] : totals[k] / weights[k];
+    image.data.set([...heatColor(value), 232], k * 4);
+  }
+  raster.putImageData(image, 0, 0);
+}
+
 function floorFor(task) {
   if (!topdown) return null;
   const key = topdown.episodes[task.episode_id];
@@ -245,15 +312,19 @@ function coverageFor(task, floor) {
   const cell = spec.map_grid_resolution_m / floor.step;
   const radio = multiwall?.config || task.wireless_config;
   const range = signalMode === "range";
-  for (let i = 0; i < task.base_grid_nodes; i++) {
-    const rssi = estimate.signal[i];
-    if (range && (rssi === null || rssi < radio.outage_threshold_dbm)) continue;
-    const [x, , z] = task.nodes[i];
-    raster.fillStyle = range ? "#fff" : coverageColor(rssi, radio);
-    const px = (x - floor.left) / floor.step - cell / 2;
-    const py = (z - floor.top) / floor.step - cell / 2;
-    raster.fillRect(Math.round(px), Math.round(py), Math.round(px + cell) - Math.round(px),
-      Math.round(py + cell) - Math.round(py));
+  if (circleEnabled && !range) {
+    paintHeatmap(raster, task, floor, estimate.signal, bitmap.width, bitmap.height, cell);
+  } else {
+    for (let i = 0; i < task.base_grid_nodes; i++) {
+      const rssi = estimate.signal[i];
+      if (range && (rssi === null || rssi < radio.outage_threshold_dbm)) continue;
+      const [x, , z] = task.nodes[i];
+      raster.fillStyle = range ? "#fff" : coverageColor(rssi, radio);
+      const px = (x - floor.left) / floor.step - cell / 2;
+      const py = (z - floor.top) / floor.step - cell / 2;
+      raster.fillRect(Math.round(px), Math.round(py), Math.round(px + cell) - Math.round(px),
+        Math.round(py + cell) - Math.round(py));
+    }
   }
   raster.globalCompositeOperation = "destination-in";
   raster.drawImage(floor.bitmap, 0, 0);
@@ -282,24 +353,45 @@ function drawMap() {
   const anchors = [...task.route_nodes, ...task.ap_candidate_nodes].map(i => task.nodes[i]);
   const xs = anchors.map(p => p[0]), zs = anchors.map(p => p[2]);
   const floor = floorFor(task), entireFloor = floor && view.extent === "floor";
-  const left = entireFloor ? floor.left : Math.min(...xs);
-  const right = entireFloor ? floor.left + floor.width : Math.max(...xs);
-  const top = entireFloor ? floor.top : Math.min(...zs);
-  const bottom = entireFloor ? floor.top + floor.height : Math.max(...zs);
-  const scale = Math.min(width / (right - left + 3), height / (bottom - top + 3)) * view.zoom;
+  const [ax, , az] = task.default_ap_position;
+  const atAp = view.extent === "ap";
+  const left = atAp ? ax - viewRadius : entireFloor ? floor.left : Math.min(...xs);
+  const right = atAp ? ax + viewRadius : entireFloor ? floor.left + floor.width : Math.max(...xs);
+  const top = atAp ? az - viewRadius : entireFloor ? floor.top : Math.min(...zs);
+  const bottom = atAp ? az + viewRadius : entireFloor ? floor.top + floor.height : Math.max(...zs);
+  const padding = atAp ? 1.15 : 3;
+  const scale = Math.min(width / (right - left + padding), height / (bottom - top + padding)) * view.zoom;
   projection = ([x, , z]) => [
     width / 2 + view.x + (x - (left + right) / 2) * scale,
     height / 2 + view.y + (z - (top + bottom) / 2) * scale
   ];
   const cell = spec.map_grid_resolution_m * scale;
   gridCellPixels = cell;
+  const ring = circleEnabled && showSignal && signalMode === "heatmap";
+  const [apX, apY] = projection(task.default_ap_position);
   if (floor) {
     const [x, y] = projection([floor.left, 0, floor.top]);
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(floor.bitmap, x, y, floor.width * scale, floor.height * scale);
+    const textured = sceneImageFor(task);
+    if (textured?.image.complete && textured.image.naturalWidth) {
+      const {source, image} = textured;
+      const [sceneX, sceneZ] = source.top_left_xz;
+      const [sx, sy] = projection([sceneX, 0, sceneZ]);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(image, sx, sy, source.width * source.meters_per_pixel * scale,
+        source.height * source.meters_per_pixel * scale);
+    }
     if (showSignal) {
-      ctx.globalAlpha = .86;
+      if (ring) {
+        ctx.beginPath();
+        ctx.arc(apX, apY, viewRadius * scale, 0, 2 * Math.PI);
+        ctx.clip();
+        ctx.fillStyle = "#f9faf333";
+        ctx.fillRect(0, 0, width, height);
+      }
+      ctx.globalAlpha = ring ? .80 : .86;
       ctx.drawImage(coverageFor(task, floor), x, y, floor.width * scale, floor.height * scale);
     }
     ctx.restore();
@@ -312,6 +404,19 @@ function drawMap() {
       ctx.fillRect(x - cell / 2, y - cell / 2, cell + .35, cell + .35);
     }
   }
+  if (ring) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(apX, apY, viewRadius * scale, 0, 2 * Math.PI);
+    ctx.strokeStyle = "#ffffffda";
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    ctx.strokeStyle = "#20364c";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 5]);
+    ctx.stroke();
+    ctx.restore();
+  }
   function circle(x, y, radius, fill, stroke, strokeWidth) {
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, 2 * Math.PI);
@@ -321,9 +426,11 @@ function drawMap() {
     ctx.lineWidth = strokeWidth;
     ctx.stroke();
   }
-  for (const i of task.ap_candidate_nodes) {
-    const [x, y] = projection(task.nodes[i]);
-    circle(x, y, Math.min(3.5, Math.max(1.6, cell * .22)), "#f8fffc", "#17685f", 1);
+  if (showCandidates) {
+    for (const i of task.ap_candidate_nodes) {
+      const [x, y] = projection(task.nodes[i]);
+      circle(x, y, Math.min(3.5, Math.max(1.6, cell * .22)), "#f8fffc", "#17685f", 1);
+    }
   }
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -341,7 +448,8 @@ function drawMap() {
   ctx.stroke();
   function marker(position, label, fill, outline, side) {
     const [x, y] = projection(position);
-    circle(x, y, 6, fill, outline, 2.5);
+    const isAp = label.endsWith("AP");
+    circle(x, y, isAp && circleEnabled ? 10 : 6, fill, outline, isAp && circleEnabled ? 3 : 2.5);
     ctx.font = "600 12px sans-serif";
     const labelWidth = ctx.measureText(label).width;
     const tx = Math.min(width - labelWidth - 7, Math.max(6, x + (side === "left" ? -labelWidth - 11 : 10)));
@@ -469,8 +577,11 @@ function render() {
     button.innerHTML = "任务 " + escape(entry.episode_id) + (hint ? "<small>" + hint + "</small>" : "");
   }
   $("sceneLabel").textContent = sceneName(task) + " · 路径组 " + task.trajectory_id;
-  const floorLabel = topdown ? "Habitat · Y = " + task.floor_y.toFixed(2) + " m" : "俯视 X–Z · 米";
-  $("mapLabel").textContent = floorLabel + (multiwall && showSignal ? " · 已计算 AP 覆盖" : "");
+  const floorName = sceneViews && !navOnly ? "Matterport 场景俯视" : "Habitat 可走区域";
+  const floorLabel = topdown ? floorName + " · Y = " + task.floor_y.toFixed(2) + " m" : "俯视 X–Z · 米";
+  const ring = circleEnabled && showSignal && signalMode === "heatmap";
+  $("mapLabel").textContent = floorLabel + (ring ? " · " + viewRadius + " m 热力圈" :
+    multiwall && showSignal ? " · 已计算 AP 覆盖" : "");
   $("taskTitle").textContent = "任务 " + task.episode_id;
   $("instruction").textContent = task.instruction;
   const flag = task.multiwall?.coverage_status;
@@ -510,8 +621,11 @@ function render() {
     [colors.outage, "断连 < " + outage],
     ...(multiwall ? [] : [[colors.missing, "网格不可达"]])
   ];
-  $("coverageLegend").innerHTML = bands.map(([fill, label]) => '<span><i class="swatch" style="background:' + fill + '"></i>' + label + '</span>').join("") + "<span>单位 dBm</span>";
+  $("coverageLegend").innerHTML = ring ?
+    '<span class="signal-scale"><span class="ramp"></span><span class="ticks"><span>≤−95</span><span>−85</span><span>−75</span><span>−63</span><span>≥−48 dBm</span></span></span><span>弱 ← 信号 → 强</span>' :
+    bands.map(([fill, label]) => '<span><i class="swatch" style="background:' + fill + '"></i>' + label + '</span>').join("") + "<span>单位 dBm</span>";
   $("coverageLegend").hidden = !showSignal;
+  $("candidateLegend").hidden = !showCandidates;
   if (multiwall) {
     $("initialLegend").hidden = !edited;
     $("apLegend").textContent = edited ? "草稿 AP" : "已计算 AP";
@@ -521,11 +635,14 @@ function render() {
     $("assumptionDetails").textContent = "墙 " + wall + " / 门 " + door + " / 窗 " + glass + " dB 每处";
     $("apNote").textContent = edited ? "草稿坐标已保存。图上覆盖和曲线仍对应已计算 AP，导出后需要重新计算草稿位置。"
       : "坐标单位为米，Y 为地面锚点。多墙计算使用地面以上 " + multiwall.config.ap_height_above_floor_m + " m 的发射位置。";
-    const mapDescription = signalMode === "range" && showSignal ?
-      "绿色轮廓显示当前假设下达到 " + outage + " dBm 的已采样区域。留白包含未达阈值或未采样位置。" :
-      "热图按当前假设显示已计算 AP 的多墙 RSSI。灰色可走区域表示网格未采样。";
+    $("radiusOption").hidden = !ring;
+    const mapDescription = ring ?
+      "虚线圈是以已计算 AP 为中心的 " + viewRadius + " m 查看范围。彩色区域显示多墙 RSSI，未采样处保留底图。" :
+      signalMode === "range" && showSignal ?
+        "绿色轮廓显示当前假设下达到 " + outage + " dBm 的已采样区域。留白包含未达阈值或未采样位置。" :
+        "场景底图保留路线、AP 标记和可选点。";
     $("mapNote").textContent = mapDescription +
-      (edited ? " 紫色空心标记是已计算 AP，橙色是待重算草稿。" : " 点击空心候选点可以试放 AP。");
+      (edited ? " 紫色空心标记是已计算 AP，橙色是待重算草稿。" : showCandidates ? " 点击空心候选点可以试放 AP。" : "");
   }
   drawMap();
   drawChart();
@@ -548,10 +665,27 @@ function setLayer(signal, mode = "heatmap") {
 $("signalLayer").onclick = () => setLayer(true);
 $("rangeLayer").onclick = () => setLayer(true, "range");
 $("floorLayer").onclick = () => setLayer(false);
-$("floorLayer").textContent = topdown ? "Habitat 底图" : "可走网格";
+$("floorLayer").textContent = sceneViews ? "场景底图" : topdown ? "Habitat 底图" : "可走网格";
 $("fitFloor").hidden = !topdown;
 $("fitFloor").onclick = () => { view = emptyView("floor"); drawMap(); };
-$("fit").onclick = () => { view = emptyView(); drawMap(); };
+$("fit").onclick = () => { view = emptyView("route"); drawMap(); };
+$("fitAp").hidden = !circleEnabled;
+$("fitAp").onclick = () => { view = emptyView("ap"); drawMap(); };
+$("viewRadius").onchange = event => {
+  viewRadius = Number(event.target.value);
+  view = emptyView("ap");
+  $("hover").hidden = true;
+  render();
+};
+$("navOption").hidden = !sceneViews;
+$("navOnly").onchange = event => { navOnly = event.target.checked; render(); };
+$("candidateOption").hidden = !circleEnabled;
+$("showCandidates").checked = showCandidates;
+$("showCandidates").onchange = event => {
+  showCandidates = event.target.checked;
+  $("hover").hidden = true;
+  render();
+};
 $("mapNote").textContent = topdown
   ? "Habitat 底图显示可通行区域，空心点可设为 AP。叠加 RSSI 后，未着色的可走区域表示暂无信号网格采样。"
   : "点击空心点移动 AP，拖动平移。色块显示可走网格上的模拟 RSSI，浅灰空白表示无网格数据。";
@@ -569,6 +703,7 @@ $("undo").onclick = () => {
 };
 $("showNoise").onchange = drawChart;
 function closestCandidate(x, y) {
+  if (!showCandidates) return null;
   let best = null, bestDistance = 12 ** 2;
   for (const node of current().ap_candidate_nodes) {
     const [nx, ny] = projection(current().nodes[node]);
@@ -582,6 +717,11 @@ function closestCandidate(x, y) {
 }
 function sampledRssiAt(x, y) {
   const task = current();
+  if (circleEnabled && showSignal && signalMode === "heatmap") {
+    const [ax, ay] = projection(task.default_ap_position);
+    const scale = gridCellPixels / spec.map_grid_resolution_m;
+    if (Math.hypot(x - ax, y - ay) > viewRadius * scale) return null;
+  }
   const limit = gridCellPixels / 2;
   let index = -1, distance = Infinity;
   for (let i = 0; i < task.base_grid_nodes; i++) {
@@ -782,7 +922,7 @@ if (multiwall) {
   $("subtitle").textContent = sceneGroups.size + " 个场景 · " + tasks.length + " 个 AP 布局 · 按墙体损耗假设审阅覆盖";
   $("overviewLink").href = "#layouts";
   $("overviewLink").textContent = "查看全部 AP 坐标 ↓";
-  $("signalLayer").textContent = "RSSI 热图";
+  $("signalLayer").textContent = circleEnabled ? "AP 热力圈" : "RSSI 热图";
   $("rangeLayer").hidden = !topdown;
   $("assumptionBar").hidden = false;
   $("assumption").replaceChildren(...Object.keys(tasks[0].multiwall.assumptions).map(key => new Option(assumptionLabel(key), key)));
@@ -800,6 +940,7 @@ $("sourceFacts").innerHTML = facts([
     spec.ap_preferred_lateral_offset_m + " m，吸附到距路线 " + spec.ap_route_corridor_m + " m 内的可达候选"],
   ["可走网格", spec.map_grid_resolution_m + " m"],
   ...(topdown ? [["Habitat 底图", "PathFinder · " + topdown.habitat_sim_version + " · 5 cm/像素 · 高度容差 ±" + topdown.height_tolerance_m + " m"]] : []),
+  ...(sceneViews ? [["纹理俯视图", "原始 Matterport GLB · 地面以上 " + sceneViews.cut_above_navmesh_m + " m 截顶 · 2.5 cm/像素"]] : []),
   ...(multiwall ? [
     ["多墙路线版本", multiwall.execution_commit],
     ["多墙网格版本", multiwall.grid_commit],

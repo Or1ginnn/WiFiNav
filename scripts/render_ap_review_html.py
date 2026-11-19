@@ -66,12 +66,15 @@ def main():
     parser.add_argument("--audit", type=Path, required=True)
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--topdown", type=Path, help="Native Habitat slices for this exact layout batch")
+    parser.add_argument("--scene-views", type=Path, help="Aligned Matterport textured cutaways")
     parser.add_argument("--multiwall-report", type=Path)
     parser.add_argument("--multiwall-grids", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if bool(args.multiwall_report) != bool(args.multiwall_grids):
         parser.error("Supply both the multi-wall report and its display grids")
+    if args.scene_views and not args.topdown:
+        parser.error("Textured cutaways require the matching topdown map data")
     payload = report_payload(load_json(args.audit), load_json(args.data))
     data_hash = hashlib.sha256(args.data.read_bytes()).hexdigest()
     if args.topdown:
@@ -83,6 +86,13 @@ def main():
                 or not set(topdown["episodes"].values()) <= topdown["maps"].keys()):
             raise ValueError("Habitat slices do not match the AP review batch")
         payload["topdown"] = topdown
+    if args.scene_views:
+        views = load_json(args.scene_views)
+        expected = hashlib.sha256(args.topdown.read_bytes()).hexdigest()
+        if (views["format"] != "wifinav-textured-floor-v1" or views["topdown_sha256"] != expected
+                or views["ap_data_sha256"] != data_hash or views["maps"].keys() != topdown["maps"].keys()):
+            raise ValueError("Textured cutaways are from a different scene batch")
+        payload["scene_views"] = views
     if args.multiwall_report:
         add_multiwall(payload, data_hash, args.multiwall_report, args.multiwall_grids)
     embedded_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False)

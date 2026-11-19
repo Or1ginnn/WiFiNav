@@ -206,3 +206,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 五场景多墙 RSSI 验收复用同一 Python 3.11 / LLVM 19 CPU 环境，运行在 4 个 CPU 核。结果 `runtime/diagnostics/single_floor_multiwall_dev_20261119/report.json`，日志 `runtime/logs/single_floor_multiwall_dev_20261119.log`。
 
 本机 v5 AP 审阅报告位于 `runtime/reports/single_floor_ap_review_20261119_v5/index.html`。服务器 CPU 只导出 `runtime/diagnostics/multiwall_ap_preview_20261119/grids.json`，本机将多墙网格和曲线嵌入离线 HTML。动态切换图层直接在浏览器完成。
+
+本机 v6 报告 `runtime/reports/single_floor_ap_review_20261119_v6/index.html`。服务器四核 CPU 从已校验的 GLB 生成纹理切片，结果为 `runtime/diagnostics/ap_scene_views_20261119_v3/views.json`，源色彩通过项目内 Basis Universal v1_60 解码器读取。浏览器直接加载嵌入图，无需服务。

@@ -49,12 +49,15 @@
             <button id="zoomOut" aria-label="缩小地图">−</button>
             <button id="zoomIn" aria-label="放大地图">+</button>
             <button id="fitFloor">整层</button>
+            <button id="fitAp" hidden>聚焦 AP</button>
             <button id="fit">回到路线</button>
           </div>
         </div>
         <div class="assumption-bar" id="assumptionBar" hidden>
           <label for="assumption">多墙仿真假设</label><select id="assumption"></select>
           <span class="muted" id="assumptionDetails"></span>
+          <label id="radiusOption" hidden>热力圈半径 <select id="viewRadius"><option value="3">3 m</option><option value="5" selected>5 m</option><option value="8">8 m</option></select></label>
+          <label class="nav-toggle" id="navOption" hidden><input id="navOnly" type="checkbox"> 仅看可走区域</label>
         </div>
         <div class="map-stage" id="mapStage">
           <canvas id="map" aria-label="参考路线、AP 和可选节点地图"></canvas>
@@ -62,7 +65,7 @@
           <div id="hover" class="map-tooltip" hidden></div>
         </div>
         <div class="legend">
-          <span><i class="line route"></i>参考路线</span><span><i class="dot candidate"></i>可选 AP</span>
+          <span><i class="line route"></i>参考路线</span><span id="candidateLegend"><i class="dot candidate"></i>可选 AP</span>
           <span><i class="dot access"></i><span id="apLegend">当前 AP</span></span><span id="initialLegend"><i class="dot origin"></i><span id="initialApLabel">初始 AP</span></span>
         </div>
         <div class="legend" id="coverageLegend"></div>
@@ -71,6 +74,7 @@
       <aside class="panel inspector">
         <h2>AP 位置</h2>
         <div id="apFacts"></div>
+        <label class="muted candidate-label" id="candidateOption" hidden><input id="showCandidates" type="checkbox"> 在地图上显示可选 AP 点</label>
         <label class="candidate-label" for="candidateSelect">从候选点列表选择</label>
         <select id="candidateSelect"></select>
         <div class="inspector-actions"><button id="undo">撤销</button><button id="resetOne">恢复初始位置</button></div>
