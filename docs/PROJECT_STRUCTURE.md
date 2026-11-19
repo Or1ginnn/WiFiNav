@@ -170,3 +170,4 @@ WIFI+Nav/
 - `docs/design/bm3_radio_and_refusal_v0.md`、`src/connectivity_vln/evaluation/radio_metrics_v1.py`、`tests/test_radio_metrics_v1.py`：路线兼容AP/拒绝/跨层规范与独立latent暴露参考计算器；不替换旧评分，在线机制待实现。
 - `configs/benchmark/single_floor_ap_review_v1.json`、`src/connectivity_vln/benchmark/single_floor.py`、`scripts/build_single_floor_ap_review.py`、`scripts/render_ap_review_html.py` 、`scripts/ap_review_report/` 与 `scripts/export_ap_review_topdown.py`：训练split单层资格审计、20任务/5场景候选AP布局与带 Habitat 俯视底图的本机 AP 布局校正 HTML；真实产物在本机`runtime/reports/`，不是发布清单或导航结果。
 - `docs/experiments/single_floor_ap_review_2026-11-19.md`：单层审阅批次真实统计、源/配置/产物hash、选中任务和待闭合项；20条AP实际坐标详见本机报告。
+- `scripts/prepare_rss_pilot.py`、`scripts/run_rss_raytrace_pilot.py` 与 `configs/wireless/rss_pilot_v{1,2}.json`：单层 RSSI / Sionna RT 对照；版本与结果见[试点记录](experiments/rss_propagation_pilot_2026-11-19.md)。
