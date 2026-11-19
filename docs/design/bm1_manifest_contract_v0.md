@@ -33,7 +33,7 @@ qualification固定unreviewed，不能用原模型成功/失败或本轮源层�
 
 ## 2026-11-19范围修正
 
-按用户最新指示，正式任务不因包含楼梯而判无效。后续schema扩展将任务有效性、楼层属性、执行器supported/unsupported分开；当前开发字段qualification=unreviewed继续保持，不反向筛掉97或重写旧30case。此前“单层资格”表述只作为当时范围，后续按新任务卡/BM3规范落实能力分层。
+按用户最新指示，首版只纳入单层任务；明确要求上下楼的任务从新的单层派生版本中排除，但原始任务和旧B3/30case记录均保留。楼层属性、任务有效性、执行器supported/unsupported分开；仅高度变化或模糊提及楼梯时标为review，不自动断言跨层。当前schema的qualification仍为unreviewed，正式资格规则和清单待新批次。
 
 ## 最新任务范围
 

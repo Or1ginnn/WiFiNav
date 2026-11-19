@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-19。BM0任务卡/源审计已形成但视觉人工复核待闭合；BM4三次定点工程验收通过、导航方法未通过收益门；BM1开发schema在10任务/30case试建通过。当前进度见根plan，原B3 No-Go不变。
+> 最近整理：2026-11-19。BM0任务卡/源审计已形成但视觉人工复核待闭合；BM4三次定点工程验收通过、导航方法未通过收益门；单层20任务/AP审阅工具正在构建，报告只保存在本机`runtime/reports/`。当前进度见根plan，原B3 No-Go不变。
 
 ## 当前目录
 
@@ -33,6 +33,8 @@ WIFI+Nav/
 │   ├── replay_pilot.py                          # 一轨迹三AP回放与任务级汇总
 │   ├── audit_pilot_signals.py                   # 可导航探针位置的信号重复性审计
 │   ├── diagnose_oracle.py                       # 固定局部目标的离线绕行诊断
+│   ├── build_single_floor_ap_review.py          # 全train单层范围审计与20任务AP布局数据（服务器CPU）
+│   ├── render_ap_review_html.py                 # 本机生成离线交互AP校正报告，不上传报告
 │   ├── compare_pilot_interfaces.py              # 同清单接口消融的配对汇总
 │   ├── run_oracle_pilot.py                      # 同规划器NoSignal/StaticMap闭环检查
 │   ├── evaluate_oracle.py                       # 全case/固定基线子集验收与CSV
@@ -166,3 +168,4 @@ WIFI+Nav/
 - `docs/experiments/bm1_schema_dev_2026-11-19.md`：6180a8d开发schema在固定10任务/30case的实际CPU验证与hash；非正式资格/发布验收。
 
 - `docs/design/bm3_radio_and_refusal_v0.md`、`src/connectivity_vln/evaluation/radio_metrics_v1.py`、`tests/test_radio_metrics_v1.py`：路线兼容AP/拒绝/跨层规范与独立latent暴露参考计算器；不替换旧评分，在线机制待实现。
+- `configs/benchmark/single_floor_ap_review_v1.json`、`src/connectivity_vln/benchmark/single_floor.py`、`scripts/build_single_floor_ap_review.py`、`scripts/render_ap_review_html.py`：训练split单层资格审计、20任务/5场景候选AP布局与本机可点击校正HTML；真实产物在本机`runtime/reports/`，不是发布清单或导航结果。

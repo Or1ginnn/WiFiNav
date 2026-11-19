@@ -1,0 +1,27 @@
+{
+  "name": "single_floor_ap_review_v1",
+  "source_split": "train",
+  "task_count": 20,
+  "scene_count": 5,
+  "tasks_per_scene": 4,
+  "selection": "sorted_scene_then_numeric_episode_first_distinct_eligible_source_paths",
+  "height_tolerance_m": 0.2,
+  "height_epsilon_m": 0.0001,
+  "reference_segment_max_spacing_m": 0.25,
+  "map_grid_resolution_m": 0.4,
+  "map_max_nodes": 30000,
+  "route_attachment_radius_m": 0.85,
+  "ap_route_progress_fraction": 0.35,
+  "ap_preferred_lateral_offset_m": 1.5,
+  "ap_route_corridor_m": 2.0,
+  "ap_height_policy": "floor_proxy_not_physical_mount",
+  "wireless_overrides": {
+    "reference_rssi_dbm_at_1m": -48.0,
+    "path_loss_exponent": 2.8,
+    "seed": 20261119
+  },
+  "selection_uses_radio_or_policy_outcomes": false,
+  "report_artifact_location": "local_runtime_reports_only",
+  "purpose": "development_AP_layout_review_not_held_out_benchmark_or_navigation_results",
+  "wireless_base_config": "configs/wireless/r2r_conn_v0.json"
+}
