@@ -59,8 +59,9 @@ a { color: var(--blue); }
 .toolbar button { font-size: 12px; }
 .assumption-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 10px; font-size: 12px; }
 .assumption-bar select { padding: 4px 7px; }
-.heat-display { display: flex; gap: 6px; align-items: center; font-size: 12px; white-space: nowrap; }
-.heat-display select, .map-actions select { padding: 5px 7px; }
+.boundary-option { display: flex; gap: 5px; align-items: center; font-size: 12px; white-space: nowrap; }
+.boundary-option input { accent-color: #0d6557; }
+.map-actions select { padding: 5px 7px; }
 .display-options { border-top: 1px solid var(--border); margin-top: 9px; padding-top: 8px; font-size: 12px; }
 .display-options summary { color: var(--ink); }
 .display-options summary .muted { margin-left: 7px; font-weight: 400; }
@@ -90,6 +91,7 @@ canvas { display: block; width: 100%; height: 100%; }
 .access { background: #ab4817; color: #ab4817; }
 .line { width: 19px; height: 3px; border-radius: 2px; }
 .route { background: #0f4b84; }
+.boundary { background: #0d6557; }
 .baseline { background: #165d85; }
 .noise { background: #74429c; }
 .swatch { width: 15px; height: 10px; border-radius: 2px; border: 1px solid #0002; }

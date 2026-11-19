@@ -45,15 +45,7 @@
             <button id="signalLayer" aria-pressed="false">叠加 RSSI</button>
             <button id="rangeLayer" aria-pressed="false" hidden>覆盖范围</button>
           </div>
-          <label id="radiusOption" class="heat-display" hidden>
-            热图范围
-            <select id="heatDisplay">
-              <option value="full">整层</option>
-              <option value="3">3 米圈</option>
-              <option value="5">5 米圈</option>
-              <option value="8">8 米圈</option>
-            </select>
-          </label>
+          <label id="boundaryOption" class="boundary-option" hidden><input id="showBoundary" type="checkbox" checked> 显示覆盖边界</label>
         </div>
         <div class="map-stage" id="mapStage">
           <canvas id="map" aria-label="参考路线、AP 和可选节点地图"></canvas>
@@ -74,6 +66,7 @@
           <div class="legend">
             <span><i class="line route"></i>参考路线</span><span id="candidateLegend"><i class="dot candidate"></i>可选 AP</span>
             <span><i class="dot access"></i><span id="apLegend">当前 AP</span></span><span id="initialLegend"><i class="dot origin"></i><span id="initialApLabel">初始 AP</span></span>
+            <span id="boundaryLegend" hidden><i class="line boundary"></i><span id="boundaryLabel"></span></span>
           </div>
           <div class="legend" id="coverageLegend"></div>
         </div>
