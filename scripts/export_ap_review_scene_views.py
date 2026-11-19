@@ -137,11 +137,11 @@ def render_floor(physical, floor, textures):
     boundaries = np.r_[0, np.flatnonzero(np.diff(groups)) + 1, len(groups)]
     linear_rgba = rgba.reshape(-1, 4)
     linear_uv = uv_pixels.reshape(-1, 2)
-    for left, right in zip(boundaries, boundaries[1:]):
-        if left == right:
+    for start, stop in zip(boundaries, boundaries[1:]):
+        if start == stop:
             continue
-        selection = order[left:right]
-        pixels, is_textured = textures.colors(materials[groups[left]], linear_uv[selection])
+        selection = order[start:stop]
+        pixels, is_textured = textures.colors(materials[groups[start]], linear_uv[selection])
         linear_rgba[selection, :3] = np.clip(pixels, 0, 255)
         linear_rgba[selection, 3] = 255
         textured += len(selection) if is_textured else 0
@@ -206,9 +206,10 @@ def main():
         "decoder_sha256": sha(args.basis_decoder), "cut_above_navmesh_m": CUT_ABOVE_NAVMESH_M,
         "elapsed_seconds": time.monotonic() - started, "maps": views,
     }
+    encoded = json.dumps(result, separators=(",", ":"), allow_nan=False)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("x", encoding="utf-8") as handle:
-        json.dump(result, handle, separators=(",", ":"), allow_nan=False)
+        handle.write(encoded)
 
 
 if __name__ == "__main__":
