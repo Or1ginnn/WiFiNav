@@ -102,8 +102,8 @@ def sweep_bounds(points, locations, config, receive_z):
     margin = config["map_margin_m"]
     low = np.floor((xy.min(axis=0) - margin) / step) * step
     high = np.ceil((xy.max(axis=0) + margin) / step) * step
-    center = (low + high) / 2
-    return [*center, receive_z], list(high - low)
+    center = ((low + high) / 2).tolist()
+    return [*center, receive_z], (high - low).tolist()
 
 
 def route_indexes(route, centers, step):
