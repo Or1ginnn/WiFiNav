@@ -60,6 +60,7 @@ a { color: var(--blue); }
 .assumption-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 10px; font-size: 12px; }
 .assumption-bar select { padding: 4px 7px; }
 .nav-toggle, #radiusOption { white-space: nowrap; margin-left: auto; }
+#fullHeatmapOption { white-space: nowrap; }
 .signal-scale { display: inline-flex; flex-direction: column; width: min(270px, 90%); gap: 3px; }
 .signal-scale .ramp { height: 10px; border-radius: 5px; background: linear-gradient(to right,#283068,#51409a 21%,#bc4599 42%,#f59457 67%,#e5462f 98%); }
 .signal-scale .ticks { display:flex; justify-content: space-between; color: var(--muted); font-size: 11px; }

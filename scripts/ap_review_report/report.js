@@ -21,6 +21,7 @@ let taskIndex = 0, view = emptyView(), showSignal = !!multiwall || !topdown, sav
 let assumption = multiwall ? Object.keys(tasks[0].multiwall.assumptions)[0] : null;
 let signalMode = "heatmap", gridCellPixels = 0;
 let viewRadius = 5, navOnly = false;
+let fullHeatmap = false;
 let showCandidates = !circleEnabled;
 let storageAvailable = true, drag = null, projection, previewCache;
 const map = $("map"), chart = $("chart");
@@ -81,7 +82,7 @@ function applyNode(node, remember = true) {
 }
 function chooseTask(index, scroll = false) {
   taskIndex = index;
-  view = emptyView();
+  view = emptyView(fullHeatmap ? "floor" : undefined);
   $("hover").hidden = true;
   render();
   if (scroll) $("workspace").scrollIntoView({block: "start"});
@@ -384,7 +385,7 @@ function drawMap() {
         source.height * source.meters_per_pixel * scale);
     }
     if (showSignal) {
-      if (ring) {
+      if (ring && !fullHeatmap) {
         ctx.beginPath();
         ctx.arc(apX, apY, viewRadius * scale, 0, 2 * Math.PI);
         ctx.clip();
@@ -580,7 +581,7 @@ function render() {
   const floorName = sceneViews && !navOnly ? "Matterport 场景俯视" : "Habitat 可走区域";
   const floorLabel = topdown ? floorName + " · Y = " + task.floor_y.toFixed(2) + " m" : "俯视 X–Z · 米";
   const ring = circleEnabled && showSignal && signalMode === "heatmap";
-  $("mapLabel").textContent = floorLabel + (ring ? " · " + viewRadius + " m 热力圈" :
+  $("mapLabel").textContent = floorLabel + (ring ? (fullHeatmap ? " · 整层热力图" : " · " + viewRadius + " m 热力圈") :
     multiwall && showSignal ? " · 已计算 AP 覆盖" : "");
   $("taskTitle").textContent = "任务 " + task.episode_id;
   $("instruction").textContent = task.instruction;
@@ -636,8 +637,14 @@ function render() {
     $("apNote").textContent = edited ? "草稿坐标已保存。图上覆盖和曲线仍对应已计算 AP，导出后需要重新计算草稿位置。"
       : "坐标单位为米，Y 为地面锚点。多墙计算使用地面以上 " + multiwall.config.ap_height_above_floor_m + " m 的发射位置。";
     $("radiusOption").hidden = !ring;
+    $("fullHeatmapOption").hidden = !ring;
+    const extent = ring ? sampledCoverage(task, outage) : null;
     const mapDescription = ring ?
-      "虚线圈是以已计算 AP 为中心的 " + viewRadius + " m 查看范围。彩色区域显示多墙 RSSI，未采样处保留底图。" :
+      (fullHeatmap ? "整层热力图显示全部已采样位置。" : "当前热力图裁到圈内。") +
+      "虚线为距已计算 AP " + viewRadius + " m 的参考圈。圈外有 " + extent.outside +
+      " 个采样点达到 " + outage + " dBm，" +
+      (extent.farthest === null ? "本层网格没有达标点。" :
+        "已采样的最远达标点距 AP " + extent.farthest.toFixed(1) + " m。") :
       signalMode === "range" && showSignal ?
         "绿色轮廓显示当前假设下达到 " + outage + " dBm 的已采样区域。留白包含未达阈值或未采样位置。" :
         "场景底图保留路线、AP 标记和可选点。";
@@ -673,7 +680,13 @@ $("fitAp").hidden = !circleEnabled;
 $("fitAp").onclick = () => { view = emptyView("ap"); drawMap(); };
 $("viewRadius").onchange = event => {
   viewRadius = Number(event.target.value);
-  view = emptyView("ap");
+  if (!fullHeatmap) view = emptyView("ap");
+  $("hover").hidden = true;
+  render();
+};
+$("fullHeatmap").onchange = event => {
+  fullHeatmap = event.target.checked;
+  view = emptyView(fullHeatmap ? "floor" : "ap");
   $("hover").hidden = true;
   render();
 };
@@ -715,9 +728,22 @@ function closestCandidate(x, y) {
   }
   return best;
 }
+function sampledCoverage(task, threshold) {
+  const [ax, , az] = task.default_ap_position;
+  const signal = preview(task).signal;
+  let outside = 0, farthest = null;
+  for (let i = 0; i < task.base_grid_nodes; i++) {
+    if (signal[i] === null || signal[i] < threshold) continue;
+    const [x, , z] = task.nodes[i];
+    const distance = Math.hypot(x - ax, z - az);
+    if (distance > viewRadius) outside++;
+    farthest = farthest === null ? distance : Math.max(farthest, distance);
+  }
+  return {outside, farthest};
+}
 function sampledRssiAt(x, y) {
   const task = current();
-  if (circleEnabled && showSignal && signalMode === "heatmap") {
+  if (circleEnabled && showSignal && signalMode === "heatmap" && !fullHeatmap) {
     const [ax, ay] = projection(task.default_ap_position);
     const scale = gridCellPixels / spec.map_grid_resolution_m;
     if (Math.hypot(x - ax, y - ay) > viewRadius * scale) return null;
