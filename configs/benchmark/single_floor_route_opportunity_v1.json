@@ -1,0 +1,16 @@
+{
+  "name": "single_floor_route_opportunity_v1",
+  "expected_tasks": 20,
+  "expected_scenes": 5,
+  "expected_assumptions_per_task": 4,
+  "source_sha256": {
+    "data": "436f47b920fc4466898ffd0843c6547385b887202eed1ab9114fc3efaf7984e3",
+    "audit": "eaaa60b4f6c52c45ee889f203a6e4dbad263c98612ae6d73367b70bfb30dd147",
+    "profiles": "14b0e78b3643365af2682ad4052360836e2d90d9da76529d297b951febbdd196",
+    "grids": "5845f02421d5b5c5016aac548f7d495ffebd8c3245bc7d365b2d6bf32fc070f7"
+  },
+  "anchor_context_m": 0.8,
+  "local_detour_fraction": 0.2,
+  "minimum_outage_reduction_m": 0.1,
+  "risk_weights": [0, 0.25, 0.5, 1, 2, 4, 8]
+}
