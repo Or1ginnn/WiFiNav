@@ -1,0 +1,44 @@
+{
+  "name": "rss_pilot_v2",
+  "source_ap_review_sha256": "436f47b920fc4466898ffd0843c6547385b887202eed1ab9114fc3efaf7984e3",
+  "scene_id": "mp3d/2n8kARJN3HM/2n8kARJN3HM.glb",
+  "task_ids": [
+    "121",
+    "134",
+    "235",
+    "512"
+  ],
+  "ap_source_task_ids": [
+    "235",
+    "512"
+  ],
+  "weak_threshold_dbm": -67.0,
+  "outage_threshold_dbm": -75.0,
+  "reference_rss_1m_dbm": -48.0,
+  "carrier_hz": 2437000000,
+  "ap_height_above_floor_m": 1.6,
+  "rx_height_above_floor_m": 0.6,
+  "cell_size_m": 0.25,
+  "map_margin_m": 2.0,
+  "samples_per_tx": 8000000,
+  "seeds": [
+    42,
+    43
+  ],
+  "max_depth": 8,
+  "materials": [
+    {
+      "name": "concrete",
+      "thickness_m": 0.1
+    },
+    {
+      "name": "plasterboard",
+      "thickness_m": 0.1
+    }
+  ],
+  "max_repeat_p90_db": 3.0,
+  "free_space_error_max_db": 1.5,
+  "height_alignment_tolerance_m": 0.3,
+  "ap_preference_exposure_tie_m": 0.25,
+  "ap_preference_p10_tie_db": 2.0
+}
