@@ -119,3 +119,8 @@ radio=runtime/envs/sionna_rt_2_2_0_py311/bin/python
 ```
 
 `revision.json` 记录原始输入、草稿、派生输入的 SHA256，以及逐个改动的位置和原生核验。服务器的 `report.json` 与 `grids.json` 分别提供四组多墙曲线和楼层网格。将本批生成的布局、审计、底图、报告、网格、纹理 JSON 复制到本机，在本机运行 `render_ap_review_html.py` 生成新版。JSON 与 HTML 留在各项目 `runtime/`，源任务、全量筛选统计和已有布局报告保留。若基于已重算报告继续编辑，使用它对应的布局、审计和多墙配置作为下一批输入。
+
+2026-11-20 独立验收执行提交 `7b0251f3ee4cf5c4c6b6c62b50480571bb836ce6`，批次 `runtime/diagnostics/single_floor_ap_revision_smoke_20261120/`，日志 `runtime/logs/single_floor_ap_revision_smoke_20261120_{prepare,radio,topdown,views}.log`。Chrome 从 v12 实际导出测试草稿，选任务 515 的首个非默认候选，节点 72 → 20。Habitat 0.3.0 确认到 33 个路线点的原生路径均在层高容差内，最长测地距离 5.84 m。复用既有 CPU 多墙环境，完成五场景 20×4 路线剖面与网格，未调用导航模型。其余 19 条任务数据、RSSI 剖面及网格逐项一致，9 个原生底图切片一致。515 在两档高损耗下按段均值计的断连均由 0 变为 0.864 m，两档低损耗均维持 0 m。
+
+- 草稿 SHA256 `1e1ed6c020642a2acadac457308b2fa830bc2913f84d275cbb0a2ccf066c82c8`，派生数据 SHA256 `7b2fc40ab8219dda38cbd3f5b12c64e2ef73379df5286b275a55ae5bac274ed2`，运行配置 SHA256 `8521799946165ea13f8a89afc75ba54d4be1bf4138aaa80af47753d5572fcc1b`，重算报告 SHA256 `f7f51e752762809243fa618b24c64389663c52013dee093cc64b8899cb21c857`。完整输入与原生证据见批次 `revision.json`。
+- 单层和草稿校验共 10 项单测在本机及服务器通过。Chrome 在本机 `runtime/reports/single_floor_ap_revision_smoke_20261120/index.html` 确认新 AP、重算曲线和覆盖圈一致。该移位用于测试输入输出一致性，原 v12 以及 20 个待人工审阅的原布点保留。

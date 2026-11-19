@@ -9,7 +9,9 @@ const texturedReview = !!(sceneViews && multiwall);
 const audit = new Map(D.scope.map(row => [String(row.episode_id), row]));
 const hashes = D.metadata.source_sha256;
 const spec = D.metadata.specification;
-const storageKey = "wifinav_ap_review_" + D.metadata.execution_commit + "_" + hashes["configs/benchmark/single_floor_ap_review_v1.json"];
+const layoutRevision = D.metadata.ap_layout_revision;
+const storageKey = "wifinav_ap_review_" + D.metadata.execution_commit + "_" +
+  hashes["configs/benchmark/single_floor_ap_review_v1.json"] + (layoutRevision ? "_" + layoutRevision.draft_sha256 : "");
 const number = new Intl.NumberFormat("zh-CN");
 const sceneName = task => task.scene_id.split("/").at(-2);
 const escape = value => String(value ?? "—").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);

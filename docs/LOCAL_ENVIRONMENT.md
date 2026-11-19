@@ -208,3 +208,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 本机 v5 AP 审阅报告位于 `runtime/reports/single_floor_ap_review_20261119_v5/index.html`。服务器 CPU 只导出 `runtime/diagnostics/multiwall_ap_preview_20261119/grids.json`，本机将多墙网格和曲线嵌入离线 HTML。动态切换图层直接在浏览器完成。
 
 本机 v6 报告 `runtime/reports/single_floor_ap_review_20261119_v6/index.html`。服务器四核 CPU 从已校验的 GLB 生成纹理切片，结果为 `runtime/diagnostics/ap_scene_views_20261119_v3/views.json`，源色彩通过项目内 Basis Universal v1_60 解码器读取。浏览器直接加载嵌入图，无需服务。
+
+2026-11-20 草稿重算验收复用 Habitat 0.3.0 与 `runtime/envs/sionna_rt_2_2_0_py311`。CPU 产物在 `runtime/diagnostics/single_floor_ap_revision_smoke_20261120/`，本机生成测试 HTML 后用 Chrome 检查。用户审阅入口仍是本机 v12。见[草稿验收及命令](experiments/single_floor_ap_review_2026-11-19.md#ap-草稿验收与重算)。
