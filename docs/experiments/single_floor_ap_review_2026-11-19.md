@@ -82,3 +82,11 @@
 - 8 项单层规则和信号辅助测试通过。隔离的本机 Chrome 实际检查了桌面与 390 px 窄屏、按图点击 AP、路线预览更新、图层切换、撤销、草稿导出、合法及错误导入、搜索 97 号记录，并观察了截图；浏览器页面零外部 HTTP 请求。
 
 当前热图是可走网格着色，房间语义与视觉地标待人工核对。正式使用草稿布点之前仍须用原生 navmesh 和信号代理重算。开发场景与布局之外的泛化和真实无线表现待独立评估。
+
+## Habitat 原生俯视底图
+
+本机 v4 报告默认显示 Habitat-Sim 0.3.0 的 `PathFinder.get_topdown_view` 输出。5 个场景中的 20 条任务共引用 9 个不同高度的切片，分辨率 0.05 m/像素，垂直容差 ±0.20 m。底图按 X/Z 米制坐标与路线、AP 和起终点对齐。叠加的 RSSI 继续用 0.40 m 粗网格估计，并裁切到俯视可通行区域。底图显示 navmesh 可走区域及边界，视觉材质和房间名称仍需独立查看场景。
+
+- 导出脚本 `scripts/export_ap_review_topdown.py`，执行提交 `c3e10da101134ac0b03739b77c181da99fb42b66`。输入为复查批次 `ap_review_data.json`，按 navmesh SHA256 确认场景资源，逐任务核对起终点、初始 AP、全部候选和路线采样共 4,124 个位置。核对允许 ±2 像素边界余量。
+- 服务器图层数据 `runtime/diagnostics/single_floor_ap_review_20261119_topdown/habitat_topdown.json`，SHA256 `fbff3375028edeadccaa24fb40d2ada92441b305a0cbabf47df06f6b5f33fa0b`。
+- 本机生成报告时给渲染器增加 `--topdown <地图数据JSON>`，报告为 `runtime/reports/single_floor_ap_review_20261119_v4/index.html`，SHA256 `4a421096bbbfaf7d8e01226239a606e49cea671c0c002d6c8703c514b072d1b1`。Chrome 检查整层、回到路线、叠加 RSSI、点击 AP 及导入导出。

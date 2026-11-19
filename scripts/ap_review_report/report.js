@@ -2,6 +2,7 @@
 const $ = id => document.getElementById(id);
 const D = JSON.parse($("payload").textContent);
 const tasks = D.tasks;
+const topdown = D.topdown;
 const audit = new Map(D.scope.map(row => [String(row.episode_id), row]));
 const hashes = D.metadata.source_sha256;
 const spec = D.metadata.specification;
@@ -11,9 +12,9 @@ const sceneName = task => task.scene_id.split("/").at(-2);
 const escape = value => String(value ?? "—").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
 const xyz = position => position.map(value => value.toFixed(3)).join(", ");
 const pointFor = (task, node) => node === task.default_ap_node ? task.default_ap_position : task.nodes[node];
-const emptyView = () => ({zoom: 1, x: 0, y: 0});
+const emptyView = (extent = "route") => ({zoom: 1, x: 0, y: 0, extent});
 const history = new Map();
-let taskIndex = 0, view = emptyView(), showSignal = true, saved = {};
+let taskIndex = 0, view = emptyView(), showSignal = !topdown, saved = {};
 let storageAvailable = true, drag = null, projection, previewCache;
 const map = $("map"), chart = $("chart");
 const ctx = map.getContext("2d"), plot = chart.getContext("2d");
@@ -184,26 +185,91 @@ function coverageColor(rssi, config) {
   if (rssi < config.weak_threshold_dbm) return colors.weak;
   return colors.good;
 }
+const floorCache = new Map();
+function floorFor(task) {
+  if (!topdown) return null;
+  const key = topdown.episodes[task.episode_id];
+  if (floorCache.has(key)) return floorCache.get(key);
+  const data = topdown.maps[key];
+  const step = data.meters_per_pixel;
+  const [firstX, firstZ] = data.first_center_xz;
+  const bits = atob(data.walkable_bits);
+  const bitmap = document.createElement("canvas");
+  bitmap.width = data.width;
+  bitmap.height = data.height;
+  const raster = bitmap.getContext("2d");
+  const image = raster.createImageData(data.width, data.height);
+  const walkable = index => (bits.charCodeAt(index >> 3) >> (7 - (index & 7))) & 1;
+  for (let row = 0; row < data.height; row++) {
+    for (let col = 0; col < data.width; col++) {
+      const index = row * data.width + col;
+      if (!walkable(index)) continue;
+      const edge = row === 0 || col === 0 || row === data.height - 1 || col === data.width - 1 ||
+        !walkable(index - 1) || !walkable(index + 1) ||
+        !walkable(index - data.width) || !walkable(index + data.width);
+      image.data.set(edge ? [154, 174, 184, 255] : [218, 227, 231, 255], index * 4);
+    }
+  }
+  raster.putImageData(image, 0, 0);
+  const floor = {bitmap, step, left: firstX - step / 2, top: firstZ - step / 2,
+    width: step * data.width, height: step * data.height};
+  floorCache.set(key, floor);
+  return floor;
+}
+function coverageFor(task, floor) {
+  const estimate = preview(task);
+  if (estimate.bitmap) return estimate.bitmap;
+  const bitmap = document.createElement("canvas");
+  bitmap.width = floor.bitmap.width;
+  bitmap.height = floor.bitmap.height;
+  const raster = bitmap.getContext("2d");
+  const cell = spec.map_grid_resolution_m / floor.step;
+  for (let i = 0; i < task.base_grid_nodes; i++) {
+    const [x, , z] = task.nodes[i];
+    raster.fillStyle = coverageColor(estimate.signal[i], task.wireless_config);
+    raster.fillRect((x - floor.left) / floor.step - cell / 2,
+      (z - floor.top) / floor.step - cell / 2, cell, cell);
+  }
+  raster.globalCompositeOperation = "destination-in";
+  raster.drawImage(floor.bitmap, 0, 0);
+  estimate.bitmap = bitmap;
+  return bitmap;
+}
 function drawMap() {
   const task = current();
   const {width, height} = canvasSize(map, ctx);
   if (width <= 0 || height <= 0) return;
   const anchors = [...task.route_nodes, ...task.ap_candidate_nodes].map(i => task.nodes[i]);
   const xs = anchors.map(p => p[0]), zs = anchors.map(p => p[2]);
-  const left = Math.min(...xs), right = Math.max(...xs);
-  const top = Math.min(...zs), bottom = Math.max(...zs);
+  const floor = floorFor(task), entireFloor = floor && view.extent === "floor";
+  const left = entireFloor ? floor.left : Math.min(...xs);
+  const right = entireFloor ? floor.left + floor.width : Math.max(...xs);
+  const top = entireFloor ? floor.top : Math.min(...zs);
+  const bottom = entireFloor ? floor.top + floor.height : Math.max(...zs);
   const scale = Math.min(width / (right - left + 3), height / (bottom - top + 3)) * view.zoom;
   projection = ([x, , z]) => [
     width / 2 + view.x + (x - (left + right) / 2) * scale,
     height / 2 + view.y + (z - (top + bottom) / 2) * scale
   ];
-  const {signal} = preview(task);
   const cell = spec.map_grid_resolution_m * scale;
-  for (let i = 0; i < task.base_grid_nodes; i++) {
-    const [x, y] = projection(task.nodes[i]);
-    if (x < -cell || y < -cell || x > width + cell || y > height + cell) continue;
-    ctx.fillStyle = showSignal ? coverageColor(signal[i], task.wireless_config) : colors.floor;
-    ctx.fillRect(x - cell / 2, y - cell / 2, cell + .35, cell + .35);
+  if (floor) {
+    const [x, y] = projection([floor.left, 0, floor.top]);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(floor.bitmap, x, y, floor.width * scale, floor.height * scale);
+    if (showSignal) {
+      ctx.globalAlpha = .86;
+      ctx.drawImage(coverageFor(task, floor), x, y, floor.width * scale, floor.height * scale);
+    }
+    ctx.restore();
+  } else {
+    const {signal} = preview(task);
+    for (let i = 0; i < task.base_grid_nodes; i++) {
+      const [x, y] = projection(task.nodes[i]);
+      if (x < -cell || y < -cell || x > width + cell || y > height + cell) continue;
+      ctx.fillStyle = showSignal ? coverageColor(signal[i], task.wireless_config) : colors.floor;
+      ctx.fillRect(x - cell / 2, y - cell / 2, cell + .35, cell + .35);
+    }
   }
   function circle(x, y, radius, fill, stroke, strokeWidth) {
     ctx.beginPath();
@@ -347,6 +413,7 @@ function render() {
     button.innerHTML = "任务 " + escape(entry.episode_id) + (changed(entry) ? "<small>已改</small>" : "");
   }
   $("sceneLabel").textContent = sceneName(task) + " · 路径组 " + task.trajectory_id;
+  $("mapLabel").textContent = topdown ? "Habitat · 楼层切片 Y = " + task.floor_y.toFixed(2) + " m" : "俯视 X–Z · 米";
   $("taskTitle").textContent = "任务 " + task.episode_id;
   $("instruction").textContent = task.instruction;
   $("editBadge").textContent = edited ? "草稿 · 待原生复核" : "初始布局";
@@ -397,7 +464,13 @@ function setLayer(signal) {
 }
 $("signalLayer").onclick = () => setLayer(true);
 $("floorLayer").onclick = () => setLayer(false);
+$("floorLayer").textContent = topdown ? "Habitat 底图" : "可走网格";
+$("fitFloor").hidden = !topdown;
+$("fitFloor").onclick = () => { view = emptyView("floor"); drawMap(); };
 $("fit").onclick = () => { view = emptyView(); drawMap(); };
+$("mapNote").textContent = topdown
+  ? "Habitat 底图显示可通行区域，空心点可设为 AP。叠加 RSSI 后，未着色的可走区域表示暂无信号网格采样。"
+  : "点击空心点移动 AP，拖动平移。色块显示可走网格上的模拟 RSSI，浅灰空白表示无网格数据。";
 function zoom(factor) {
   view.zoom = Math.max(.45, Math.min(7, view.zoom * factor));
   drawMap();
@@ -599,6 +672,7 @@ $("sourceFacts").innerHTML = facts([
   ["默认放置规则", "路线 " + spec.ap_route_progress_fraction * 100 + "% 处，侧向目标 " +
     spec.ap_preferred_lateral_offset_m + " m，吸附到距路线 " + spec.ap_route_corridor_m + " m 内的可达候选"],
   ["可走网格", spec.map_grid_resolution_m + " m"],
+  ...(topdown ? [["Habitat 底图", "PathFinder · " + topdown.habitat_sim_version + " · 5 cm/像素 · 高度容差 ±" + topdown.height_tolerance_m + " m"]] : []),
   ["无线代理", radio.reference_rssi_dbm_at_1m + " dBm @ 1 m，损耗指数 " + radio.path_loss_exponent +
     "，绕行惩罚 " + radio.obstruction_db_per_excess_meter + " dB/m（上限 " + radio.max_obstruction_penalty_db + " dB）"],
   ["阴影 / 噪声", "阴影 σ " + radio.spatial_shadow_sigma_db + " dB / " + radio.spatial_shadow_cell_m +
@@ -609,4 +683,5 @@ const resizeObserver = new ResizeObserver(() => { drawMap(); drawChart(); });
 resizeObserver.observe($("mapStage"));
 resizeObserver.observe(chart.parentElement);
 setDraft();
+setLayer(showSignal);
 render();

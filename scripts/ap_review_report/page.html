@@ -41,18 +41,19 @@
         <p id="instruction" class="instruction"></p>
         <div class="toolbar">
           <div class="segmented" role="group" aria-label="地图图层">
-            <button id="signalLayer" aria-pressed="true">信号覆盖</button>
-            <button id="floorLayer" aria-pressed="false">可走区域</button>
+            <button id="floorLayer" aria-pressed="true">Habitat 底图</button>
+            <button id="signalLayer" aria-pressed="false">叠加 RSSI</button>
           </div>
           <div class="map-actions" role="group" aria-label="地图缩放">
             <button id="zoomOut" aria-label="缩小地图">−</button>
             <button id="zoomIn" aria-label="放大地图">+</button>
+            <button id="fitFloor">整层</button>
             <button id="fit">回到路线</button>
           </div>
         </div>
         <div class="map-stage" id="mapStage">
           <canvas id="map" aria-label="参考路线、AP 和可选节点地图"></canvas>
-          <div class="map-label">俯视 X–Z · 米</div>
+          <div class="map-label" id="mapLabel">俯视 X–Z · 米</div>
           <div id="hover" class="map-tooltip" hidden></div>
         </div>
         <div class="legend">
@@ -60,7 +61,7 @@
           <span><i class="dot access"></i>当前 AP</span><span><i class="dot origin"></i>初始 AP</span>
         </div>
         <div class="legend" id="coverageLegend"></div>
-        <p class="muted map-note">点击空心点移动 AP，拖动平移。色块显示可走网格上的模拟 RSSI，浅灰空白表示无网格数据。</p>
+        <p class="muted map-note" id="mapNote"></p>
       </section>
       <aside class="panel inspector">
         <h2>AP 位置</h2>

@@ -198,3 +198,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 项目代码从`07037c2`到`bcb2159`均经GitHub发布后由bundle快进同步到服务器。服务器复用`/opt/anaconda3/envs/habitat0.3.0/bin/python`及Habitat-Sim 0.3.0 PathFinder，在CPU上读取项目`data/datasets`和5个MP3D navmesh；没有调用Qwen、GPU渲染、导航推理或更改共享环境。筛选/布局原始开发数据保存在服务器`runtime/diagnostics/single_floor_ap_review_20261119_retry02/`，日志`runtime/logs/single_floor_ap_review_20261119_retry02.log`；首次失败日志保留在同目录前缀无`retry01`的日志中。服务器HEAD、工作区和构建结果记录见[本轮实验记录](experiments/single_floor_ap_review_2026-11-19.md)。
 
 保留初版与 v2 本机报告。复审改用服务器 CPU 独立产物 `runtime/diagnostics/single_floor_ap_review_20261119_reaudit/`，日志 `runtime/logs/single_floor_ap_review_20261119_reaudit.log`，执行提交 `666cc3e`。本机离线报告位于 `runtime/reports/single_floor_ap_review_20261119_v3/index.html`，已用隔离的本机 Chrome 打开并检查地图点击、覆盖和曲线更新、撤销、导入导出、审计搜索以及窄屏显示。报告和本地草稿留在本机；服务器保存 CPU 构造数据。
+
+本机 v4 报告加入 Habitat 原生俯视图，路径为 `runtime/reports/single_floor_ap_review_20261119_v4/index.html`。服务器复用 Habitat-Sim 0.3.0 的 CPU PathFinder，独立导出 `runtime/diagnostics/single_floor_ap_review_20261119_topdown/habitat_topdown.json`。地图与 HTML 成品不入 Git；HTML 仅在本机生成。

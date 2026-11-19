@@ -2,6 +2,7 @@
 """Build the offline AP review report from a matched pair of audit files."""
 import argparse
 import gzip
+import hashlib
 import json
 from pathlib import Path
 
@@ -31,9 +32,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--audit", type=Path, required=True)
     parser.add_argument("--data", type=Path, required=True)
+    parser.add_argument("--topdown", type=Path, help="Native Habitat slices for this exact layout batch")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     payload = report_payload(load_json(args.audit), load_json(args.data))
+    if args.topdown:
+        topdown = load_json(args.topdown)
+        expected = hashlib.sha256(args.data.read_bytes()).hexdigest()
+        task_ids = {str(task["episode_id"]) for task in payload["tasks"]}
+        if (topdown["format"] != "wifinav-habitat-topdown-v1"
+                or topdown["ap_data_sha256"] != expected
+                or topdown["episodes"].keys() != task_ids
+                or not set(topdown["episodes"].values()) <= topdown["maps"].keys()):
+            raise ValueError("Habitat slices do not match the AP review batch")
+        payload["topdown"] = topdown
     embedded_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     # Escape '<' so input text cannot terminate the JSON script element.
     embedded_json = embedded_json.replace("<", r"\u003c")
