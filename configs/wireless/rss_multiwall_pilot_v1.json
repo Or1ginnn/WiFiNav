@@ -1,0 +1,11 @@
+{
+  "name": "rss_multiwall_pilot_v1",
+  "paired_input_sha256": "d1508b387093000c0bd642c8f75e3100c68c29f44172baa80c03a71ba4f02a25",
+  "ray_epsilon_m": 0.0001,
+  "max_hits_per_ray": 64,
+  "merge_distance_m": [0.20, 0.35],
+  "loss_db_per_crossing": {
+    "low": {"wall": 3.0, "door": 2.0, "window": 2.0},
+    "high": {"wall": 8.0, "door": 5.0, "window": 4.0}
+  }
+}
