@@ -212,3 +212,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 2026-11-20 草稿重算验收复用 Habitat 0.3.0 与 `runtime/envs/sionna_rt_2_2_0_py311`。CPU 产物在 `runtime/diagnostics/single_floor_ap_revision_smoke_20261120/`，本机生成测试 HTML 后用 Chrome 检查。用户审阅入口仍是本机 v12。见[草稿验收及命令](experiments/single_floor_ap_review_2026-11-19.md#ap-草稿验收与重算)。
 
 同日 BM1/BM2 单层诊断复用 Habitat 0.3.0 环境的 Python，在 CPU 读取已生成的导航图和多墙数据。执行提交 `2f337e7`，服务器结果与本机逐字节一致，见[诊断记录](experiments/single_floor_route_opportunity_2026-11-20.md#独立验证结果)。
+
+北京时间 2026-11-20 09:12，按用户要求在 benchmark 批次完成后释放 GPU。确认等待器和导航锁空闲，向本项目服务 PID 1436455 发送 TERM。端口 8010 关闭，原四个计算 PID 均退出，复查四卡各 15 MiB、利用率 0%、无 CUDA 计算进程。前后快照和归档 PID 位于 `runtime/manifests/gpu_release_20261120_091239/`。队列的 `ready` 是历史验收，当前服务保持关闭，夜间使用由用户安排。

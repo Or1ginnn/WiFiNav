@@ -330,6 +330,7 @@ BM4沿用既定工程验收，不为它重写旧样本；BM0–BM3无需等待BM
 ### 2026-11-20
 
 - 已登记本聊天北京时间 11 月 20 日 04:00 一次性唤醒 `wifinav-04-00-benchmark`，验收本轮单层 BM1/BM2 CPU 产物，修复实证问题或继续下一项；人工 AP 审阅按实际草稿状态判断。
+- 北京时间 09:12 按用户要求停 WiFiNav 的 Qwen 服务，复查四卡各 15 MiB、利用率 0%、无计算进程，8010 关闭。当前仅继续 CPU benchmark 审查，用户需要 GPU，未安排模型或队列恢复。未找到 04:00 执行记录，本轮补验原批次与候选复查。
 
 - BM1/BM2 固定单层 20 任务离线筛查双端通过 56 项测试。执行提交 `2f337e7`，相同报告在 `runtime/diagnostics/single_floor_route_opportunity_20261120/report.json`；验收结果和 493 的复核入口见[诊断记录](docs/experiments/single_floor_route_opportunity_2026-11-20.md#独立验证结果)。
 
