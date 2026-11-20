@@ -2,17 +2,27 @@
 """Extract same-anchor route and MP3D landmark evidence for manual review."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
 
 import numpy as np
 
-from run_rss_multiwall_pilot import ROOT, read_ply, sha
+from mp3d_semantic_ply import read_ply
 
 
+ROOT = Path(__file__).resolve().parents[1]
 DOORS = {'door', 'doorframe', 'door#frame', 'doorway', 'archway'}
 LANDMARKS = {'bed', 'refrigerator', 'kitchen#cabinet', 'kitchen#counter', 'kitchen#appliance'}
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with path.open('rb') as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def object_categories(house_path):
@@ -74,11 +84,11 @@ def landmark_boxes(house, ply, floor_y, windows, goal):
         if category == 'refrigerator':
             refrigerators.append({'object_id': object_id, 'distance_to_goal_xz_m': goal_distance})
         distances = [distance_to_box(point, lower, upper) for point in probe]
-        if min(distances) > 1.5:
+        overlaps = {key: first_box_hit(route, lower, upper) for key, route in windows.items()}
+        if min(distances) > 1.5 and all(value is None for value in overlaps.values()):
             continue
         nearby.append({'object_id': object_id, 'category': category, 'xz_min': lower.tolist(), 'xz_max': upper.tolist(),
-                       'goal_distance_xz_m': goal_distance,
-                       'first_window_overlap_m': {key: first_box_hit(route, lower, upper) for key, route in windows.items()}})
+                       'goal_distance_xz_m': goal_distance, 'first_window_overlap_m': overlaps})
     return nearby, sorted(refrigerators, key=lambda row: row['distance_to_goal_xz_m'])[:3]
 
 
