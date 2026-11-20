@@ -30,3 +30,8 @@ source=runtime/diagnostics/single_floor_ap_review_20261119_reaudit
 ## 候选传播再采样协议
 
 从既有报告读取任务 493 高损耗／0.20 m 的 [46, 57] 替换窗口和已选见证，要求两端坐标逐项一致。对原段、候选段分别用最大步长 0.10 m 和 0.05 m 均匀细分每条几何边，固定同一 AP、收发高度、语义墙门窗和四种配置，用现有多墙引擎直接重查每个点。查验原报告、数据及场景资产 SHA256。报告保留两条路径的空间断连统计及全部假设，语义审核仍标为待复核。
+
+2026-11-20 补验结果。重核原批次报告 SHA256 一致；512 两档高损耗仍属于原扫描无见证病例。对 493 的同端点候选，0.10 m、0.05 m 步长下的高损耗／0.20 m 参考断连段长度分别为 1.234 m、1.159 m，候选均为 0 m。复核仅说明这对几何路线在同一多墙代理下的差异对这两种采样步长稳定。保留替换窗口之外的前后段，窗口内经过的门、最后转向与厨房地标仍需视觉核对。
+
+- 执行提交 `18265739494cafe2cecb896dd4be3e3a9a9c87e2`。结果 `runtime/diagnostics/single_floor_route_recheck_20261120/report_493.json`，SHA256 `c5df513daf29a85773113a1aee40e8572943c320498ea474f187fce3c0bb745f`，日志 `runtime/logs/single_floor_route_recheck_20261120_493.log`。使用 CPU LLVM 环境并设置空 `CUDA_VISIBLE_DEVICES`，模型调用 0。
+- 复现入口为 `scripts/recheck_single_floor_route_opportunity.py`，参数 `--episode 493 --assumption high_0.20 --interval 46 57 --spacing 0.10 0.05`，其余输入为固定的 `--data`、`--profiles`、`--opportunities` 和新的 `--output` 路径。
