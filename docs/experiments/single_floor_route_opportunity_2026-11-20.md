@@ -35,3 +35,7 @@ source=runtime/diagnostics/single_floor_ap_review_20261119_reaudit
 
 - 执行提交 `18265739494cafe2cecb896dd4be3e3a9a9c87e2`。结果 `runtime/diagnostics/single_floor_route_recheck_20261120/report_493.json`，SHA256 `c5df513daf29a85773113a1aee40e8572943c320498ea474f187fce3c0bb745f`，日志 `runtime/logs/single_floor_route_recheck_20261120_493.log`。使用 CPU LLVM 环境并设置空 `CUDA_VISIBLE_DEVICES`，模型调用 0。
 - 复现入口为 `scripts/recheck_single_floor_route_opportunity.py`，参数 `--episode 493 --assumption high_0.20 --interval 46 57 --spacing 0.10 0.05`，其余输入为固定的 `--data`、`--profiles`、`--opportunities` 和新的 `--output` 路径。
+
+## 493 门与地标复查
+
+复用传播复查选定的同端点见证，入口为 `scripts/audit_route_witness_semantics.py`，参数 `--episode 493 --assumption high_0.20 --interval 46 57`，输入为同批 `--data`、`--profiles`、`--opportunities` 和独立 `--output`。匹配原路线节点与域外前后缀。用已校验 MP3D `.house` 的对象类别和语义 PLY 面求同层对象的 X–Z 包围盒，保留邻近门、床和厨房对象、两条局部路径首次进入各盒的位置、目标附近的冰箱标注。包围盒交会是审阅线索；需要结合视觉确认门口、房间转向与目标物。

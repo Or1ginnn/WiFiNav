@@ -175,5 +175,6 @@ WIFI+Nav/
 - `scripts/run_single_floor_multiwall_dev.py` 与 `configs/benchmark/single_floor_multiwall_dev_v1.json`：首版多墙 RSSI 的 5 场景 20 路线开发验收。
 - `scripts/prepare_ap_review_revision.py`：校验 HTML 导出的 AP 草稿和 Habitat 同层可达性，为后续多墙重算生成独立 AP 数据、审核副本和配置。命令见[单层审阅记录](experiments/single_floor_ap_review_2026-11-19.md#ap-草稿验收与重算)。
 - `scripts/audit_single_floor_route_opportunities.py` 与 `configs/benchmark/single_floor_route_opportunity_v1.json`：固定 20 条 train 路线的 BM1/BM2 复验与局部绕行筛查。诊断坐标只留在 `runtime/`；[协议与验收](experiments/single_floor_route_opportunity_2026-11-20.md)。
+- `scripts/recheck_single_floor_route_opportunity.py`、`scripts/audit_route_witness_semantics.py`：对选定离线见证复查等步长传播、同端点和门／地标线索，产物用于人工语义审阅。
 - `scripts/export_multiwall_ap_preview.py`：为已计算的 AP 导出多墙覆盖网格，渲染器嵌入本机 v5 报告。
 - `scripts/export_ap_review_scene_views.py` 与 `scripts/tools/decode_basis_ppm.cpp`：从 Matterport 原始纹理预渲染并对齐 v6 的场景俯视图。
