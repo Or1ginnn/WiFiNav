@@ -214,3 +214,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 同日 BM1/BM2 单层诊断复用 Habitat 0.3.0 环境的 Python，在 CPU 读取已生成的导航图和多墙数据。执行提交 `2f337e7`，服务器结果与本机逐字节一致，见[诊断记录](experiments/single_floor_route_opportunity_2026-11-20.md#独立验证结果)。
 
 北京时间 2026-11-20 09:12，按用户要求在 benchmark 批次完成后释放 GPU。确认等待器和导航锁空闲，向本项目服务 PID 1436455 发送 TERM。端口 8010 关闭，原四个计算 PID 均退出，复查四卡各 15 MiB、利用率 0%、无 CUDA 计算进程。前后快照和归档 PID 位于 `runtime/manifests/gpu_release_20261120_091239/`。队列的 `ready` 是历史验收，当前服务保持关闭，夜间使用由用户安排。
+
+同日一次性唤醒执行 493 门框与地标审阅，使用 Habitat 0.3.0 环境的 NumPy 直接读取语义 PLY，模型调用 0，代码执行提交 `48aff81`。移除了本步骤对射线追踪运行时的导入依赖，见[语义审阅记录](experiments/single_floor_route_opportunity_2026-11-20.md#493-门与地标复查)。

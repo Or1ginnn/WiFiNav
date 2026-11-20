@@ -39,3 +39,8 @@ source=runtime/diagnostics/single_floor_ap_review_20261119_reaudit
 ## 493 门与地标复查
 
 复用传播复查选定的同端点见证，入口为 `scripts/audit_route_witness_semantics.py`，参数 `--episode 493 --assumption high_0.20 --interval 46 57`，输入为同批 `--data`、`--profiles`、`--opportunities` 和独立 `--output`。匹配原路线节点与域外前后缀。用已校验 MP3D `.house` 的对象类别和语义 PLY 面求同层对象的 X–Z 包围盒，保留邻近门、床和厨房对象、两条局部路径首次进入各盒的位置、目标附近的冰箱标注。包围盒交会是审阅线索；需要结合视觉确认门口、房间转向与目标物。
+
+- 一次性唤醒于北京时间 09:16:42 实际收到。复验原配置、80 病例报告与 493 再采样报告的哈希和日志，均与存档一致，确认没有本项目 CPU 诊断在途。未收到真实 AP 审阅草稿，原 v12 仍为人工审阅入口。
+- 首次尝试继承了多墙引擎的 LLVM 导入，因本次环境的库路径和 `libstdc++` 不匹配而失败。将原 PLY 解析原样挪至独立 NumPy 模块，语义审阅用既有 Habitat CPU 环境完成。本机与服务器各 58 项测试通过，未改共享包。失败日志 `runtime/logs/single_floor_route_semantics_20261120_493.log`，成功日志同名前缀加 `_retry01`。
+- 执行提交 `48aff8102528a330c13112d560b45be7fa8f8f63`，受保护产物 `runtime/diagnostics/single_floor_route_semantics_20261120/evidence_493.json`，SHA256 `505a73a4bf7f67e940fa7c3a51c5aa2f65b00816c0a04a84f5bb7c82dc105510`。替换段按 Z 方向通过同一门框 740 包围盒，原路在 0.581 m、候选在 0.604 m 首次进入。替换段前 46 条边、后 4 条边完全共享，后段约 0.135 m 处共同进入门框 877 包围盒，最终 X 向左移与终点一致。Chrome 查看纹理俯视图，两个候选段在同一开口两侧接近。
+- 终点附近有厨房柜标注，最近符合层高的 `refrigerator` 标注包围盒距终点 15.56 m。纹理俯视与现有标签不足以确认指令要求的小冰箱身份。候选保留为几何和传播均有证据的本地审阅实例，语义状态仍待视觉确认。带原指令的对照图只保存在本机 `runtime/reports/single_floor_route_semantics_20261120/index.html`，SHA256 `e6d49eafe666e12de999c0c294acbb4624f4a9e25addacd8c735b580634b9469`。
