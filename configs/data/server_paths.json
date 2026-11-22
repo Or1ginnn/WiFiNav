@@ -1,6 +1,7 @@
 {
   "path_base": "project_root",
   "storage_policy": "physical_copies_no_symlinks",
+  "selected_benchmark_data_config": "configs/data/objectnav_hm3d_v2.json",
   "task_dataset": "data/datasets/R2R_VLNCE_v1-3_preprocessed",
   "scene_dataset_root": "data/scene_datasets",
   "mp3d_scenes": "data/scene_datasets/mp3d",

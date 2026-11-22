@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-19。单层20任务/5场景AP布局审阅数据已生成；可交互HTML只保存在本机`runtime/reports/`，待人工校正与语义复核。BM0视觉审计/源许可仍待闭合；原B3 No-Go不变。
+> 最近整理：2026-11-22。主线为 HM3D ObjectNav，官方任务包及一个匹配的公开场景已安装，完整场景准备待授权资产。原 R2R-Conn 的 AP 审阅 HTML 留在本机 `runtime/reports/`，B3 和相关记录供复现。
 
 ## 当前目录
 
@@ -10,7 +10,8 @@ WIFI+Nav/
 ├── .gitignore                                   # 本机状态、认证、模型/数据和运行产物忽略规则
 ├── AGENTS.md                                    # 新聊天读取计划与维护进度的项目约定
 ├── plan.md                                      # 当前项目计划、进度、里程碑、待办
-├── configs/data/server_paths.json               # 项目内数据路径及副本策略
+├── configs/data/server_paths.json               # 原 R2R-CE 路径及新基准配置入口
+├── configs/data/objectnav_hm3d_v2.json           # HM3D ObjectNav v2 独立数据入口
 ├── configs/model/qwen35b.json                    # 固定模型revision与服务初值
 ├── configs/navigation/r2r_dev.json               # 固定首条任务、观察/动作和控制预算
 ├── configs/wireless/r2r_conn_v0.json             # 路线A信号、阈值与确定性seed
@@ -100,11 +101,12 @@ WIFI+Nav/
 
 | 类型 | 文件 | 用途 |
 |---|---|---|
-| 当前交接与进度 | [plan.md](../plan.md) | 已确定Qwen3.5-35B-A3B；当前状态、M0–M7里程碑、E0–E8执行任务与变更记录 |
-| 当前任务与benchmark制作 | [R2R-Conn制作计划v0](design/r2r_conn_benchmark_plan_v0.md) | 用户已确认；B0核实资产/版本/协议，再单条闭环、10×3开发pilot、Oracle与后续扩展 |
+| 当前交接与进度 | [plan.md](../plan.md) | 第 0 节记录 ObjectNav 主线，后续章节保留原 R2R-Conn 工作证据 |
+| 当前任务数据 | [HM3D ObjectNav v2](DATASETS.md#当前主线hm3d-objectnav-v2) | 官方任务包、已安装场景及剩余资源状态 |
+| 原 benchmark 制作 | [R2R-Conn制作计划v0](design/r2r_conn_benchmark_plan_v0.md) | 原 R2R-CE 路线与冻结开发实验的制作依据 |
 | 阶段任务调研范围 | [任务调研任务单](design/task_benchmark_research_plan.md) | 保留历史讨论；不作为从零重选任务方向的要求 |
 | 阶段选型记录 | [基座选型简报](references/backbone_selection_report_2026-11-03.md) | 旧首选已撤销；保留候选取舍与源码审计，当前选择见 plan.md |
-| 当前具体方案 | [连通性感知 VLN 项目小样](references/connectivity_aware_vln_project_proposal_2026-10-15.pdf) | 在线贝叶斯信号场、连通代价注入 VLN、实验路线 |
+| 原研究方案 | [连通性感知 VLN 项目小样](references/connectivity_aware_vln_project_proposal_2026-10-15.pdf) | 在线贝叶斯信号场、连通代价注入 VLN、实验路线 |
 | 文献参考 | [WiFi 信号感知 VLN 调研](references/wifi_aware_vln_literature_review_2026-10-15.pdf) | 文献版图、gap 论证、仿真和数据资源调研 |
 | 新增基座调研 | [Social Navigation 基座与规划接口](references/social_navigation_backbone_review_2026-11-02.md) | 模型配置、训练路线、作者代码及对当前项目的选型建议 |
 | API费用调研 | [API费用与预算测算](references/api_cost_review_2026-11-03.md) | 官方价格、地域/上下文档位与导航运行预算 |

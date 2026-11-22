@@ -1,0 +1,22 @@
+{
+  "benchmark": "hm3d_objectnav_v2",
+  "path_base": "project_root",
+  "storage_policy": "physical_copies_no_symlinks",
+  "episode_release": "Habitat ObjectNav v2",
+  "scene_release": "HM3D v0.2 with HM3D-Semantics v0.2",
+  "habitat_dataset_type": "ObjectNav-v1",
+  "task_dataset": "data/datasets/objectnav/hm3d/v2",
+  "episode_file_template": "data/datasets/objectnav/hm3d/v2/{split}/{split}.json.gz",
+  "scene_dataset_root": "data/scene_datasets",
+  "scene_dataset_config": "data/scene_datasets/hm3d_v0.2/hm3d_annotated_basis.scene_dataset_config.json",
+  "episode_to_scene_split": {
+    "train": "train",
+    "val": "val",
+    "val_mini": "minival"
+  },
+  "copy_manifest": "data/_manifests/hm3d_objectnav_v2_episodes.json",
+  "development_source_split": "train",
+  "held_out_candidate_split": "val",
+  "smoke_only_split": "val_mini",
+  "raw_data_in_git": false
+}

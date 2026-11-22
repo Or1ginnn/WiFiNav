@@ -216,3 +216,9 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 北京时间 2026-11-20 09:12，按用户要求在 benchmark 批次完成后释放 GPU。确认等待器和导航锁空闲，向本项目服务 PID 1436455 发送 TERM。端口 8010 关闭，原四个计算 PID 均退出，复查四卡各 15 MiB、利用率 0%、无 CUDA 计算进程。前后快照和归档 PID 位于 `runtime/manifests/gpu_release_20261120_091239/`。队列的 `ready` 是历史验收，当前服务保持关闭，夜间使用由用户安排。
 
 同日一次性唤醒执行 493 门框与地标审阅，使用 Habitat 0.3.0 环境的 NumPy 直接读取语义 PLY，模型调用 0，代码执行提交 `48aff81`。移除了本步骤对射线追踪运行时的导入依赖，见[语义审阅记录](experiments/single_floor_route_opportunity_2026-11-20.md#493-门与地标复查)。
+
+## 2026-11-22 HM3D ObjectNav 数据接入
+
+服务器项目路径复核为 `/mnt/data/suiqiuyi/WiFiNav`，安装前工作区干净，提交为 `e81aa0c`。服务器直连官方 episode CDN 时 DNS 超时，通过本机从同一官方地址转传到项目 `runtime/data_imports/`，校验后以实际文件放入 `data/datasets/objectnav/hm3d/v2/`。原 R2R-CE 任务资产和 90 处 MP3D 场景仍可供旧实验复现。
+
+复用 `/opt/anaconda3/envs/habitat0.3.0/bin/python` 验证官方任务加载，以 CPU 和无渲染模拟器加载一个与官方任务匹配的公开 HM3D 场景。既有环境及模型服务未变更。其余授权场景尚未到位。产物路径、验收范围与剩余资源见 [数据记录](DATASETS.md)。
