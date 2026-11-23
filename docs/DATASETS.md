@@ -31,6 +31,8 @@
 
 **继续切换所缺资产。** 当前服务器可用目录未找到其余场景，Matterport 官方下载在未登录状态下返回登录页。拿到有访问许可的场景目录或下载包后，按上述引用导入，核验每个场景的几何、navmesh、语义与必要配置，再接 Habitat 任务。访问入口见 [HM3D 官方获取说明](https://github.com/facebookresearch/habitat-sim/blob/main/DATASETS.md#habitat-matterport-3d-research-dataset-hm3d)。
 
+2026-11-23 复核，服务器可解析并访问 Matterport，三个官方 `train` 下载 URL 的匿名响应均为登录 HTML。服务器直下入口为 `python3 scripts/download_hm3d_train.py`，从交互 SSH 终端运行。输入已获授权的 Token ID 和 Secret 后，先校验语义配置包，再后台下载两份大包到 `runtime/data_imports/hm3d_train_v0.2/`。凭据仅用于进程内认证。用同目录的 `download.log` 查看状态，全部校验后生成 `archives.json`，随后按项目要求验收并安装实际文件。
+
 ## 原 R2R-CE / MP3D 数据
 
 以下是 2026-11-04 的复制与验收记录，供旧实验复现。

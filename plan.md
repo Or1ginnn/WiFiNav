@@ -1,6 +1,6 @@
 # WiFiNav 项目计划与进度
 
-> 更新于 2026-11-22。当前只做单层 HM3D ObjectNav benchmark。每次变更、验收或遇到阻塞时更新本文件，并链接可核验的证据。
+> 更新于 2026-11-23。当前只做单层 HM3D ObjectNav benchmark。每次变更、验收或遇到阻塞时更新本文件，并链接可核验的证据。
 
 ## 0. 当前主线与交接
 
@@ -10,7 +10,7 @@
 |---|---|
 | 已确定 | HM3D ObjectNav v2，首版只做单层、每个布局一个 AP、模拟 RSSI。开发使用官方 `train`，保留评估候选使用 `val` |
 | 已就绪 | 服务器已安装官方任务包 186 个文件。一个公开 `val` 场景及其导航网格、语义通过 Habitat 0.3.0 CPU 加载，专供工程检查。已通过下述离线评分探针 |
-| 当前阻塞 | 仍没有已安装的授权 `train` 场景。真实开发批次与正式 AP 布局等待资产；覆盖现况和获取方式见 [数据记录](docs/DATASETS.md) |
+| 当前阻塞 | 服务器能连接 Matterport，但匿名访问三个 `train` 包均返回登录页。已准备服务器直下入口，待用户在自己的 SSH 终端输入 HM3D API Token。见 [数据记录](docs/DATASETS.md) |
 
 首版以信号覆盖作为环境和评分变量，仿真中的模型服务全程可用。请求掉线、恢复、本地识别和通信感知导航器属于历史讨论，保存在 [范围收紧前的计划](https://github.com/Or1ginnn/WiFiNav/blob/e2615326f4f826d2826283542d5b799bfde0d029/plan.md)。
 
@@ -52,5 +52,6 @@
 - 原 R2R-CE/MP3D 数据和单层 AP 审阅供复现与工具参考。[旧 AP 审阅](docs/experiments/single_floor_ap_review_2026-11-19.md)
 - 2026-11-22，转用 HM3D ObjectNav 官方任务并安装一个公开场景。[数据验收](docs/DATASETS.md)
 - 2026-11-22，将首版收敛到制作任务清单、AP、RSSI 与评分。保留弱信号和遮挡任务，把部署与掉线行为移出首版。
+- 2026-11-23，核实服务器能直连 Matterport。提供隐藏输入 Token 的服务器直下入口，尚无授权 `train` 下载产物。
 
 新聊天先读第 0 节和第 4 节。需要操作服务器时核对 [数据配置](configs/data/objectnav_hm3d_v2.json)、[环境记录](docs/LOCAL_ENVIRONMENT.md) 与实际状态。
