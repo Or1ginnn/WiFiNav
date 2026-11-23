@@ -33,6 +33,8 @@
 
 2026-11-23 复核，服务器可解析并访问 Matterport，三个官方 `train` 下载 URL 的匿名响应均为登录 HTML。服务器直下入口为 `python3 scripts/download_hm3d_train.py`，从交互 SSH 终端运行。输入已获授权的 Token ID 和 Secret 后，先校验语义配置包，再后台下载两份大包到 `runtime/data_imports/hm3d_train_v0.2/`。凭据仅用于进程内认证。用同目录的 `download.log` 查看状态，全部校验后生成 `archives.json`，随后按项目要求验收并安装实际文件。
 
+用户随后指定先下载到本机项目，再上传服务器。本机项目和服务器已建立同名暂存目录 `runtime/data_imports/hm3d_train_v0.2/`，本机可用空间约 225 GiB。Chrome 下的小配置包请求已到达 Matterport 使用的存储域，下载被浏览器拦截。复用同一脚本在本机终端输入已获授权的 Token。上传时以 `archives.json` 的大小和 SHA256 为准，服务器复核一致后再导入。
+
 ## 原 R2R-CE / MP3D 数据
 
 以下是 2026-11-04 的复制与验收记录，供旧实验复现。
