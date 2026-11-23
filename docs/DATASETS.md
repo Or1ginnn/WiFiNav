@@ -1,10 +1,10 @@
 # 服务器任务与场景数据
 
-更新于 2026-11-22。任务集和场景以独立实际文件存放在服务器 `~/WiFiNav/data/`。Git 同步配置与记录。
+更新于 2026-11-24。任务集和场景以独立实际文件存放在服务器 `~/WiFiNav/data/`。Git 同步配置与记录。
 
 ## 当前主线：HM3D ObjectNav v2
 
-官方 episode 包已完整安装。场景仅安装一处官方公开样例。完整切换需要有访问许可的 HM3D v0.2 Habitat 场景包与 HM3D-Semantics v0.2 配套文件。
+官方 episode 包和 ObjectNav v2 引用的 145 个 `train` 场景已装好。另有一处公开 `val` 样例。其余 `val` 和 `minival` 场景待补齐。
 
 | 内容 | 服务器项目内路径 |
 |---|---|
@@ -13,27 +13,33 @@
 | episode 包与逐文件 SHA256 清单 | `data/_manifests/hm3d_objectnav_v2_episodes.json` |
 | 公开样例来源与逐文件 SHA256 清单 | `data/_manifests/hm3d_objectnav_v2_public_scene.json` |
 | 下载归档与加载日志 | `runtime/data_imports/hm3d_objectnav_v2_20261122/` |
-| 当前场景覆盖与缺失清单 | `runtime/data_imports/hm3d_objectnav_v2_20261122/readiness.json` |
+| 11 月 22 日初始场景覆盖 | `runtime/data_imports/hm3d_objectnav_v2_20261122/readiness.json` |
+| 11 月 24 日 `train` 安装及逐文件校验 | `data/_manifests/hm3d_objectnav_v2_train_install.json` |
+| `train` 原始 tar、清单与日志 | `runtime/data_imports/hm3d_train_v0.2/` |
 
 源 ZIP 大小为 260,304,032 字节，SHA256 为 `f551a0d8560804dc385c52f9aedb646c70917da36c1902d848b4fbc1615515d0`。CRC 校验通过，解出的 186 个 gzip 文件逐字节与包内一致，原始 JSON 和场景引用路径保留。官方 `train` 和 `val` 的 `episode_id` 在同场景的不同物体类别间会重复。后续派生清单使用源文件相对路径和文件内记录序号建立稳定标识，保留原 ID。
 
 | 官方 split | Episode 记录 | 场景引用 | 场景已安装 |
 |---|---:|---:|---:|
-| `train` | 7,196,434 | 145 | 0 |
+| `train` | 7,196,434 | 145 | 145 |
 | `val` | 1,000 | 36 | 1 |
 | `val_mini` | 30 | 2 | 0 |
 
-六个目标类别为 `bed`、`chair`、`plant`、`sofa`、`toilet`、`tv_monitor`。表内是官方原始记录数。尚未生成单层派生集或筛选 AP。
+六个目标类别为 `bed`、`chair`、`plant`、`sofa`、`toilet`、`tv_monitor`。表内是官方原始记录数。正式开发批次的单层任务和 AP 仍待筛选。
 
 任务包来自 [Habitat-Lab 官方数据清单](https://github.com/facebookresearch/habitat-lab/blob/main/DATASETS.md)，场景配置、几何、navmesh 与语义样例来自 [Matterport 官方发布](https://github.com/matterport/habitat-matterport-3dresearch#-downloading-hm3d-v02)。公开样例 `00861-GLAQ4DNUx5U` 匹配 `val` 的 28 条记录，按原任务引用放在 `hm3d_v0.2/val/00861-GLAQ4DNUx5U/`。原 navmesh 判定 28 个起点可通行，无渲染模拟器成功加载场景与 908 个语义对象。Habitat 0.3.0 的任务加载器在 CPU 读入 `val` 的 1,000 条和 `val_mini` 的 30 条。样例用于资源验收，未进行导航评分或模型调用。
 
 [新数据配置](../configs/data/objectnav_hm3d_v2.json) 单独登记路径。Habitat-Lab 0.3.0 中使用 `ObjectNav-v1` 加载器和显式的 v2 路径覆盖，加载器注册名与发布包版本各自固定。旧脚本继续用 [原 R2R 路径配置](../configs/data/server_paths.json) 的既有字段。开发候选取自 `train`，`val` 用于保留评估，`val_mini` 仅作加载检查。
 
-**继续切换所缺资产。** 当前服务器可用目录未找到其余场景，Matterport 官方下载在未登录状态下返回登录页。拿到有访问许可的场景目录或下载包后，按上述引用导入，核验每个场景的几何、navmesh、语义与必要配置，再接 Habitat 任务。访问入口见 [HM3D 官方获取说明](https://github.com/facebookresearch/habitat-sim/blob/main/DATASETS.md#habitat-matterport-3d-research-dataset-hm3d)。
+**`train` 配置及导入记录。** 2026-11-24 从本机项目 `data/` 上传用户下载的三个正式 tar，共 37,860,229,120 字节。源几何文件名含浏览器追加的 ` (1)`，服务器归档使用官方原名。三个包的 SHA256 与本机一致。几何包包含 800 处场景，ObjectNav v2 的 `train` 引用 145 处，项目从完整归档中解出这 145 处的 580 个场景文件和一份训练场景配置。原全局配置与授权包逐字节相同。原始 tar 保留在服务器暂存目录，本机文件保留。
+
+安装入口 `scripts/install_hm3d_train.py`，执行提交 `7d3f966`；日志 `runtime/data_imports/hm3d_train_v0.2/install_20261124.log`。Habitat-Sim 0.3.0 在 CPU 全量加载 145 个 navmesh。抽查 `00006-HkseAnWCgqk`，Habitat-Lab 0.3.0 读入该场景分片的 40,000 条任务，headless 模拟器读入 453 个语义对象并验证首个任务起点可通行。安装后复核了 581 个实际文件的完整目录、长度和独立 inode。安装清单 SHA256 为 `eea2abbf6cf5e5431a92107829aa2720a7b613f067dcde50de00b5ed3eb734ce`。
+
+**后续评估所缺资产。** 其余 `val` 和 `minival` 仍待授权资产。访问入口见 [HM3D 官方获取说明](https://github.com/facebookresearch/habitat-sim/blob/main/DATASETS.md#habitat-matterport-3d-research-dataset-hm3d)。
 
 2026-11-23 复核，服务器可解析并访问 Matterport，三个官方 `train` 下载 URL 的匿名响应均为登录 HTML。服务器直下入口为 `python3 scripts/download_hm3d_train.py`，从交互 SSH 终端运行。输入已获授权的 Token ID 和 Secret 后，先校验语义配置包，再后台下载两份大包到 `runtime/data_imports/hm3d_train_v0.2/`。凭据仅用于进程内认证。用同目录的 `download.log` 查看状态，全部校验后生成 `archives.json`，随后按项目要求验收并安装实际文件。
 
-用户随后指定先下载到本机项目，再上传服务器。本机项目和服务器已建立同名暂存目录 `runtime/data_imports/hm3d_train_v0.2/`，本机可用空间约 225 GiB。Chrome 下的小配置包请求已到达 Matterport 使用的存储域，下载被浏览器拦截。复用同一脚本在本机终端输入已获授权的 Token。上传时以 `archives.json` 的大小和 SHA256 为准，服务器复核一致后再导入。
+用户随后指定先下载到本机项目，再上传服务器。实际本机下载记录使用 `runtime/data_imports/hm3d_train_v0.2/local_archives.json` 保存包名、长度和 SHA256，服务器完整复核后导入。
 
 ## 原 R2R-CE / MP3D 数据
 

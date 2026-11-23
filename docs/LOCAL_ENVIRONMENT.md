@@ -222,3 +222,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 服务器项目路径复核为 `/mnt/data/suiqiuyi/WiFiNav`，安装前工作区干净，提交为 `e81aa0c`。服务器直连官方 episode CDN 时 DNS 超时，通过本机从同一官方地址转传到项目 `runtime/data_imports/`，校验后以实际文件放入 `data/datasets/objectnav/hm3d/v2/`。原 R2R-CE 任务资产和 90 处 MP3D 场景仍可供旧实验复现。
 
 复用 `/opt/anaconda3/envs/habitat0.3.0/bin/python` 验证官方任务加载，以 CPU 和无渲染模拟器加载一个与官方任务匹配的公开 HM3D 场景。既有环境及模型服务未变更。其余授权场景尚未到位。产物路径、验收范围与剩余资源见 [数据记录](DATASETS.md)。
+
+2026-11-24 三个授权的 HM3D `train` tar 从本机项目 `data/` 上传至服务器项目 `runtime/data_imports/hm3d_train_v0.2/`，逐包核对 SHA256 后导入 `data/scene_datasets/hm3d_v0.2/train/`。复用既有 Habitat 0.3.0 进行 145 个导航网格和一个带语义场景的 CPU 验收。安装产物继续由服务器管理，见 [数据记录](DATASETS.md)。

@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-22。主线为 HM3D ObjectNav，官方任务包及一个匹配的公开场景已安装，完整场景准备待授权资产。原 R2R-Conn 的 AP 审阅 HTML 留在本机 `runtime/reports/`，B3 和相关记录供复现。
+> 最近整理：2026-11-24。主线为 HM3D ObjectNav，官方任务包及 `train` 对应的 145 个场景已安装。服务器另有一个公开验证场景，正式评估资产待补齐。原 R2R-Conn 的 AP 审阅 HTML 留在本机 `runtime/reports/`，B3 和相关记录供复现。
 
 ## 当前目录
 
@@ -23,6 +23,7 @@ WIFI+Nav/
 ├── configs/ops/four_gpu_queue.json               # 四卡连续空闲条件与模型恢复负载
 ├── scripts/
 │   ├── download_model.py                        # 模型下载与镜像SHA256核验
+│   ├── install_hm3d_train.py                    # 验证归档与安装官方 ObjectNav 引用的 HM3D 场景
 │   ├── serve_model.py                           # 使用已有vLLM环境启动服务
 │   ├── wait_for_gpus.py                         # 等四卡空闲、互斥启动模型并图文验收
 │   ├── bootstrap_model.sh                       # 下载完成后启动服务
