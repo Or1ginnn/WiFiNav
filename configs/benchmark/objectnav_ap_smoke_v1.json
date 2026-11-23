@@ -1,0 +1,22 @@
+{
+  "scope": "public_example_engineering_only",
+  "task_count": 20,
+  "floor_tolerance_m": 0.28,
+  "stop_radius_m": 0.10,
+  "route_step_m": 0.15,
+  "ap_search_step_m": 0.35,
+  "ap_min_clearance_m": 0.12,
+  "ap_max_clearance_m": 0.48,
+  "ap_candidate_separation_m": 1.30,
+  "ap_candidates_per_floor": 16,
+  "ap_height_above_floor_m": 1.60,
+  "rx_height_above_floor_m": 0.60,
+  "reference_rss_1m_dbm": -48.0,
+  "weak_threshold_dbm": -67.0,
+  "outage_threshold_dbm": -75.0,
+  "merge_distance_m": 0.20,
+  "loss_db_per_crossing": {"wall": 8.0, "door": 5.0, "window": 4.0},
+  "ray_epsilon_m": 0.0001,
+  "max_hits_per_ray": 64,
+  "rssi_grid_step_m": 0.15
+}
