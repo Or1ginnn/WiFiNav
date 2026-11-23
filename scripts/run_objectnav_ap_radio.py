@@ -174,6 +174,8 @@ def build(geometry, asset, decoder):
                 raise ValueError(f"Unexpected structural ray results on {fid}/{candidate['id']}")
             grid = np.full(mask.shape, -128, dtype=np.int8)
             grid[mask > 0] = np.clip(np.rint(values[:len(points)]), -127, 0).astype(np.int8)
+            covered = np.zeros(mask.shape, dtype=bool)
+            covered[mask > 0] = values[:len(points)] >= config["weak_threshold_dbm"]
             profiles = {}
             for key, (start, end, views_end, lengths) in slices.items():
                 samples, view_signals = values[start:end].tolist(), values[end:views_end]
@@ -188,6 +190,7 @@ def build(geometry, asset, decoder):
             floor_radio["candidates"][candidate["id"]] = {
                 "coverage_above_weak": float(np.mean(values[:len(points)] >= config["weak_threshold_dbm"])),
                 "grid_int8": base64.b64encode(grid.tobytes()).decode("ascii"),
+                "covered_bits": base64.b64encode(np.packbits(covered, bitorder="big").tobytes()).decode("ascii"),
                 "rays": len(values), "blocked_rays": blocked, "tasks": profiles,
             }
         radio[fid] = floor_radio

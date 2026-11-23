@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiFiNav · HM3D AP 审阅</title>
+<style>__STYLE__</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="frame heading">
+    <div><p class="eyebrow">WIFINAV / OBJECTNAV</p><h1>HM3D AP 布局审阅</h1><p id="overview"></p></div>
+    <button id="export" class="primary" type="button">导出 AP 草稿</button>
+  </div>
+</header>
+<main class="frame">
+  <p class="notice" id="scope">公开样例 · 工程 smoke。任务来自官方 val 中唯一已安装的公开场景，仅用于此审阅。热力图和路线为离线模拟。</p>
+  <div class="workspace">
+    <section class="card explorer" aria-label="楼层地图">
+      <div class="panel-head">
+        <div><h2 id="map-title">楼层地图</h2><p id="map-detail"></p></div>
+        <label class="ap-select">当前 AP<select id="ap-choice" aria-label="当前 AP"></select></label>
+      </div>
+      <div class="toolbar">
+        <label><input type="checkbox" id="heat" checked> RSSI 热力</label>
+        <label><input type="checkbox" id="edge" checked> 覆盖边界</label>
+        <label><input type="checkbox" id="path" checked> 参考路线</label>
+        <label><input type="checkbox" id="texture" checked> 场景纹理</label>
+        <button id="reset" type="button">恢复本层默认</button>
+      </div>
+      <canvas id="map" role="img" aria-label="含 AP、信号覆盖和参考路线的 Habitat 楼层地图"></canvas>
+      <div class="map-footer">
+        <div class="symbols"><span><i class="ap-dot"></i> AP</span><span><i class="start-dot"></i> 起点</span><span><i class="stop-dot"></i> 参考 STOP</span><span><i class="candidate-dot"></i> 候选</span></div>
+        <div class="color-key"><span>−90</span><i></i><span>−45 dBm</span></div>
+      </div>
+      <p class="hint" id="map-hint" aria-live="polite">点击空心候选点，热力图、边界和路线信号会一起更新。</p>
+    </section>
+    <aside class="card tasks">
+      <div class="panel-head"><div><h2>官方任务</h2><p id="task-summary"></p></div><label><span class="sr">按楼层筛选</span><select id="floor-filter" aria-label="按楼层筛选"></select></label></div>
+      <div id="task-list" class="task-list" aria-label="任务列表"></div>
+    </aside>
+  </div>
+  <section class="card profile" aria-label="参考路线的信号">
+    <div class="panel-head"><div><h2 id="profile-title">参考路线 RSSI</h2><p id="profile-detail"></p></div></div>
+    <dl id="metrics" class="metrics"></dl>
+    <canvas id="profile" role="img" aria-label="沿参考路线距离变化的 RSSI 曲线"></canvas>
+  </section>
+  <details class="card technical">
+    <summary>选样、数据来源与参数</summary>
+    <p id="audit"></p><p id="config"></p><p class="mono" id="hashes"></p>
+  </details>
+</main>
+<script type="application/json" id="report-data">__REPORT_JSON__</script>
+<script>__SCRIPT__</script>
+</body>
+</html>
