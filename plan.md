@@ -44,6 +44,7 @@
 1. **已做工程检查。** 干净版本 `e261532` 上，用公开场景的原导航网格和 Habitat 0.3.0 的视点评分器离线验证。已到达且 STOP 的成功值为 1、SPL 约 1，已到达但未 STOP 和起点 STOP 的成功值均为 0。使用预先计算的探针轨迹，未进行机器人搜索。结果在服务器 `runtime/diagnostics/objectnav_scoring_smoke_20261122/score.json`。本机已有 RSSI 积分测试 9 项通过。
 2. **开发场景已入库。** 本机三份原始 tar 已校验并上传到服务器 `runtime/data_imports/hm3d_train_v0.2/`，导入的 145 个场景在 `data/scene_datasets/hm3d_v0.2/train/`。验收记录为 `data/_manifests/hm3d_objectnav_v2_train_install.json`。
 3. **首批 AP 可以审阅。** 固定 20 条任务后计算了 7 层 × 16 个候选位置。离线对照比较 84 条合格绕行，2 条任务的 17 条备选路线在两种采样步长下都减少了至少 0.50 米的弱信号路段。HTML 位于本机 `runtime/reports/objectnav_train_ap_review_20261124/index-reviewed.html`。
+   - 报告已列出每条任务的目标类别及中文指令。第一条是「找一张床」。默认 `AP-01` 下 1.91 m 参考路线全程低于 −67 dBm。`AP-09` 在同层四条参考路线上合计弱信号距离最短，列入人工审阅候选。
 4. **下一步。** 审阅 AP，优先核对默认覆盖率 4.7% 的 `j2EJhFEQGCL/L1` 和 16.8% 的 `g7hUFVNac26/L1`。根据草稿校验坐标、重算并冻结布局；随后在固定任务上接通 RSSI 查询及官方 STOP/SR/SPL 的轨迹评分验收。保留集场景和导航方法实验留待后续。
 
 ## 5. 历史记录

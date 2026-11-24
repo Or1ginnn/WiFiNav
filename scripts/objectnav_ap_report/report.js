@@ -6,6 +6,7 @@ const {geometry, radio, report_sha256: reportHash} = data;
 const {config, tasks, floors} = geometry;
 const routeExample = data.route_diagnostic?.example;
 const names = {bed:"床", chair:"椅子", plant:"盆栽", sofa:"沙发", toilet:"马桶", tv_monitor:"电视"};
+const goalText = {bed:"一张床", chair:"一把椅子", plant:"一盆植物", sofa:"一张沙发", toilet:"一个马桶", tv_monitor:"一台电视"};
 const chosen = Object.fromEntries(Object.entries(floors).map(([key, f]) => [key, f.candidates[0].id]));
 const taskKey = task => task.task_key ?? task.source_row;
 const selectedIndex = new Map(tasks.map((task, index) => [taskKey(task), index + 1]));
@@ -291,6 +292,7 @@ function drawTaskList() {
 function draw() {
   const floor = floors[selected.floor], ap = apEntry(selected), profile = ap.tasks[selected.source_row];
   $("map-title").textContent = selected.floor + " · Habitat 楼层地图";
+  $("task-instruction").textContent = "任务指令：找" + (goalText[selected.category] ?? selected.category) + "。目标类别 " + selected.category;
   $("map-detail").textContent = "楼层 Y " + format(floor.y, "m", 2) + " · 覆盖边界 " +
     format(config.weak_threshold_dbm, "dBm", 0) + " · 本层采样覆盖 " +
     format(ap.coverage_above_weak * 100, "%", 0);
@@ -303,11 +305,15 @@ function draw() {
     coordinate(floor.candidates.find(item => item.id === chosen[selected.floor]).xyz) + "]";
   const metrics = $("metrics");
   metrics.replaceChildren();
+  const weakRatio = profile.length_m > 0 ? " · " + format(100 * profile.weak_length_m / profile.length_m, "%", 0) : "";
   const values = [
-    ["参考路线长度", format(profile.length_m, "m")],
+    ["参考路线长度", format(profile.length_m, "m", 2)],
     ["参考 STOP RSSI", format(profile.samples_dbm.at(-1), "dBm")],
-    ["低于弱信号阈值的路段", format(profile.weak_length_m, "m")],
+    ["低于 " + format(config.weak_threshold_dbm, "dBm", 0) + " 的路段", format(profile.weak_length_m, "m", 2) + weakRatio],
     ["同层采样视点处于弱区", profile.stop_viewpoints_weak + " / " + profile.stop_viewpoints_sampled],
+    ["起点 RSSI", format(profile.samples_dbm[0], "dBm")],
+    ["路线最低 RSSI", format(profile.minimum_dbm, "dBm")],
+    ["低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的路段", format(profile.outage_length_m, "m", 2)],
   ];
   for (const [label, value] of values) {
     const cell = document.createElement("div");
@@ -378,7 +384,7 @@ $("export").onclick = () => {
 };
 
 const scope = geometry.split === "train" ? (geometry.scene_count ?? 1) + " 个官方 train 开发场景" : "1 个公开场景";
-if (geometry.split === "train") $("scope").textContent = "HM3D ObjectNav v2 官方 train · 开发审阅。机器人收到目标类别。地图上的参考路线、目标视点和 RSSI 场供离线验收。";
+if (geometry.split === "train") $("scope").textContent = "HM3D ObjectNav v2 官方 train · 开发审阅。中文指令由目标类别生成。地图上的参考路线、目标视点和 RSSI 场供离线验收。";
 $("overview").textContent = tasks.length + " 条任务 · " + scope + " · " + Object.keys(floors).length +
   " 个独立单层布局 · 每层在用 1 个 AP";
 const audit = geometry.scope_audit.reduce((counts, row) => {
