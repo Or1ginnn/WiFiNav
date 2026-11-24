@@ -79,6 +79,11 @@ def semantic_geometry(mesh_path, annotations_path):
             metadata["faces"] += len(tri)
             matched = np.asarray([tag is not None for tag in tags])[inverse][tri]
             metadata["faces_with_known_colors"] += int(np.count_nonzero(np.all(matched, axis=1)))
+            # A black vertex absent from the annotation table has no semantic label.
+            # Keep it out of the structural mesh and report its extent separately.
+            unannotated = (rgb[tri] == 0) & ~matched
+            metadata["faces_with_unannotated_black"] += int(np.count_nonzero(np.any(unannotated, axis=1)))
+            metadata["faces_with_unmatched_nonblack"] += int(np.count_nonzero(np.any(~(matched | unannotated), axis=1)))
             for idx, category in enumerate(CATEGORIES):
                 selected = tri[np.count_nonzero(by_vertex == idx, axis=1) >= 2]
                 if len(selected):
@@ -88,7 +93,7 @@ def semantic_geometry(mesh_path, annotations_path):
                     categories.append(np.full(len(selected), idx, dtype=np.int8))
                     offset += len(referenced)
                     metadata[category] += len(selected)
-    if not metadata["wall"] or metadata["faces_with_known_colors"] < .95 * metadata["faces"]:
+    if not metadata["wall"] or metadata["faces_with_unmatched_nonblack"] > .05 * metadata["faces"]:
         raise ValueError(f"Semantic color mapping has insufficient support: {dict(metadata)}")
     coordinates = np.concatenate(vertices).astype(np.float32)
     triangles = np.concatenate(faces).astype(np.uint32)

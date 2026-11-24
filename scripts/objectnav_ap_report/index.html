@@ -45,9 +45,14 @@
     <dl id="metrics" class="metrics"></dl>
     <canvas id="profile" role="img" aria-label="沿参考路线距离变化的 RSSI 曲线"></canvas>
   </section>
+  <section class="card technical" id="route-audit" hidden aria-label="同起终点选路对照">
+    <h2>同起终点选路对照</h2>
+    <p id="route-evidence"></p>
+    <button id="route-show" type="button" hidden>在地图上查看</button>
+  </section>
   <details class="card technical">
     <summary>选样、数据来源与参数</summary>
-    <p id="audit"></p><p id="config"></p><p class="mono" id="hashes"></p>
+    <p id="audit"></p><p id="config"></p><p id="mesh-audit" hidden></p><p class="mono" id="hashes"></p>
   </details>
 </main>
 <script type="application/json" id="report-data">__REPORT_JSON__</script>

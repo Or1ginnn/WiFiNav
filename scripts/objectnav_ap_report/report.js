@@ -4,6 +4,7 @@ const $ = id => document.getElementById(id);
 const data = JSON.parse($("report-data").textContent);
 const {geometry, radio, report_sha256: reportHash} = data;
 const {config, tasks, floors} = geometry;
+const routeExample = data.route_diagnostic?.example;
 const names = {bed:"床", chair:"椅子", plant:"盆栽", sofa:"沙发", toilet:"马桶", tv_monitor:"电视"};
 const chosen = Object.fromEntries(Object.entries(floors).map(([key, f]) => [key, f.candidates[0].id]));
 const taskKey = task => task.task_key ?? task.source_row;
@@ -171,6 +172,19 @@ function drawMap() {
     ctx.strokeStyle = "#fffbe5";
     ctx.lineWidth = 3;
     ctx.stroke();
+    if (routeExample?.task_key === taskKey(selected) && ap === routeExample.ap) {
+      ctx.save();
+      ctx.beginPath();
+      routeExample.path_xyz.forEach(([x, , z], i) => {
+        const [a, b] = project(x, z);
+        if (i) ctx.lineTo(a, b); else ctx.moveTo(a, b);
+      });
+      ctx.strokeStyle = "#ba64f2";
+      ctx.lineWidth = 3.5;
+      ctx.setLineDash([7, 5]);
+      ctx.stroke();
+      ctx.restore();
+    }
     marker(ctx, ...project(route[0][0], route[0][2]), 6, "#28b186");
     marker(ctx, ...project(route.at(-1)[0], route.at(-1)[2]), 7, "#ffd468");
   }
@@ -376,6 +390,33 @@ $("config").textContent = "多墙传播 · AP 高 " + format(config.ap_height_ab
   format(config.reference_rss_1m_dbm, "dBm", 0) + " · 低信号阈值 " +
   format(config.weak_threshold_dbm, "dBm", 0) + " · 现场实测待校准。";
 $("hashes").textContent = "代码 " + data.radio_commit.slice(0, 7) + " · 报告 SHA256 " + reportHash;
+const partialMeshes = (geometry.scenes ?? []).filter(s => s.mesh_faces.faces_with_unannotated_black > 0);
+if (partialMeshes.length) {
+  $("mesh-audit").hidden = false;
+  $("mesh-audit").textContent = partialMeshes.map(s => s.scene + " 含未标注几何面 " +
+    format(100 * s.mesh_faces.faces_with_unannotated_black / s.mesh_faces.faces, "%")).join("；") +
+    "。无标签的表面无法确定材质或遮挡类型，其 RSSI 结果需谨慎解读。";
+}
+if (data.route_diagnostic) {
+  $("route-audit").hidden = false;
+  const {tasks: audited, tested, passed} = data.route_diagnostic;
+  let evidence = audited + " 条任务筛查，共比较 " + tested + " 条预算内绕行，" + passed + " 条在两种采样步长下均减少 ≥0.50 m 弱信号路段。";
+  if (routeExample) {
+    const [a] = routeExample.baseline, [b] = routeExample.alternate;
+    evidence += " 示例 " + routeExample.task_key + "，固定 " + routeExample.ap + "。最短路 " + format(a.length_m, "m", 2) +
+      "、弱信号 " + format(a.weak_motion_s, "s", 1) + "。紫色虚线绕行 " + format(b.length_m, "m", 2) +
+      "、弱信号 " + format(b.weak_motion_s, "s", 1) + "。时间按 0.25 m/s 的匀速移动换算。这是离线选路诊断。";
+    $("route-show").hidden = false;
+    $("route-show").onclick = () => {
+      selected = tasks.find(task => taskKey(task) === routeExample.task_key);
+      $("floor-filter").value = selected.floor;
+      $("path").checked = true;
+      setAP(routeExample.ap);
+      $("map").scrollIntoView({block:"center"});
+    };
+  }
+  $("route-evidence").textContent = evidence;
+}
 if (!Object.values(radio.floors).some(f => f.cutaway)) $("texture").parentElement.hidden = true;
 new ResizeObserver(() => {
   scheduleMap();

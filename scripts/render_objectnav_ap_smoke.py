@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 
-def assemble(manifest_path):
+def assemble(manifest_path, with_routes=False):
     manifest_raw = manifest_path.read_bytes()
     manifest = json.loads(manifest_raw)
     config = manifest["config"]
@@ -19,6 +19,7 @@ def assemble(manifest_path):
             "requested": len(scenes) * config["task_count"], "tasks": [], "floors": {}, "scope_audit": [],
             "source_episode_count": 0, "scenes": [], "manifest_sha256": hashlib.sha256(manifest_raw).hexdigest()}
     radio = {"floors": {}}
+    route_checks = []
     commits = set()
     for row in scenes:
         scene = row["scene"]
@@ -32,7 +33,8 @@ def assemble(manifest_path):
         commits.add(report["radio_commit"])
         geom["scenes"].append({**row, "source_sha256": source["source_sha256"],
                                "radio_sha256": hashlib.sha256(raw).hexdigest(),
-                               "alignment": report["radio"]["alignment"], "execution_commit": source["execution_commit"]})
+                               "alignment": report["radio"]["alignment"], "mesh_faces": report["radio"]["mesh_faces"],
+                               "execution_commit": source["execution_commit"]})
         geom["source_episode_count"] += source["source_episode_count"]
         for floor, spec in source["floors"].items():
             identifier = f"{scene}/{floor}"
@@ -41,9 +43,30 @@ def assemble(manifest_path):
         geom["tasks"].extend({**task, "scene": scene, "task_key": f"{scene}:{task['source_row']}",
                               "floor": f"{scene}/{task['floor']}"} for task in source["tasks"])
         geom["scope_audit"].extend({**item, "scene": scene} for item in source["scope_audit"])
+        if with_routes:
+            proposals = manifest_path.with_name(f"{scene}.routes.json").read_bytes()
+            checks = json.loads(manifest_path.with_name(f"{scene}.route_scores.json").read_bytes())
+            geometry_keys = {row["geometry_sha256"], json.loads(proposals)["geometry_sha256"], checks["geometry_sha256"]}
+            if len(geometry_keys) != 1 or checks["proposals_sha256"] != hashlib.sha256(proposals).hexdigest():
+                raise ValueError(f"Route checks do not match frozen geometry: {scene}")
+            route_checks.append((scene, checks, json.loads(proposals)))
     if len(commits) != 1:
         raise ValueError("Radio results mix execution commits")
-    return {"geometry": geom, "radio": radio, "radio_commit": commits.pop(), "models_called": 0}
+    result = {"geometry": geom, "radio": radio, "radio_commit": commits.pop(), "models_called": 0}
+    if route_checks:
+        proof = {"tasks": sum(checks["task_count"] for _, checks, _ in route_checks), "tested": 0, "passed": 0}
+        for scene, checks, proposals in route_checks:
+            proof["tested"] += len(checks["comparisons"])
+            for pair in checks["comparisons"]:
+                if not pair["passes"]:
+                    continue
+                proof["passed"] += 1
+                if "example" not in proof:
+                    task = next(t for t in proposals["tasks"] if t["source_row"] == pair["source_row"])
+                    proof["example"] = {**pair, "task_key": f"{scene}:{pair['source_row']}",
+                                        "path_xyz": task["candidates"][pair["candidate_index"]]["path_xyz"]}
+        result["route_diagnostic"] = proof
+    return result
 
 
 def main():
@@ -51,10 +74,11 @@ def main():
     source_type = parser.add_mutually_exclusive_group(required=True)
     source_type.add_argument("--report", type=Path)
     source_type.add_argument("--manifest", type=Path)
+    parser.add_argument("--with-routes", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.manifest:
-        report = assemble(args.manifest)
+        report = assemble(args.manifest, args.with_routes)
         raw = json.dumps(report, separators=(",", ":"), allow_nan=False).encode()
     else:
         raw = args.report.read_bytes()
