@@ -230,3 +230,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数据，独立产物目录为 `runtime/diagnostics/objectnav_rssi_reference_20261124_v1/`。结果用于本机离线页面。
 
 2026-11-25 在既有 Habitat 和多墙射线环境中复算全图最优路线。最终 CPU 产物位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v2/`，见 [全图求解记录](experiments/objectnav_rssi_graph_2026-11-25.md)。
+
+取消长度上限后的 CPU 批次位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v3/`。保留带预算版及其原始报告。新版离线 HTML 在本机验证地图点选和下拉的 AP 路线联动。

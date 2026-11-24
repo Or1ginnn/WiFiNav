@@ -355,8 +355,10 @@ function draw() {
       "已比较 " + reference.candidate_count + " 条绕行。" + (reference.selected ? "已选用绕行。" :
         reference.candidate_count ? "这批绕行未达到稳定改善条件，沿用几何最短路。" : "本次搜索未找到预算内绕行，沿用几何最短路。");
     $("reference-comparison").hidden = false;
+    const ratio = reference.baseline_profile.length_m > 0 ?
+      "（最短路的 " + format(100 * profile.length_m / reference.baseline_profile.length_m, "%", 0) + "）" : "";
     $("reference-comparison").textContent = status +
-      " 几何最短路 " + format(reference.baseline_profile.length_m, "m", 2) + "，当前路线 " + format(profile.length_m, "m", 2) +
+      " 几何最短路 " + format(reference.baseline_profile.length_m, "m", 2) + "，当前路线 " + format(profile.length_m, "m", 2) + ratio +
       "。弱信号距离 " + format(reference.baseline_profile.weak_length_m, "m", 2) + " → " + format(profile.weak_length_m, "m", 2) +
       "；低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的距离 " + format(reference.baseline_profile.outage_length_m, "m", 2) +
       " → " + format(profile.outage_length_m, "m", 2) + "。";
@@ -370,7 +372,8 @@ function setAP(id) {
   chosen[selected.floor] = id;
   const ap = apEntry(selected);
   $("map-hint").textContent = selected.floor + " 已用 " + id + " · 可通行采样点覆盖 " +
-    format(ap.coverage_above_weak * 100, "%", 0) + " · 本层相关任务已自动更新。";
+    format(ap.coverage_above_weak * 100, "%", 0) +
+    (graphSearch ? " · 已切换到该 AP 的图上最优路线。" : " · 本层相关任务已自动更新。");
   draw();
 }
 
@@ -444,8 +447,10 @@ if (referencePolicy) {
   $("baseline-layer").hidden = false;
   $("reference-policy").hidden = false;
   const search = graphSearch ? "在 " + format(referencePolicy.graph_grid_m, "m", 2) + " 的可通行图上求精确最优。" : "两种采样步长均须确认改善。";
-  $("reference-policy").textContent = "RSSI 路线固定起点、停止视点和楼层。长度最多增加 " +
-    format(100 * (referencePolicy.max_length_ratio - 1), "%", 0) + "。先比较低于 " + format(config.weak_threshold_dbm, "dBm", 0) +
+  const lengthRule = referencePolicy.max_length_ratio === null ? "总路长用于最后的平局比较。" :
+    "长度最多增加 " + format(100 * (referencePolicy.max_length_ratio - 1), "%", 0) + "。";
+  $("reference-policy").textContent = "RSSI 路线固定起点、停止视点和楼层。" + lengthRule +
+    "先比较低于 " + format(config.weak_threshold_dbm, "dBm", 0) +
     " 的距离，再比较低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的距离及总长度。" + search;
 }
 const partialMeshes = (geometry.scenes ?? []).filter(s => s.mesh_faces.faces_with_unannotated_black > 0);

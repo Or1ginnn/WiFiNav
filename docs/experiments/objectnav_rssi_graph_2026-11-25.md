@@ -22,3 +22,13 @@
 - 数据、场景与 AP 来自原开发清单，SHA256 `3f3034ece428556e27134aa16363b39da052e724a03b88d5757dae2219a3c7f0`。使用现有 Habitat 0.3.0 与多墙射线 CPU 环境，模型调用为 0。
 - 在 Habitat 环境运行 `scripts/solve_objectnav_rssi_graph.py --geometry <scene.geometry.json> --proposals <scene.refined_routes.json> --output <scene.navmesh_graph.json>`。在射线环境对同一 `--geometry` 传入 `--graph`，生成 `<scene.rssi_reference.json>`。服务器输出目录为 `runtime/diagnostics/objectnav_rssi_graph_20261125_v2/`，各场景哈希见 `checksums.sha256`。
 - 本机渲染使用 `scripts/render_objectnav_ap_smoke.py --manifest <manifest.json> --with-rssi-graph --output <index-reviewed.html>`。本机 HTML 仍位于 `runtime/reports/objectnav_train_ap_review_20261124/index-reviewed.html`，上一版保存在 `index-before-graph.html`。64 项仓库测试通过，Chrome 验证首条任务随 AP 换路、图层对比、路线信号和导出联动。
+
+## 取消长度上限
+
+用户确认取消早期为控制绕行而设的 120% 路长预算。主路线使用整层可通行图，去掉旧预算对应的椭圆裁剪。固定同一起点、停止视点和 AP，在全部可行路径上按字典序最小化 $(W_{-67},W_{-75},L)$。每个节点只需保留当前字典序最小代价，使用 Dijkstra 精确求解。详细公式见 [计划](../../plan.md#当前路径计算公式)。
+
+320 个任务/AP 组合均有解，全部字典序代价优于或等于带预算版。147 个组合相较几何参考减少至少 0.05 m 弱信号距离，其中 31 个组合相较带预算版也减少至少 0.05 m。42 个组合超过几何参考长度的 120%，最大 4.10 倍。例 `vDfkYo5VqEQ` 源行 `9582`、`AP-01`，长度从 2.21 m 变为 9.07 m，低于 −67 dBm 的距离从约 0.37 m 降为 0 m。弱信号目标优先级高于总路长，小幅改善也可能产生长绕行，报告明确显示长度和倍率。
+
+第一条「找一张床」切换 `AP-01` 到 `AP-09` 后，主路线从 1.91 m 变为 2.04 m，弱信号距离从 1.91 m 变为 0 m。在相同的 `AP-09` 下，和几何路线的对照仍是 0.57 m 至 0 m。Chrome 分别验收地图点选和下拉选择，线路、RSSI 曲线和弱信号距离使用同一 AP 的结果。报告离线切换每层 16 个已计算的位置。
+
+执行提交 `ba67d26`，使用同一几何 manifest，服务器新目录为 `runtime/diagnostics/objectnav_rssi_graph_20261125_v3/`。该批次 `subsegment_audit.json` 核验 9,521 个不同子段全可达。65 项仓库测试通过，其中穷举覆盖无上限求解，并检查了旧上限外的绕行能被选中。本机 HTML 仍使用 `index-reviewed.html`，带上限版保存在 `index-before-unlimited.html`。

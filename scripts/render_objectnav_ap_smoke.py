@@ -12,14 +12,16 @@ def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
     scene = row["scene"]
     suffix = "navmesh_graph" if graph_mode else "refined_routes"
     source_data = manifest_path.with_name(f"{scene}.{suffix}.json").read_bytes()
-    format_name = "wifinav-objectnav-rssi-graph-v2" if graph_mode else "wifinav-objectnav-rssi-reference-v1"
+    formats = ("wifinav-objectnav-rssi-graph-v2", "wifinav-objectnav-rssi-graph-v3") if graph_mode else (
+        "wifinav-objectnav-rssi-reference-v1",)
     hash_field = "graph_sha256" if graph_mode else "proposals_sha256"
     payload = json.loads(manifest_path.with_name(f"{scene}.rssi_reference.json").read_bytes())
-    if (payload["format"] != format_name or payload["source_ref"] != source["source_ref"]
+    if (payload["format"] not in formats or payload["source_ref"] != source["source_ref"]
             or payload["geometry_sha256"] != row["geometry_sha256"]
             or payload[hash_field] != hashlib.sha256(source_data).hexdigest()
             or payload["tasks"].keys() != {str(task["source_row"]) for task in source["tasks"]}):
         raise ValueError(f"RSSI references do not match the frozen sample: {scene}")
+    ratio = payload["max_length_ratio"]
     for task in source["tasks"]:
         key = str(task["source_row"])
         candidates = radio["floors"][task["floor"]]["candidates"]
@@ -30,11 +32,11 @@ def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
             points = reference["route_xyz"]
             if (not points or len(points) != len(reference["profile"]["samples_dbm"])
                     or not 0 <= reference["selected"] <= reference.get("candidate_count", 1)
-                    or reference["profile"]["length_m"] > payload["max_length_ratio"] * task["reference_m"] + .001
+                    or (ratio is not None and reference["profile"]["length_m"] > ratio * task["reference_m"] + .001)
                     or any(math.dist(points[i], task["route_xyz"][i]) > .005 for i in (0, -1))):
                 raise ValueError(f"Invalid route reference: {scene}/{key}/{ap}")
             if graph_mode and (reference["objective_um"] > reference["baseline_objective_um"]
-                               or reference["objective_um"][2] > reference["budget_um"]):
+                               or (ratio is not None and reference["objective_um"][2] > reference["budget_um"])):
                 raise ValueError(f"Inconsistent graph optimum: {scene}/{key}/{ap}")
             candidates[ap].setdefault("reference_tasks", {})[key] = reference
     fields = ("execution_commit", "max_length_ratio", "sampling_steps_m")

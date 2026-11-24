@@ -10,7 +10,7 @@
 |---|---|
 | 已确定 | HM3D ObjectNav v2，首版只做单层、每个布局一个 AP、模拟 RSSI。开发使用官方 `train`，保留评估候选使用 `val` |
 | 已就绪 | 服务器已安装官方任务包 186 个文件及 ObjectNav v2 `train` 引用的 145 个 HM3D 场景。三个原始 tar 已上传并通过 SHA256 对比，145 个导航网格均由 Habitat 0.3.0 在 CPU 读入，另抽一处验收任务和语义 |
-| 当前工作 | 已固定官方 `train` 20 条单层任务、5 个场景、7 套单层 AP 草稿。本机 HTML 主路线按当前 AP 在可通行图上求精确最优，并可叠加几何最短路。正式评估 `val` 场景待补。见 [全图求解记录](docs/experiments/objectnav_rssi_graph_2026-11-25.md) |
+| 当前工作 | 已固定官方 `train` 20 条单层任务、5 个场景、7 套单层 AP 草稿。本机 HTML 主路线按当前 AP 在整层可通行图上求无硬上限的精确最优，并可叠加几何最短路。正式评估 `val` 场景待补。见 [无长度上限验收](docs/experiments/objectnav_rssi_graph_2026-11-25.md#取消长度上限) |
 
 首版以信号覆盖作为环境和评分变量，仿真中的模型服务全程可用。请求掉线、恢复、本地识别和通信感知导航器属于历史讨论，保存在 [范围收紧前的计划](https://github.com/Or1ginnn/WiFiNav/blob/e2615326f4f826d2826283542d5b799bfde0d029/plan.md)。
 
@@ -68,7 +68,7 @@ $\mathcal{P}_G(s,v^*)$ 是图上连接这两个端点的全部可行路径。阈
 2. **开发场景已入库。** 本机三份原始 tar 已校验并上传到服务器 `runtime/data_imports/hm3d_train_v0.2/`，导入的 145 个场景在 `data/scene_datasets/hm3d_v0.2/train/`。验收记录为 `data/_manifests/hm3d_objectnav_v2_train_install.json`。
 3. **首批 AP 可以审阅。** 固定 20 条任务后计算了 7 层 × 16 个候选位置。离线对照比较 84 条合格绕行，2 条任务的 17 条备选路线在两种采样步长下都减少了至少 0.50 米的弱信号路段。HTML 位于本机 `runtime/reports/objectnav_train_ap_review_20261124/index-reviewed.html`。
    - 报告已列出每条任务的目标类别及中文指令。第一条是「找一张床」。默认 `AP-01` 下 1.91 m 参考路线全程低于 −67 dBm。`AP-09` 在同层四条参考路线上合计弱信号距离最短，列入人工审阅候选。
-   - 首轮候选路线记录保留。新版在 0.15 m 的 Habitat 可通行图上求解 320 个任务与 AP 组合，其中 141 个弱信号距离至少减少 0.05 m。第一条在 `AP-01` 下 1.91 m 几何路线已是图上最优；`AP-09` 下图上最优为 2.04 m，弱信号距离由 0.57 m 降为 0 m（0.075 m 采样）。
+   - 无长度上限版已求解全部 320 个任务与 AP 组合。42 个组合的路线超过几何参考的 120%，最大为 4.10 倍。第一条在 `AP-01` 下仍为 1.91 m；`AP-09` 下图上最优为 2.04 m，弱信号距离由 0.57 m 降为 0 m（0.075 m 采样）。浏览器已验证地图点选和下拉切换都更新蓝线、RSSI 曲线及指标。
 4. **下一步。** 审阅 AP，优先核对默认覆盖率 4.7% 的 `j2EJhFEQGCL/L1` 和 16.8% 的 `g7hUFVNac26/L1`。根据草稿校验坐标、重算并冻结布局；随后在固定任务上接通 RSSI 查询及官方 STOP/SR/SPL 的轨迹评分验收。保留集场景和导航方法实验留待后续。
 
 ## 5. 历史记录
@@ -82,5 +82,6 @@ $\mathcal{P}_G(s,v^*)$ 是图上连接这两个端点的全部可行路径。阈
 - 2026-11-24，确认用户下载的三个原始包完整，完成上传及 145 个 ObjectNav `train` 场景的导入和 CPU 资产验收。
 - 2026-11-24，完成 ObjectNav `train` 首批几何抽审、AP 覆盖和绕行对照；记录语义缺标、低覆盖布局与独立复算证据。[首批 AP 审阅](docs/experiments/objectnav_train_ap_review_2026-11-24.md)
 - 2026-11-25，完成已知地图与 RSSI 场上的带预算最优路径求解，改用 Habitat 核实的边几何并复核交付路线。[全图求解记录](docs/experiments/objectnav_rssi_graph_2026-11-25.md)
+- 2026-11-25，去掉 120% 路长预算，验收整层可通行图的字典序最优公式与 AP 切换。[无长度上限验收](docs/experiments/objectnav_rssi_graph_2026-11-25.md#取消长度上限)
 
 新聊天先读第 0 节和第 4 节。需要操作服务器时核对 [数据配置](configs/data/objectnav_hm3d_v2.json)、[环境记录](docs/LOCAL_ENVIRONMENT.md) 与实际状态。
