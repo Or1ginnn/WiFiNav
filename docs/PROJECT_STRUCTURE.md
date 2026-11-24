@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-24。主线为 HM3D ObjectNav，官方任务包及 `train` 对应的 145 个场景已安装。首批 20 条单层任务的 AP 报告在本机 `runtime/reports/objectnav_train_ap_review_20261124/`，正式评估资产待补齐。原 R2R-Conn 的审阅和 B3 记录供复现。
+> 最近整理：2026-11-25。主线为 HM3D ObjectNav，官方任务包及 `train` 对应的 145 个场景已安装。首批 20 条单层任务的 AP 与图上最优路线报告在本机 `runtime/reports/objectnav_train_ap_review_20261124/`，正式评估资产待补齐。原 R2R-Conn 的审阅和 B3 记录供复现。
 
 ## 当前目录
 
@@ -28,6 +28,7 @@ WIFI+Nav/
 │   ├── build_objectnav_train_ap_review.py        # 先于 RSSI 固定同层任务与 AP 候选
 │   ├── run_objectnav_ap_radio.py                 # CPU 重算各 AP 候选的多墙 RSSI 与纹理
 │   ├── audit_objectnav_train_route_pair.py      # 固定端点的受控绕行对照
+│   ├── solve_objectnav_rssi_graph.py            # 构建可通行图并求 RSSI 最优路线
 │   ├── render_objectnav_ap_smoke.py             # 本机生成离线 ObjectNav AP 报告
 │   ├── serve_model.py                           # 使用已有vLLM环境启动服务
 │   ├── wait_for_gpus.py                         # 等四卡空闲、互斥启动模型并图文验收

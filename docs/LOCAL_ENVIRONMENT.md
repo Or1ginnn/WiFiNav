@@ -228,3 +228,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 同日完成首批官方 `train` 的 20 条任务和 7 个 AP 布局。几何核验复用 Habitat 0.3.0，多墙射线和切片纹理复用项目已有的 `runtime/envs/sionna_rt_2_2_0_py311` 与 `runtime/tools/basisu_v1_60/decode_basis_ppm`。关闭 CUDA 可见设备，模型调用为 0。生成 HTML 需要从服务器取回审阅 JSON，本机生成页面。复现入口、版本和产物见 [首批 AP 审阅](experiments/objectnav_train_ap_review_2026-11-24.md)。
 
 RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数据，独立产物目录为 `runtime/diagnostics/objectnav_rssi_reference_20261124_v1/`。结果用于本机离线页面。
+
+2026-11-25 在既有 Habitat 和多墙射线环境中复算全图最优路线。最终 CPU 产物位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v2/`，见 [全图求解记录](experiments/objectnav_rssi_graph_2026-11-25.md)。

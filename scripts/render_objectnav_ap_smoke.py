@@ -8,13 +8,16 @@ import math
 from pathlib import Path
 
 
-def add_rssi_reference(manifest_path, row, source, radio):
+def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
     scene = row["scene"]
-    proposals = manifest_path.with_name(f"{scene}.refined_routes.json").read_bytes()
+    suffix = "navmesh_graph" if graph_mode else "refined_routes"
+    source_data = manifest_path.with_name(f"{scene}.{suffix}.json").read_bytes()
+    format_name = "wifinav-objectnav-rssi-graph-v2" if graph_mode else "wifinav-objectnav-rssi-reference-v1"
+    hash_field = "graph_sha256" if graph_mode else "proposals_sha256"
     payload = json.loads(manifest_path.with_name(f"{scene}.rssi_reference.json").read_bytes())
-    if (payload["format"] != "wifinav-objectnav-rssi-reference-v1" or payload["source_ref"] != source["source_ref"]
+    if (payload["format"] != format_name or payload["source_ref"] != source["source_ref"]
             or payload["geometry_sha256"] != row["geometry_sha256"]
-            or payload["proposals_sha256"] != hashlib.sha256(proposals).hexdigest()
+            or payload[hash_field] != hashlib.sha256(source_data).hexdigest()
             or payload["tasks"].keys() != {str(task["source_row"]) for task in source["tasks"]}):
         raise ValueError(f"RSSI references do not match the frozen sample: {scene}")
     for task in source["tasks"]:
@@ -26,15 +29,20 @@ def add_rssi_reference(manifest_path, row, source, radio):
         for ap, reference in references.items():
             points = reference["route_xyz"]
             if (not points or len(points) != len(reference["profile"]["samples_dbm"])
-                    or not 0 <= reference["selected"] <= reference["candidate_count"]
+                    or not 0 <= reference["selected"] <= reference.get("candidate_count", 1)
                     or reference["profile"]["length_m"] > payload["max_length_ratio"] * task["reference_m"] + .001
                     or any(math.dist(points[i], task["route_xyz"][i]) > .005 for i in (0, -1))):
                 raise ValueError(f"Invalid route reference: {scene}/{key}/{ap}")
+            if graph_mode and (reference["objective_um"] > reference["baseline_objective_um"]
+                               or reference["objective_um"][2] > reference["budget_um"]):
+                raise ValueError(f"Inconsistent graph optimum: {scene}/{key}/{ap}")
             candidates[ap].setdefault("reference_tasks", {})[key] = reference
-    return {name: payload[name] for name in ("execution_commit", "max_length_ratio", "minimum_gain_m", "sampling_steps_m")}
+    fields = ("execution_commit", "max_length_ratio", "sampling_steps_m")
+    fields += ("graph_grid_m", "length_unit_m") if graph_mode else ("minimum_gain_m",)
+    return {name: payload[name] for name in fields}
 
 
-def assemble(manifest_path, with_routes=False, with_rssi_reference=False):
+def assemble(manifest_path, with_routes=False, with_rssi_reference=False, with_rssi_graph=False):
     manifest_raw = manifest_path.read_bytes()
     manifest = json.loads(manifest_raw)
     config = manifest["config"]
@@ -71,8 +79,8 @@ def assemble(manifest_path, with_routes=False, with_rssi_reference=False):
         geom["tasks"].extend({**task, "scene": scene, "task_key": f"{scene}:{task['source_row']}",
                               "floor": f"{scene}/{task['floor']}"} for task in source["tasks"])
         geom["scope_audit"].extend({**item, "scene": scene} for item in source["scope_audit"])
-        if with_rssi_reference:
-            policy = add_rssi_reference(manifest_path, row, source, report["radio"])
+        if with_rssi_reference or with_rssi_graph:
+            policy = add_rssi_reference(manifest_path, row, source, report["radio"], graph_mode=with_rssi_graph)
             if reference_policy is not None and policy != reference_policy:
                 raise ValueError("RSSI references mix policies or execution commits")
             reference_policy = policy
@@ -110,13 +118,15 @@ def main():
     source_type.add_argument("--report", type=Path)
     source_type.add_argument("--manifest", type=Path)
     parser.add_argument("--with-routes", action="store_true")
-    parser.add_argument("--with-rssi-reference", action="store_true")
+    ref_mode = parser.add_mutually_exclusive_group()
+    ref_mode.add_argument("--with-rssi-reference", action="store_true")
+    ref_mode.add_argument("--with-rssi-graph", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if not args.manifest and (args.with_routes or args.with_rssi_reference):
+    if not args.manifest and (args.with_routes or args.with_rssi_reference or args.with_rssi_graph):
         parser.error("Route overlays require --manifest")
     if args.manifest:
-        report = assemble(args.manifest, args.with_routes, args.with_rssi_reference)
+        report = assemble(args.manifest, args.with_routes, args.with_rssi_reference, args.with_rssi_graph)
         raw = json.dumps(report, separators=(",", ":"), allow_nan=False).encode()
     else:
         raw = args.report.read_bytes()
