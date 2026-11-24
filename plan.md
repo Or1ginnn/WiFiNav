@@ -26,6 +26,29 @@
 - 复用现有多墙传播方案，先核验 HM3D 的墙体几何能正确输入模型。固定传播参数、采样规则、接收高度和弱信号阈值。查验起点、房间、走廊、门口和若干有效成功视点的 RSSI。弱覆盖目标只需记录覆盖证据，缺证据保留待核验状态。[原多墙试点](docs/experiments/rss_multiwall_pilot_2026-11-19.md)
 - 本机 HTML 展示 Habitat 俯视图、AP、RSSI 热力图和覆盖边界。主路线按已知地图与 RSSI 求离线最优。冻结起点、合法停止视点和同层边界，在可通行图上求不超过几何参考路线 120% 的路径，优先减少低于 −67 dBm 的路段，其次减少低于 −75 dBm 的路段，再比较长度。AP 切换同步切换主路线。审阅用 HTML 及草稿留在本机。
 
+### 当前路径计算公式
+
+**几何最短参考（黄虚线）。** 对每个官方停止视点 $v$，用 Habitat NavMesh 从任务起点 $s$ 求得路径 $Q_v$。只保留通过同层可达性检查的视点集合 $V$。设路径的连续顶点为 $x_i$，其长度为 $L(Q_v)=\sum_i\lVert x_{i+1}-x_i\rVert_2$，则
+
+$$
+v^*=\arg\min_{v\in V} L(Q_v),\qquad P_{\mathrm{geo}}=Q_{v^*}.
+$$
+
+**RSSI 图上最优（蓝线）。** 固定起点 $s$、停止视点 $v^*$ 和当前 AP $a$。把边上的 Habitat 路径按不超过 0.075 m 的步长细分。第 $i$ 段的长度为 $\ell_i$，以两端模拟 RSSI 的平均值 $\bar r_i(a)=[r_a(x_i)+r_a(x_{i+1})]/2$ 判定该段的信号强度。低于阈值 $\tau$ 的累计距离为
+
+$$
+W_{\tau}(P;a)=\sum_i \ell_i\,\mathbf{1}\!\left[\bar r_i(a)<\tau\right],\qquad L(P)=\sum_i\ell_i.
+$$
+
+在单层 0.15 m Habitat 可通行图上，按字典序求满足长度预算的最优路径。
+
+$$
+P^*(a)=\underset{\substack{P:s\leadsto v^*\\L(P)\le 1.20\,L(P_{\mathrm{geo}})}}{\arg\min_{\mathrm{lex}}}
+\left(W_{-67}(P;a),\ W_{-75}(P;a),\ L(P)\right).
+$$
+
+阈值单位是 dBm，距离单位是米。字典序先比较 $W_{-67}$，相等时比较 $W_{-75}$，再相等才比较总路长。实现把每个短段长度向上取整到微米，把 `1.20 × reference_m` 的长度预算向下取整到微米，用带长度约束的多标签 Dijkstra 求精确图上最优。报告显示未取整的距离。该路线供离线审阅，官方 ObjectNav 评分沿用原定义。[几何参考实现](scripts/build_objectnav_ap_smoke.py) · [RSSI 计算与约束](scripts/solve_objectnav_rssi_graph.py) · [全图求解记录](docs/experiments/objectnav_rssi_graph_2026-11-25.md)
+
 ## 3. 评分和制作验收
 
 **评分。** 同一份轨迹用 Habitat ObjectNav 口径算 SR/SPL，并报告路径长度、低于冻结 RSSI 阈值的累计运动时间和最长连续低信号时间。复用离线 RSSI 积分器，计量用统一模拟运动时间。缺测留空，失败和已记录的轨迹前缀保留。弱 RSSI 时间描述模拟覆盖暴露。[Habitat-Lab 0.3.0 任务配置](https://github.com/facebookresearch/habitat-lab/blob/v0.3.0/habitat-lab/habitat/config/habitat/task/objectnav.yaml)
