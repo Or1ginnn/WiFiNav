@@ -11,14 +11,12 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from connectivity_vln.benchmark.constrained_route import optimal_route
-from connectivity_vln.benchmark.single_floor import distances
+from connectivity_vln.benchmark.constrained_route import lexicographic_route
 
 
 GRID_M = .15
 STEP_M = .075
 LENGTH_UNIT_M = 1e-6
-MAX_RATIO = 1.2
 
 
 def build_graph(geometry, proposals=None):
@@ -34,38 +32,38 @@ def build_graph(geometry, proposals=None):
     tolerance = geometry["config"]["floor_tolerance_m"]
     floors = {key: NavmeshRiskPlanner(finder, floor["y"], resolution=GRID_M, floor_tolerance=tolerance)
               for key, floor in geometry["floors"].items()}
+    def connect(points, edges, a, b, floor_y, max_extra):
+        path = shortest(finder, points[a], points[b], floor_y, tolerance)
+        if path is None or max(math.dist(path[0], points[a]), math.dist(path[-1], points[b])) > .005:
+            return False
+        length = np.linalg.norm(np.diff(path, axis=0), axis=1).sum()
+        if length > math.dist(points[a], points[b]) + max_extra:
+            return False
+        edges.append((a, b, path[1:-1].tolist()))
+        return True
+
+    floor_graphs = {}
+    for key, graph in floors.items():
+        points = graph.positions.astype(float).tolist()
+        edges = []
+        for a, neighbors in enumerate(graph.edges):
+            for b, _ in neighbors:
+                if a < b:
+                    connect(points, edges, a, b, graph.floor_y, .08)
+        floor_graphs[key] = {"points": points, "edges": edges}
+
     task_graphs = {}
     previous = {task["source_row"]: task["candidates"] for task in proposals["tasks"]} if proposals else {}
     for task in geometry["tasks"]:
         graph = floors[task["floor"]]
-        budget = MAX_RATIO * task["reference_m"]
         start, stop = task["route_xyz"][0], task["route_xyz"][-1]
         native = shortest(finder, start, stop, graph.floor_y, tolerance)
         if native is None or abs(np.linalg.norm(np.diff(native, axis=0), axis=1).sum() - task["reference_m"]) > 1e-4:
             raise ValueError(f"Frozen native path changed for {task['source_row']}")
-        grid = graph.positions[:, [0, 2]]
-        # No route within budget can leave the Euclidean start-to-goal ellipse.
-        min_length = np.linalg.norm(grid - native[0, [0, 2]], axis=1) + np.linalg.norm(grid - native[-1, [0, 2]], axis=1)
-        eligible = np.flatnonzero(min_length <= budget + 1e-6)
-        indices = {int(old): i for i, old in enumerate(eligible)}
-        points = graph.positions[eligible].astype(float).tolist() + native.tolist()
-        native_ids = list(range(len(eligible), len(points)))
+        floor_points = floor_graphs[task["floor"]]["points"]
+        points = floor_points + native.tolist()
+        native_ids = list(range(len(floor_points), len(points)))
         edges = []
-
-        def connect(a, b, max_extra):
-            path = shortest(finder, points[a], points[b], graph.floor_y, tolerance)
-            if path is None or max(math.dist(path[0], points[a]), math.dist(path[-1], points[b])) > .005:
-                return False
-            length = np.linalg.norm(np.diff(path, axis=0), axis=1).sum()
-            if length > math.dist(points[a], points[b]) + max_extra:
-                return False
-            edges.append((a, b, path[1:-1].tolist()))
-            return True
-
-        for old, i in indices.items():
-            for neighbor, _ in graph.edges[old]:
-                if neighbor in indices and old < neighbor:
-                    connect(i, indices[neighbor], .08)
         edges.extend((a, b, []) for a, b in zip(native_ids, native_ids[1:]))
         route_anchors = native_ids.copy()
         imported = 0
@@ -75,7 +73,7 @@ def build_graph(geometry, proposals=None):
             points.extend(path[1:-1])
             ids = [native_ids[0], *mid_ids, native_ids[-1]]
             before = len(edges)
-            if all(connect(a, b, .01) for a, b in zip(ids, ids[1:])):
+            if all(connect(points, edges, a, b, graph.floor_y, .01) for a, b in zip(ids, ids[1:])):
                 route_anchors.extend(mid_ids)
                 imported += 1
             else:
@@ -83,12 +81,11 @@ def build_graph(geometry, proposals=None):
                 del points[len(points) - len(mid_ids):]
         for node in route_anchors:
             for neighbor, _ in graph._attach(np.asarray(points[node], dtype=np.float32)):
-                if neighbor in indices:
-                    connect(node, indices[neighbor], .08)
-        task_graphs[str(task["source_row"])] = {"floor": task["floor"], "points": points, "edges": edges,
+                connect(points, edges, node, neighbor, graph.floor_y, .08)
+        task_graphs[str(task["source_row"])] = {"floor": task["floor"], "points": points[len(floor_points):], "edges": edges,
                                                 "native_ids": native_ids, "imported_paths": imported,
                                                 "offered_paths": len(previous.get(task["source_row"], []))}
-    return {"format": "wifinav-objectnav-navmesh-graph-v2", "grid_m": GRID_M, "tasks": task_graphs}
+    return {"format": "wifinav-objectnav-navmesh-graph-v3", "grid_m": GRID_M, "floors": floor_graphs, "tasks": task_graphs}
 
 
 def score_graph(geometry, built):
@@ -103,23 +100,27 @@ def score_graph(geometry, built):
     scene, tags, _ = semantic_geometry(asset.with_name(stem + ".semantic.glb"), asset.with_name(stem + ".semantic.txt"))
     config = geometry["config"]
     by_key = {str(task["source_row"]): task for task in geometry["tasks"]}
-    if built["format"] != "wifinav-objectnav-navmesh-graph-v2" or built["tasks"].keys() != by_key.keys():
+    if built["format"] != "wifinav-objectnav-navmesh-graph-v3" or built["tasks"].keys() != by_key.keys():
         raise ValueError("Navigation graph does not cover the frozen tasks")
     results = {}
+    floor_signals = {}
     for key, task in built["tasks"].items():
-        nodes = np.asarray(task["points"], dtype=float)
-        edges = task["edges"]
+        floor_id = task["floor"]
+        floor = built["floors"][floor_id]
+        nodes = np.asarray(floor["points"] + task["points"], dtype=float)
+        edges = floor["edges"] + task["edges"]
+        floor_nodes = len(floor["points"])
+        floor_edges = len(floor["edges"])
         baseline = task["native_ids"]
         start, goal = baseline[0], baseline[-1]
-        max_length = math.floor(MAX_RATIO * by_key[key]["reference_m"] / LENGTH_UNIT_M)
         adjacency = [[] for _ in nodes]
-        length_graph = [[] for _ in nodes]
         sample_points = nodes.tolist()
         sample_ids = []
         segment_start_ids, segment_end_ids, seg_lengths = [], [], []
         segment_offsets = []
         edge_lengths = []
         baseline_edges = {}
+        floor_interiors_end = len(nodes)
         for i, (a, b, midpoints) in enumerate(edges):
             points = np.asarray([nodes[a], *midpoints, nodes[b]])
             pieces = np.linalg.norm(np.diff(points, axis=0), axis=1)
@@ -128,6 +129,8 @@ def score_graph(geometry, built):
                             for point in np.linspace(x, y, n, endpoint=False).tolist()][1:]
             ids = [a, *range(len(sample_points), len(sample_points) + len(intermediate)), b]
             sample_points.extend(intermediate)
+            if i + 1 == floor_edges:
+                floor_interiors_end = len(sample_points)
             sample_ids.append(ids)
             sub_lengths = np.repeat(np.ceil(pieces / steps / LENGTH_UNIT_M).astype(int), steps).tolist()
             edge_length = sum(sub_lengths)
@@ -138,14 +141,13 @@ def score_graph(geometry, built):
             segment_end_ids.extend(ids[1:])
             adjacency[a].append((b, i))
             adjacency[b].append((a, i))
-            length_graph[a].append((b, edge_length))
-            length_graph[b].append((a, edge_length))
             baseline_edges[a, b] = i
-        lower_bounds = distances(length_graph, goal)
         native_path = [(a, b, baseline_edges[a, b]) for a, b in zip(baseline, baseline[1:])]
         sample_points = np.asarray(sample_points)
         receivers = habitat_to_glb(sample_points, config["rx_height_above_floor_m"])
         seg_lengths = np.asarray(seg_lengths)
+        floor_indices = np.r_[0:floor_nodes, len(nodes):floor_interiors_end]
+        task_indices = np.r_[floor_nodes:len(nodes), floor_interiors_end:len(receivers)]
 
         def profile(path, signal):
             route_ids = [start]
@@ -159,16 +161,21 @@ def score_graph(geometry, built):
             return route.tolist(), {**summary, "samples_dbm": rssi}
 
         references = {}
-        for ap in geometry["floors"][task["floor"]]["candidates"]:
-            signal, _ = signal_for_anchor(scene, tags, ap["xyz"], receivers, config)
+        for ap in geometry["floors"][floor_id]["candidates"]:
+            cache_key = floor_id, ap["id"]
+            if cache_key not in floor_signals:
+                floor_signals[cache_key], _ = signal_for_anchor(scene, tags, ap["xyz"], receivers[floor_indices], config)
+            signal = np.empty(len(receivers))
+            signal[floor_indices] = floor_signals[cache_key]
+            signal[task_indices], _ = signal_for_anchor(scene, tags, ap["xyz"], receivers[task_indices], config)
             # Use the same midpoint classification rule as route_metrics.
             means = (signal[segment_start_ids] + signal[segment_end_ids]) / 2
             weak = np.add.reduceat(seg_lengths * (means < config["weak_threshold_dbm"]), segment_offsets)
             severe = np.add.reduceat(seg_lengths * (means < config["outage_threshold_dbm"]), segment_offsets)
             edge_costs = list(zip(weak.tolist(), severe.tolist(), edge_lengths))
-            path, cost = optimal_route(adjacency, edge_costs, start, goal, max_length, lower_bounds)
+            path, cost = lexicographic_route(adjacency, edge_costs, start, goal)
             native_cost = tuple(sum(edge_costs[i][j] for _, _, i in native_path) for j in range(3))
-            if native_cost[2] > max_length or cost > native_cost:
+            if cost > native_cost:
                 raise AssertionError(f"Graph optimization failed to match the included baseline: {key}/{ap['id']}")
             baseline_profile = profile(native_path, signal)[1]
             # For equal objectives keep the original trace as the visual tie breaker.
@@ -176,11 +183,11 @@ def score_graph(geometry, built):
             route, route_profile = profile(path if changed else native_path, signal)
             references[ap["id"]] = {"selected": int(changed), "route_xyz": route, "profile": route_profile,
                                      "baseline_profile": baseline_profile, "objective_um": cost,
-                                     "baseline_objective_um": native_cost, "budget_um": max_length}
+                                     "baseline_objective_um": native_cost}
         results[key] = references
         print(f"{key}: {len(nodes)} nodes, {len(edges)} edges, {len(references)} APs", flush=True)
-    return {"format": "wifinav-objectnav-rssi-graph-v2", "source_ref": geometry["source_ref"],
-            "max_length_ratio": MAX_RATIO, "sampling_steps_m": [STEP_M], "graph_grid_m": built["grid_m"],
+    return {"format": "wifinav-objectnav-rssi-graph-v3", "source_ref": geometry["source_ref"],
+            "max_length_ratio": None, "sampling_steps_m": [STEP_M], "graph_grid_m": built["grid_m"],
             "length_unit_m": LENGTH_UNIT_M, "tasks": results}
 
 

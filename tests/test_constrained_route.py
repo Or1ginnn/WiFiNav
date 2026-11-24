@@ -5,7 +5,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from connectivity_vln.benchmark.constrained_route import optimal_route
+from connectivity_vln.benchmark.constrained_route import lexicographic_route, optimal_route
 from connectivity_vln.benchmark.single_floor import distances
 
 
@@ -23,6 +23,12 @@ def graphs(n, edges):
 
 
 class OptimalRouteTests(unittest.TestCase):
+    def test_unbounded_prefers_clean_detour_outside_old_cap(self):
+        edges = [(0, 2, (1, 0, 10)), (0, 1, (0, 0, 7)), (1, 2, (0, 0, 7))]
+        adjacency, costs, bounds = graphs(3, edges)
+        self.assertEqual(optimal_route(adjacency, costs, 0, 2, 12, bounds)[1], (1, 0, 10))
+        self.assertEqual(lexicographic_route(adjacency, costs, 0, 2)[1], (0, 0, 14))
+
     def test_retain_two_prefixes_at_same_node_when_cheaper_one_is_longer(self):
         edges = [(0, 1, (0, 0, 8)), (0, 2, (1, 0, 2)), (2, 1, (1, 1, 3)),
                  (1, 3, (1, 0, 4))]
@@ -43,16 +49,16 @@ class OptimalRouteTests(unittest.TestCase):
             adjacency, costs, bounds = graphs(6, edges)
             cap = rng.randint(4, 30)
 
-            def brute(node, seen, cost):
+            def brute(node, seen, cost, limit):
                 if node == 5:
                     yield cost
                     return
                 for neighbor, edge in adjacency[node]:
                     new = tuple(a + b for a, b in zip(cost, costs[edge]))
-                    if neighbor not in seen and new[2] <= cap:
-                        yield from brute(neighbor, seen | {neighbor}, new)
+                    if neighbor not in seen and new[2] <= limit:
+                        yield from brute(neighbor, seen | {neighbor}, new, limit)
 
-            expected = min(brute(0, {0}, (0, 0, 0)), default=None)
+            expected = min(brute(0, {0}, (0, 0, 0), cap), default=None)
             if expected is None:
                 with self.assertRaises(ValueError):
                     optimal_route(adjacency, costs, 0, 5, cap, bounds)
@@ -60,3 +66,9 @@ class OptimalRouteTests(unittest.TestCase):
                 path, actual = optimal_route(adjacency, costs, 0, 5, cap, bounds)
                 self.assertEqual(actual, expected)
                 self.assertEqual(tuple(sum(costs[edge][i] for _, _, edge in path) for i in range(3)), actual)
+            unbounded = min(brute(0, {0}, (0, 0, 0), float("inf")), default=None)
+            if unbounded is None:
+                with self.assertRaises(ValueError):
+                    lexicographic_route(adjacency, costs, 0, 5)
+            else:
+                self.assertEqual(lexicographic_route(adjacency, costs, 0, 5)[1], unbounded)
