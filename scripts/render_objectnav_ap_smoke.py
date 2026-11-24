@@ -4,10 +4,37 @@ import argparse
 import base64
 import hashlib
 import json
+import math
 from pathlib import Path
 
 
-def assemble(manifest_path, with_routes=False):
+def add_rssi_reference(manifest_path, row, source, radio):
+    scene = row["scene"]
+    proposals = manifest_path.with_name(f"{scene}.refined_routes.json").read_bytes()
+    payload = json.loads(manifest_path.with_name(f"{scene}.rssi_reference.json").read_bytes())
+    if (payload["format"] != "wifinav-objectnav-rssi-reference-v1" or payload["source_ref"] != source["source_ref"]
+            or payload["geometry_sha256"] != row["geometry_sha256"]
+            or payload["proposals_sha256"] != hashlib.sha256(proposals).hexdigest()
+            or payload["tasks"].keys() != {str(task["source_row"]) for task in source["tasks"]}):
+        raise ValueError(f"RSSI references do not match the frozen sample: {scene}")
+    for task in source["tasks"]:
+        key = str(task["source_row"])
+        candidates = radio["floors"][task["floor"]]["candidates"]
+        references = payload["tasks"][key]
+        if references.keys() != candidates.keys():
+            raise ValueError(f"Missing AP-specific references: {scene}/{key}")
+        for ap, reference in references.items():
+            points = reference["route_xyz"]
+            if (not points or len(points) != len(reference["profile"]["samples_dbm"])
+                    or not 0 <= reference["selected"] <= reference["candidate_count"]
+                    or reference["profile"]["length_m"] > payload["max_length_ratio"] * task["reference_m"] + .001
+                    or any(math.dist(points[i], task["route_xyz"][i]) > .005 for i in (0, -1))):
+                raise ValueError(f"Invalid route reference: {scene}/{key}/{ap}")
+            candidates[ap].setdefault("reference_tasks", {})[key] = reference
+    return {name: payload[name] for name in ("execution_commit", "max_length_ratio", "minimum_gain_m", "sampling_steps_m")}
+
+
+def assemble(manifest_path, with_routes=False, with_rssi_reference=False):
     manifest_raw = manifest_path.read_bytes()
     manifest = json.loads(manifest_raw)
     config = manifest["config"]
@@ -20,6 +47,7 @@ def assemble(manifest_path, with_routes=False):
             "source_episode_count": 0, "scenes": [], "manifest_sha256": hashlib.sha256(manifest_raw).hexdigest()}
     radio = {"floors": {}}
     route_checks = []
+    reference_policy = None
     commits = set()
     for row in scenes:
         scene = row["scene"]
@@ -43,6 +71,11 @@ def assemble(manifest_path, with_routes=False):
         geom["tasks"].extend({**task, "scene": scene, "task_key": f"{scene}:{task['source_row']}",
                               "floor": f"{scene}/{task['floor']}"} for task in source["tasks"])
         geom["scope_audit"].extend({**item, "scene": scene} for item in source["scope_audit"])
+        if with_rssi_reference:
+            policy = add_rssi_reference(manifest_path, row, source, report["radio"])
+            if reference_policy is not None and policy != reference_policy:
+                raise ValueError("RSSI references mix policies or execution commits")
+            reference_policy = policy
         if with_routes:
             proposals = manifest_path.with_name(f"{scene}.routes.json").read_bytes()
             checks = json.loads(manifest_path.with_name(f"{scene}.route_scores.json").read_bytes())
@@ -53,6 +86,8 @@ def assemble(manifest_path, with_routes=False):
     if len(commits) != 1:
         raise ValueError("Radio results mix execution commits")
     result = {"geometry": geom, "radio": radio, "radio_commit": commits.pop(), "models_called": 0}
+    if reference_policy is not None:
+        result["rssi_reference_policy"] = reference_policy
     if route_checks:
         proof = {"tasks": sum(checks["task_count"] for _, checks, _ in route_checks), "tested": 0, "passed": 0}
         for scene, checks, proposals in route_checks:
@@ -75,10 +110,13 @@ def main():
     source_type.add_argument("--report", type=Path)
     source_type.add_argument("--manifest", type=Path)
     parser.add_argument("--with-routes", action="store_true")
+    parser.add_argument("--with-rssi-reference", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if not args.manifest and (args.with_routes or args.with_rssi_reference):
+        parser.error("Route overlays require --manifest")
     if args.manifest:
-        report = assemble(args.manifest, args.with_routes)
+        report = assemble(args.manifest, args.with_routes, args.with_rssi_reference)
         raw = json.dumps(report, separators=(",", ":"), allow_nan=False).encode()
     else:
         raw = args.report.read_bytes()

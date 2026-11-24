@@ -226,3 +226,5 @@ B3首轮14次执行/18case已完成，无运行异常或超时；`oracle_report.
 2026-11-24 三个授权的 HM3D `train` tar 从本机项目 `data/` 上传至服务器项目 `runtime/data_imports/hm3d_train_v0.2/`，逐包核对 SHA256 后导入 `data/scene_datasets/hm3d_v0.2/train/`。复用既有 Habitat 0.3.0 进行 145 个导航网格和一个带语义场景的 CPU 验收。安装产物继续由服务器管理，见 [数据记录](DATASETS.md)。
 
 同日完成首批官方 `train` 的 20 条任务和 7 个 AP 布局。几何核验复用 Habitat 0.3.0，多墙射线和切片纹理复用项目已有的 `runtime/envs/sionna_rt_2_2_0_py311` 与 `runtime/tools/basisu_v1_60/decode_basis_ppm`。关闭 CUDA 可见设备，模型调用为 0。生成 HTML 需要从服务器取回审阅 JSON，本机生成页面。复现入口、版本和产物见 [首批 AP 审阅](experiments/objectnav_train_ap_review_2026-11-24.md)。
+
+RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数据，独立产物目录为 `runtime/diagnostics/objectnav_rssi_reference_20261124_v1/`。结果用于本机离线页面。

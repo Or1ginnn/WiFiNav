@@ -5,6 +5,7 @@ const data = JSON.parse($("report-data").textContent);
 const {geometry, radio, report_sha256: reportHash} = data;
 const {config, tasks, floors} = geometry;
 const routeExample = data.route_diagnostic?.example;
+const referencePolicy = data.rssi_reference_policy;
 const names = {bed:"床", chair:"椅子", plant:"盆栽", sofa:"沙发", toilet:"马桶", tv_monitor:"电视"};
 const goalText = {bed:"一张床", chair:"一把椅子", plant:"一盆植物", sofa:"一张沙发", toilet:"一个马桶", tv_monitor:"一台电视"};
 const chosen = Object.fromEntries(Object.entries(floors).map(([key, f]) => [key, f.candidates[0].id]));
@@ -158,19 +159,34 @@ function drawMap() {
     ctx.lineWidth = 1.15;
     ctx.stroke();
   }
-  const route = selected.route_xyz;
-  if ($("path").checked) {
+  const reference = referenceEntry(selected), route = reference?.route_xyz ?? selected.route_xyz;
+  function trace(points) {
     ctx.beginPath();
-    route.forEach(([x, , z], i) => {
+    points.forEach(([x, , z], i) => {
       const [a,b] = project(x,z);
       if (i) ctx.lineTo(a,b); else ctx.moveTo(a,b);
     });
+  }
+  if ($("baseline").checked && (reference?.selected || !$("path").checked)) {
+    ctx.save();
+    trace(selected.route_xyz);
+    ctx.setLineDash([6, 5]);
+    ctx.strokeStyle = "#273023";
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.strokeStyle = "#fff1ac";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+  if ($("path").checked) {
+    trace(route);
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     ctx.strokeStyle = "#103a34";
     ctx.lineWidth = 6;
     ctx.stroke();
-    ctx.strokeStyle = "#fffbe5";
+    ctx.strokeStyle = reference ? "#9aeaff" : "#fffbe5";
     ctx.lineWidth = 3;
     ctx.stroke();
     if (routeExample?.task_key === taskKey(selected) && ap === routeExample.ap) {
@@ -186,6 +202,8 @@ function drawMap() {
       ctx.stroke();
       ctx.restore();
     }
+  }
+  if ($("path").checked || $("baseline").checked) {
     marker(ctx, ...project(route[0][0], route[0][2]), 6, "#28b186");
     marker(ctx, ...project(route.at(-1)[0], route.at(-1)[2]), 7, "#ffd468");
   }
@@ -214,8 +232,9 @@ function scheduleMap() {
 }
 
 function drawProfile() {
-  const ap = radio.floors[selected.floor].candidates[chosen[selected.floor]];
-  const profile = ap.tasks[selected.source_row], route = selected.route_xyz;
+  const reference = referenceEntry(selected);
+  const profile = reference?.profile ?? apEntry(selected).tasks[selected.source_row];
+  const route = reference?.route_xyz ?? selected.route_xyz;
   const cumulative = [0];
   for (let i = 1; i < route.length; i++) {
     const a = route[i - 1], b = route[i];
@@ -259,6 +278,10 @@ function apEntry(task) {
   return radio.floors[task.floor].candidates[chosen[task.floor]];
 }
 
+function referenceEntry(task) {
+  return apEntry(task).reference_tasks?.[task.source_row];
+}
+
 function drawTaskList() {
   const parent = $("task-list"), scroll = parent.scrollTop, filter = $("floor-filter").value;
   parent.replaceChildren();
@@ -274,7 +297,8 @@ function drawTaskList() {
     text.textContent = "找" + (names[task.category] || task.category);
     caption.textContent = task.floor + " · 任务 " + selectedIndex.get(taskKey(task)) + " · 源行 " + task.source_row;
     text.append(caption);
-    const value = apEntry(task).tasks[task.source_row].samples_dbm.at(-1);
+    const profile = referenceEntry(task)?.profile ?? apEntry(task).tasks[task.source_row];
+    const value = profile.samples_dbm.at(-1);
     const rssi = document.createElement("span");
     rssi.className = value < config.weak_threshold_dbm ? "rssi weak" : "rssi";
     rssi.textContent = format(value, "dBm");
@@ -290,7 +314,8 @@ function drawTaskList() {
 }
 
 function draw() {
-  const floor = floors[selected.floor], ap = apEntry(selected), profile = ap.tasks[selected.source_row];
+  const floor = floors[selected.floor], ap = apEntry(selected), originalProfile = ap.tasks[selected.source_row];
+  const reference = referenceEntry(selected), profile = reference?.profile ?? originalProfile;
   $("map-title").textContent = selected.floor + " · Habitat 楼层地图";
   $("task-instruction").textContent = "任务指令：找" + (goalText[selected.category] ?? selected.category) + "。目标类别 " + selected.category;
   $("map-detail").textContent = "楼层 Y " + format(floor.y, "m", 2) + " · 覆盖边界 " +
@@ -299,7 +324,8 @@ function draw() {
   $("ap-choice").replaceChildren();
   for (const candidate of floor.candidates) option($("ap-choice"), candidate.id, candidate.id);
   $("ap-choice").value = chosen[selected.floor];
-  $("profile-title").textContent = "找" + (names[selected.category] || selected.category) + " · 参考路线 RSSI";
+  $("profile-title").textContent = "找" + (names[selected.category] || selected.category) +
+    (reference ? " · RSSI 优先参考路线" : " · 参考路线 RSSI");
   $("profile-detail").textContent = "源 episode " + selected.source_episode_id + " · 源行 " + selected.source_row +
     " · 评测器视点 " + selected.stop_object_id + " · AP 底座 XYZ [" +
     coordinate(floor.candidates.find(item => item.id === chosen[selected.floor]).xyz) + "]";
@@ -310,7 +336,7 @@ function draw() {
     ["参考路线长度", format(profile.length_m, "m", 2)],
     ["参考 STOP RSSI", format(profile.samples_dbm.at(-1), "dBm")],
     ["低于 " + format(config.weak_threshold_dbm, "dBm", 0) + " 的路段", format(profile.weak_length_m, "m", 2) + weakRatio],
-    ["同层采样视点处于弱区", profile.stop_viewpoints_weak + " / " + profile.stop_viewpoints_sampled],
+    ["同层采样视点处于弱区", originalProfile.stop_viewpoints_weak + " / " + originalProfile.stop_viewpoints_sampled],
     ["起点 RSSI", format(profile.samples_dbm[0], "dBm")],
     ["路线最低 RSSI", format(profile.minimum_dbm, "dBm")],
     ["低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的路段", format(profile.outage_length_m, "m", 2)],
@@ -322,6 +348,16 @@ function draw() {
     item.textContent = value;
     cell.append(key, item);
     metrics.append(cell);
+  }
+  if (reference) {
+    const verdict = reference.selected ? "已选用绕行。" : reference.candidate_count ?
+      "这批绕行未达到稳定改善条件，沿用几何最短路。" : "本次搜索未找到预算内绕行，沿用几何最短路。";
+    $("reference-comparison").hidden = false;
+    $("reference-comparison").textContent = "已比较 " + reference.candidate_count + " 条绕行。" + verdict +
+      " 几何最短路 " + format(reference.baseline_profile.length_m, "m", 2) + "，当前路线 " + format(profile.length_m, "m", 2) +
+      "。弱信号距离 " + format(reference.baseline_profile.weak_length_m, "m", 2) + " → " + format(profile.weak_length_m, "m", 2) +
+      "；低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的距离 " + format(reference.baseline_profile.outage_length_m, "m", 2) +
+      " → " + format(profile.outage_length_m, "m", 2) + "。";
   }
   drawTaskList();
   scheduleMap();
@@ -353,7 +389,7 @@ $("map").addEventListener("click", event => {
 
 $("ap-choice").onchange = () => setAP($("ap-choice").value);
 $("reset").onclick = () => setAP(floors[selected.floor].candidates[0].id);
-for (const id of ["heat","edge","path","texture"]) $(id).onchange = scheduleMap;
+for (const id of ["heat","edge","path","texture","baseline"]) $(id).onchange = scheduleMap;
 option($("floor-filter"), "all", "全部楼层");
 const sceneOrder = new Map((geometry.scenes ?? []).map((scene, index) => [scene.scene, index + 1]));
 for (const key of Object.keys(floors)) {
@@ -401,6 +437,14 @@ $("config").textContent = "多墙传播 · AP 高 " + format(config.ap_height_ab
   format(config.reference_rss_1m_dbm, "dBm", 0) + " · 低信号阈值 " +
   format(config.weak_threshold_dbm, "dBm", 0) + " · 现场实测待校准。";
 $("hashes").textContent = "代码 " + data.radio_commit.slice(0, 7) + " · 报告 SHA256 " + reportHash;
+if (referencePolicy) {
+  $("path-label").textContent = "RSSI 优先路线（蓝线）";
+  $("baseline-layer").hidden = false;
+  $("reference-policy").hidden = false;
+  $("reference-policy").textContent = "RSSI 优先路线固定起点、停止视点和楼层。长度最多增加 " +
+    format(100 * (referencePolicy.max_length_ratio - 1), "%", 0) + "。先比较低于 " + format(config.weak_threshold_dbm, "dBm", 0) +
+    " 的距离，再比较低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的距离及总长度。两种采样步长均须确认改善。";
+}
 const partialMeshes = (geometry.scenes ?? []).filter(s => s.mesh_faces.faces_with_unannotated_black > 0);
 if (partialMeshes.length) {
   $("mesh-audit").hidden = false;

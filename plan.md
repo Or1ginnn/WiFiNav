@@ -10,7 +10,7 @@
 |---|---|
 | 已确定 | HM3D ObjectNav v2，首版只做单层、每个布局一个 AP、模拟 RSSI。开发使用官方 `train`，保留评估候选使用 `val` |
 | 已就绪 | 服务器已安装官方任务包 186 个文件及 ObjectNav v2 `train` 引用的 145 个 HM3D 场景。三个原始 tar 已上传并通过 SHA256 对比，145 个导航网格均由 Habitat 0.3.0 在 CPU 读入，另抽一处验收任务和语义 |
-| 当前工作 | 已固定官方 `train` 20 条单层任务、5 个场景、7 套单层 AP 草稿。首轮 RSSI 与同起终点绕行对照已完成，等待本机 HTML 审阅。正式评估 `val` 场景待补。见 [首批 AP 审阅](docs/experiments/objectnav_train_ap_review_2026-11-24.md) |
+| 当前工作 | 已固定官方 `train` 20 条单层任务、5 个场景、7 套单层 AP 草稿。本机 HTML 主路线已按各 AP 的 RSSI 选取，并可叠加几何最短路审阅。正式评估 `val` 场景待补。见 [首批 AP 审阅](docs/experiments/objectnav_train_ap_review_2026-11-24.md) |
 
 首版以信号覆盖作为环境和评分变量，仿真中的模型服务全程可用。请求掉线、恢复、本地识别和通信感知导航器属于历史讨论，保存在 [范围收紧前的计划](https://github.com/Or1ginnn/WiFiNav/blob/e2615326f4f826d2826283542d5b799bfde0d029/plan.md)。
 
@@ -45,6 +45,7 @@
 2. **开发场景已入库。** 本机三份原始 tar 已校验并上传到服务器 `runtime/data_imports/hm3d_train_v0.2/`，导入的 145 个场景在 `data/scene_datasets/hm3d_v0.2/train/`。验收记录为 `data/_manifests/hm3d_objectnav_v2_train_install.json`。
 3. **首批 AP 可以审阅。** 固定 20 条任务后计算了 7 层 × 16 个候选位置。离线对照比较 84 条合格绕行，2 条任务的 17 条备选路线在两种采样步长下都减少了至少 0.50 米的弱信号路段。HTML 位于本机 `runtime/reports/objectnav_train_ap_review_20261124/index-reviewed.html`。
    - 报告已列出每条任务的目标类别及中文指令。第一条是「找一张床」。默认 `AP-01` 下 1.91 m 参考路线全程低于 −67 dBm。`AP-09` 在同层四条参考路线上合计弱信号距离最短，列入人工审阅候选。
+   - RSSI 主路线已计算 20 条任务 × 每层 16 个 AP。320 个任务与 AP 组合中 92 个选用了预算内绕行。第一条在 `AP-01` 下沿用 1.91 m；切换 `AP-09` 时主路线变为 2.04 m，弱信号距离从几何路线的 0.57 m 降为 0 m（0.075 m 采样）。
 4. **下一步。** 审阅 AP，优先核对默认覆盖率 4.7% 的 `j2EJhFEQGCL/L1` 和 16.8% 的 `g7hUFVNac26/L1`。根据草稿校验坐标、重算并冻结布局；随后在固定任务上接通 RSSI 查询及官方 STOP/SR/SPL 的轨迹评分验收。保留集场景和导航方法实验留待后续。
 
 ## 5. 历史记录

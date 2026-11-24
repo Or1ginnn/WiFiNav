@@ -24,7 +24,8 @@
       <div class="toolbar">
         <label><input type="checkbox" id="heat" checked> RSSI 热力</label>
         <label><input type="checkbox" id="edge" checked> 覆盖边界</label>
-        <label><input type="checkbox" id="path" checked> 参考路线</label>
+        <label><input type="checkbox" id="path" checked> <span id="path-label">参考路线</span></label>
+        <span id="baseline-layer" hidden><label><input type="checkbox" id="baseline"> 几何最短路（黄虚线）</label></span>
         <label><input type="checkbox" id="texture" checked> 场景纹理</label>
         <button id="reset" type="button">恢复本层默认</button>
       </div>
@@ -42,6 +43,7 @@
   </div>
   <section class="card profile" aria-label="参考路线的信号">
     <div class="panel-head"><div><h2 id="profile-title">参考路线 RSSI</h2><p id="profile-detail"></p></div></div>
+    <p class="hint" id="reference-comparison" hidden></p>
     <dl id="metrics" class="metrics"></dl>
     <canvas id="profile" role="img" aria-label="沿参考路线距离变化的 RSSI 曲线"></canvas>
   </section>
@@ -52,7 +54,7 @@
   </section>
   <details class="card technical">
     <summary>选样、数据来源与参数</summary>
-    <p id="audit"></p><p id="config"></p><p id="mesh-audit" hidden></p><p class="mono" id="hashes"></p>
+    <p id="audit"></p><p id="config"></p><p id="reference-policy" hidden></p><p id="mesh-audit" hidden></p><p class="mono" id="hashes"></p>
   </details>
 </main>
 <script type="application/json" id="report-data">__REPORT_JSON__</script>
