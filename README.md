@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-主线采用 **Habitat HM3D ObjectNav v2**。服务器已安装官方任务包并通过一个匹配场景的 CPU 加载验收，完整场景待补齐。模型基座为冻结的 **Qwen3.5-35B-A3B**。原 R2R-Conn 的完整 B3 结论为 **No-Go**，其数据和结果供复现。见 [数据安装记录](docs/DATASETS.md)。
+主线采用 **Habitat HM3D ObjectNav v2**。官方任务包和 `train` 引用的 145 个场景已安装。首批开发审阅包含 5 个场景、20 条单层任务和 7 个 AP 布局。原 R2R-Conn 的完整 B3 结论为 **No-Go**，其数据和结果供复现。[数据安装记录](docs/DATASETS.md) · [首批 AP 审阅](docs/experiments/objectnav_train_ap_review_2026-11-24.md)
 
 ## 文档入口
 
-- [计划与进度](plan.md)：当前选择、里程碑、E0–E8执行任务和交接记录。
+- [计划与进度](plan.md)：当前主线、里程碑和交接记录。
 - [目录索引](docs/PROJECT_STRUCTURE.md)：研究资料与历史方案分类。
 - [环境与服务器记录](docs/LOCAL_ENVIRONMENT.md)：环境、连接、目录与同步约定。
 - [服务器资产与日常操作](docs/experiments/project_storage_2026-11-04.md)：data/models/runtime与模型启动命令。
@@ -25,9 +25,9 @@
 
 ## 下一步
 
-1. 从有访问许可的来源导入其余 HM3D v0.2 场景与语义资产，核对任务引用。
-2. 验收 ObjectNav 任务与单层开发候选，冻结开发和保留评估划分。
-3. 在新场景上构造 AP 与 RSSI 实例，检查通信条件能否改变机器人可选的搜索路线。
+1. 在本机 HTML 审阅首批 AP 坐标及覆盖，校验草稿、重算并冻结布局。
+2. 在固定任务上接通 RSSI 查询和官方 ObjectNav 轨迹评分。
+3. 接入正式保留评估需要的 `val` 场景和语义资产。
 
 模型部署细节、实际请求结果和服务器资源见 [部署现场记录](docs/experiments/server_bootstrap_2026-11-04.md)。
 

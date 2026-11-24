@@ -262,7 +262,7 @@ function drawTaskList() {
   const parent = $("task-list"), scroll = parent.scrollTop, filter = $("floor-filter").value;
   parent.replaceChildren();
   const list = filter === "all" ? tasks : tasks.filter(task => task.floor === filter);
-  $("task-summary").textContent = list.length + " 条 · 右侧为参考 STOP 信号";
+  $("task-summary").textContent = list.length + " 条 · 参考 STOP RSSI";
   for (const task of list) {
     const row = document.createElement("button");
     row.className = "task";
@@ -349,7 +349,12 @@ $("ap-choice").onchange = () => setAP($("ap-choice").value);
 $("reset").onclick = () => setAP(floors[selected.floor].candidates[0].id);
 for (const id of ["heat","edge","path","texture"]) $(id).onchange = scheduleMap;
 option($("floor-filter"), "all", "全部楼层");
-for (const key of Object.keys(floors)) option($("floor-filter"), key, key);
+const sceneOrder = new Map((geometry.scenes ?? []).map((scene, index) => [scene.scene, index + 1]));
+for (const key of Object.keys(floors)) {
+  const [scene, layer] = key.split("/");
+  const label = sceneOrder.has(scene) ? "场景 " + sceneOrder.get(scene) + " · " + layer : key;
+  option($("floor-filter"), key, label);
+}
 $("floor-filter").onchange = () => {
   const layer = $("floor-filter").value;
   if (layer !== "all" && layer !== selected.floor) selected = tasks.find(task => task.floor === layer);

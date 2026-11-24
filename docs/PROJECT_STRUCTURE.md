@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-24。主线为 HM3D ObjectNav，官方任务包及 `train` 对应的 145 个场景已安装。服务器另有一个公开验证场景，正式评估资产待补齐。原 R2R-Conn 的 AP 审阅 HTML 留在本机 `runtime/reports/`，B3 和相关记录供复现。
+> 最近整理：2026-11-24。主线为 HM3D ObjectNav，官方任务包及 `train` 对应的 145 个场景已安装。首批 20 条单层任务的 AP 报告在本机 `runtime/reports/objectnav_train_ap_review_20261124/`，正式评估资产待补齐。原 R2R-Conn 的审阅和 B3 记录供复现。
 
 ## 当前目录
 
@@ -12,6 +12,7 @@ WIFI+Nav/
 ├── plan.md                                      # 当前项目计划、进度、里程碑、待办
 ├── configs/data/server_paths.json               # 原 R2R-CE 路径及新基准配置入口
 ├── configs/data/objectnav_hm3d_v2.json           # HM3D ObjectNav v2 独立数据入口
+├── configs/benchmark/objectnav_train_ap_review_v1.json # 首批 train 任务与 AP 审阅配置
 ├── configs/model/qwen35b.json                    # 固定模型revision与服务初值
 ├── configs/navigation/r2r_dev.json               # 固定首条任务、观察/动作和控制预算
 ├── configs/wireless/r2r_conn_v0.json             # 路线A信号、阈值与确定性seed
@@ -24,6 +25,10 @@ WIFI+Nav/
 ├── scripts/
 │   ├── download_model.py                        # 模型下载与镜像SHA256核验
 │   ├── install_hm3d_train.py                    # 验证归档与安装官方 ObjectNav 引用的 HM3D 场景
+│   ├── build_objectnav_train_ap_review.py        # 先于 RSSI 固定同层任务与 AP 候选
+│   ├── run_objectnav_ap_radio.py                 # CPU 重算各 AP 候选的多墙 RSSI 与纹理
+│   ├── audit_objectnav_train_route_pair.py      # 固定端点的受控绕行对照
+│   ├── render_objectnav_ap_smoke.py             # 本机生成离线 ObjectNav AP 报告
 │   ├── serve_model.py                           # 使用已有vLLM环境启动服务
 │   ├── wait_for_gpus.py                         # 等四卡空闲、互斥启动模型并图文验收
 │   ├── bootstrap_model.sh                       # 下载完成后启动服务
