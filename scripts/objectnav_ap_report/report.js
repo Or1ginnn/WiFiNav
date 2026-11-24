@@ -6,7 +6,8 @@ const {geometry, radio, report_sha256: reportHash} = data;
 const {config, tasks, floors} = geometry;
 const names = {bed:"床", chair:"椅子", plant:"盆栽", sofa:"沙发", toilet:"马桶", tv_monitor:"电视"};
 const chosen = Object.fromEntries(Object.entries(floors).map(([key, f]) => [key, f.candidates[0].id]));
-const selectedIndex = new Map(tasks.map((task, index) => [task.source_row, index + 1]));
+const taskKey = task => task.task_key ?? task.source_row;
+const selectedIndex = new Map(tasks.map((task, index) => [taskKey(task), index + 1]));
 const cache = new Map();
 let selected = tasks[0];
 let projection;
@@ -256,7 +257,7 @@ function drawTaskList() {
     row.dataset.sourceRow = String(task.source_row);
     const text = document.createElement("span"), caption = document.createElement("small");
     text.textContent = "找" + (names[task.category] || task.category);
-    caption.textContent = task.floor + " · 任务 " + selectedIndex.get(task.source_row) + " · 源行 " + task.source_row;
+    caption.textContent = task.floor + " · 任务 " + selectedIndex.get(taskKey(task)) + " · 源行 " + task.source_row;
     text.append(caption);
     const value = apEntry(task).tasks[task.source_row].samples_dbm.at(-1);
     const rssi = document.createElement("span");
@@ -343,9 +344,10 @@ $("floor-filter").onchange = () => {
 
 $("export").onclick = () => {
   const layouts = Object.entries(chosen).map(([floor, ap]) => ({
-    floor, candidate_id: ap, ap_floor_xyz: floors[floor].candidates.find(item => item.id === ap).xyz
+    floor: floors[floor].floor_id ?? floor, scene: floors[floor].source_ref ?? geometry.source_ref,
+    candidate_id: ap, ap_floor_xyz: floors[floor].candidates.find(item => item.id === ap).xyz
   }));
-  const draft = {format:"wifinav-objectnav-ap-draft-v1", report_sha256:reportHash,
+  const draft = {format:geometry.scene_count > 1 ? "wifinav-objectnav-ap-draft-v2" : "wifinav-objectnav-ap-draft-v1", report_sha256:reportHash,
                  scene:geometry.source_ref, ap_height_above_floor_m:config.ap_height_above_floor_m, layouts};
   const url = URL.createObjectURL(new Blob([JSON.stringify(draft, null, 2)], {type:"application/json"}));
   const link = document.createElement("a");
@@ -356,13 +358,16 @@ $("export").onclick = () => {
   $("map-hint").textContent = "AP 草稿已导出。";
 };
 
-$("overview").textContent = tasks.length + " 条任务 · 1 个公开场景 · " + Object.keys(floors).length +
+const scope = geometry.split === "train" ? (geometry.scene_count ?? 1) + " 个官方 train 开发场景" : "1 个公开场景";
+if (geometry.split === "train") $("scope").textContent = "HM3D ObjectNav v2 官方 train · 开发审阅。机器人收到目标类别。地图上的参考路线、目标视点和 RSSI 场供离线验收。";
+$("overview").textContent = tasks.length + " 条任务 · " + scope + " · " + Object.keys(floors).length +
   " 个独立单层布局 · 每层在用 1 个 AP";
 const audit = geometry.scope_audit.reduce((counts, row) => {
   counts[row.status] = (counts[row.status] || 0) + 1;
   return counts;
 }, {});
-$("audit").textContent = "场景 " + geometry.source_ref.split("/").at(-2) + "。源 val " + geometry.scope_audit.length +
+const sourceScope = geometry.scene_count > 1 ? "官方 train 场景分片" : "场景 " + geometry.source_ref.split("/").at(-2);
+$("audit").textContent = sourceScope + "。几何抽审 " + geometry.scope_audit.length +
   " 行，选入 " + (audit.selected || 0) + " 行。合格未选 " + (audit.eligible || 0) +
   " 行，尚无同层见证或起点不满足规则 " +
   ((audit.no_verified_same_floor_viewpoint || 0) + (audit.start_outside_floor || 0)) + " 行。";

@@ -7,6 +7,7 @@ import gzip
 import hashlib
 import json
 from pathlib import Path
+import random
 import subprocess
 
 import habitat_sim
@@ -16,6 +17,18 @@ from export_ap_review_topdown import topdown_slice
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def audit_pool(episodes, config, scene):
+    if "episode_pool_per_category" not in config:
+        return list(enumerate(episodes))
+    categories = defaultdict(list)
+    for index, episode in enumerate(episodes):
+        categories[episode["object_category"]].append(index)
+    rng = random.Random(f"{config['selection_seed']}:{scene}")
+    indices = sorted(index for _, rows in sorted(categories.items())
+                     for index in rng.sample(rows, min(len(rows), config["episode_pool_per_category"])))
+    return [(index, episodes[index]) for index in indices]
 
 
 def shortest(finder, start, end, floor, tolerance):
@@ -86,15 +99,17 @@ def build(shard, asset, config, count):
     if not finder.load_nav_mesh(str(navmesh)):
         raise ValueError(f"Unable to open {navmesh}")
     floor_tol = config["floor_tolerance_m"]
-    starts = sorted({round(row["start_position"][1], 2) for row in episodes})
+    sampled_pool = "episode_pool_per_category" in config
+    elevations = [round(row["start_position"][1], 2) for row in episodes]
+    starts = sorted(elevations if sampled_pool else set(elevations))
     floor_groups = [[]]
     for y in starts:
-        if floor_groups[-1] and y - floor_groups[-1][-1] > floor_tol:
+        if floor_groups[-1] and y - floor_groups[-1][0 if sampled_pool else -1] > floor_tol:
             floor_groups.append([])
         floor_groups[-1].append(y)
     anchors = [round(float(np.median(group)), 3) for group in floor_groups]
     floors, by_group, audit = {}, defaultdict(list), []
-    for row_index, episode in enumerate(episodes):
+    for row_index, episode in audit_pool(episodes, config, expected_ref):
         start = episode["start_position"]
         floor_index = int(np.argmin(np.abs(np.asarray(anchors) - start[1])))
         floor = anchors[floor_index]
@@ -124,6 +139,7 @@ def build(shard, asset, config, count):
         audit.append({**ids, "floor": floor_id, "status": "eligible"})
         by_group[floor_id, category].append({
             **ids, "floor": floor_id, "route_xyz": route_points,
+            "start_rotation": episode["start_rotation"],
             "reference_m": round(length, 5), "stop_object_id": object_id,
             "verified_viewpoints_xyz": [list(map(float, item[3][-1])) for item in witnesses],
             "max_height_from_floor_m": round(float(np.max(np.abs(route[:, 1] - floor))), 5),
@@ -151,6 +167,7 @@ def build(shard, asset, config, count):
         "split": shard.parent.parent.name,
         "scope": config["scope"],
         "habitat_sim_version": habitat_sim.__version__,
+        "source_episode_count": len(episodes),
         "source_sha256": {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in source_paths},
         "requested": count, "tasks": tasks, "scope_audit": audit, "floors": floors, "config": config,
         "execution_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),

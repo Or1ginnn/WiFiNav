@@ -7,13 +7,58 @@ import json
 from pathlib import Path
 
 
+def assemble(manifest_path):
+    manifest_raw = manifest_path.read_bytes()
+    manifest = json.loads(manifest_raw)
+    config = manifest["config"]
+    scenes = manifest["scenes"]
+    if len(scenes) != config["scene_count"] or len({row["scene"] for row in scenes}) != len(scenes):
+        raise ValueError("Expected a complete, distinct set of frozen scenes")
+    geom = {"format": "wifinav-objectnav-ap-review-v1", "split": "train", "scope": config["scope"],
+            "config": config, "config_sha256": manifest["config_sha256"], "scene_count": len(scenes),
+            "requested": len(scenes) * config["task_count"], "tasks": [], "floors": {}, "scope_audit": [],
+            "source_episode_count": 0, "scenes": [], "manifest_sha256": hashlib.sha256(manifest_raw).hexdigest()}
+    radio = {"floors": {}}
+    commits = set()
+    for row in scenes:
+        scene = row["scene"]
+        raw = manifest_path.with_name(f"{scene}.radio.json").read_bytes()
+        report = json.loads(raw)
+        source = report["geometry"]
+        if (report["geometry_sha256"] != row["geometry_sha256"] or source["source_ref"] != row["source_ref"]
+                or source["config_sha256"] != geom["config_sha256"] or report["models_called"] != 0
+                or source["split"] != "train" or len(source["tasks"]) != config["task_count"]):
+            raise ValueError(f"Radio result does not match the frozen train sample: {scene}")
+        commits.add(report["radio_commit"])
+        geom["scenes"].append({**row, "source_sha256": source["source_sha256"],
+                               "radio_sha256": hashlib.sha256(raw).hexdigest(),
+                               "alignment": report["radio"]["alignment"], "execution_commit": source["execution_commit"]})
+        geom["source_episode_count"] += source["source_episode_count"]
+        for floor, spec in source["floors"].items():
+            identifier = f"{scene}/{floor}"
+            geom["floors"][identifier] = {**spec, "source_ref": source["source_ref"], "floor_id": floor}
+            radio["floors"][identifier] = report["radio"]["floors"][floor]
+        geom["tasks"].extend({**task, "scene": scene, "task_key": f"{scene}:{task['source_row']}",
+                              "floor": f"{scene}/{task['floor']}"} for task in source["tasks"])
+        geom["scope_audit"].extend({**item, "scene": scene} for item in source["scope_audit"])
+    if len(commits) != 1:
+        raise ValueError("Radio results mix execution commits")
+    return {"geometry": geom, "radio": radio, "radio_commit": commits.pop(), "models_called": 0}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--report", type=Path, required=True)
+    source_type = parser.add_mutually_exclusive_group(required=True)
+    source_type.add_argument("--report", type=Path)
+    source_type.add_argument("--manifest", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    raw = args.report.read_bytes()
-    report = json.loads(raw)
+    if args.manifest:
+        report = assemble(args.manifest)
+        raw = json.dumps(report, separators=(",", ":"), allow_nan=False).encode()
+    else:
+        raw = args.report.read_bytes()
+        report = json.loads(raw)
     geom = report["geometry"]
     if geom["format"] != "wifinav-objectnav-ap-review-v1" or len(geom["tasks"]) != geom["requested"]:
         raise ValueError("Expected a complete ObjectNav AP smoke report")
