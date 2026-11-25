@@ -17,6 +17,8 @@ from connectivity_vln.benchmark.constrained_route import lexicographic_route
 GRID_M = .15
 STEP_M = .075
 FLOOR_CHECK_STEP_M = STEP_M / 2
+VERIFIED_FLOOR_STEP_M = STEP_M / 16
+VERIFIED_RSSI_STEPS_M = (STEP_M, STEP_M / 2, STEP_M / 4)
 LENGTH_UNIT_M = 1e-6
 SHORTCUT_MAX_CHORD_M = 2.25
 SHORTCUT_MAX_ARC_M = 4.0
@@ -92,10 +94,10 @@ def build_graph(geometry, proposals=None):
     return {"format": "wifinav-objectnav-navmesh-graph-v3", "grid_m": GRID_M, "floors": floor_graphs, "tasks": task_graphs}
 
 
-def edge_on_floor(points, snap_point, floor_y, tolerance):
+def edge_on_floor(points, snap_point, floor_y, tolerance, step_m=FLOOR_CHECK_STEP_M):
     """Check actual NavMesh surface height throughout each stored edge."""
     for a, b in zip(points, points[1:]):
-        steps = max(1, math.ceil(math.dist(a, b) / FLOOR_CHECK_STEP_M))
+        steps = max(1, math.ceil(math.dist(a, b) / step_m))
         for i in range(steps + 1):
             point = [x + (y - x) * (i / steps) for x, y in zip(a, b)]
             x, y, z = snap_point(point)
@@ -228,6 +230,63 @@ def add_shortcuts(geometry, graph, references):
     return graph
 
 
+def validate_graph_geometry(geometry, graph):
+    """Remove edges that fail dense floor checks or native subsegment routing."""
+    import habitat_sim
+    import numpy as np
+
+    if graph["format"] != "wifinav-objectnav-navmesh-graph-v5":
+        raise ValueError("Expected a shortcut-augmented ObjectNav graph")
+    navmesh = (ROOT / "data/scene_datasets" / geometry["source_ref"]).with_suffix(".navmesh")
+    finder = habitat_sim.PathFinder()
+    if not finder.load_nav_mesh(str(navmesh)):
+        raise ValueError(f"Cannot load navmesh for {navmesh}")
+    tolerance = geometry["config"]["floor_tolerance_m"]
+    checks = {}
+
+    def snap(point):
+        return finder.snap_point(np.asarray(point, dtype=np.float32))
+
+    def straight(a, b):
+        a, b = sorted((tuple(a), tuple(b)))
+        key = a, b
+        if key not in checks:
+            path = habitat_sim.ShortestPath()
+            path.requested_start = np.asarray(a, dtype=np.float32)
+            path.requested_end = np.asarray(b, dtype=np.float32)
+            checks[key] = finder.find_path(path) and path.geodesic_distance <= math.dist(a, b) + .025
+        return checks[key]
+
+    def filter_spec(spec, points, floor):
+        rejections = {"surface": 0, "native_subsegment": 0}
+        kept = []
+        for a, b, bends in spec["edges"]:
+            trace = np.asarray([points[a], *bends, points[b]])
+            if not edge_on_floor(trace, snap, floor, tolerance, VERIFIED_FLOOR_STEP_M):
+                rejections["surface"] += 1
+                continue
+            pieces = np.linalg.norm(np.diff(trace, axis=0), axis=1)
+            samples = (np.linspace(x, y, max(1, math.ceil(length / step)) + 1)
+                       for step in VERIFIED_RSSI_STEPS_M for x, y, length in zip(trace, trace[1:], pieces))
+            if not all(straight(x, y) for sample in samples for x, y in zip(sample, sample[1:])):
+                rejections["native_subsegment"] += 1
+                continue
+            kept.append((a, b, bends))
+        spec["edges"] = kept
+        spec["geometry_rejections"] = rejections
+
+    for floor_id, floor in graph["floors"].items():
+        filter_spec(floor, floor["points"], geometry["floors"][floor_id]["y"])
+    for key, task in graph["tasks"].items():
+        floor_id = task["floor"]
+        filter_spec(task, graph["floors"][floor_id]["points"] + task["points"], geometry["floors"][floor_id]["y"])
+        print(f"{key}: {task['geometry_rejections']}", flush=True)
+    graph["format"] = "wifinav-objectnav-navmesh-graph-v6"
+    graph["floor_check_step_m"] = VERIFIED_FLOOR_STEP_M
+    graph["native_check_sampling_steps_m"] = VERIFIED_RSSI_STEPS_M
+    return graph
+
+
 def score_graph(geometry, built, step_m=STEP_M, verify_optimum=False):
     import drjit as dr
     from run_objectnav_ap_radio import habitat_to_glb, semantic_geometry, signal_for_anchor
@@ -241,7 +300,10 @@ def score_graph(geometry, built, step_m=STEP_M, verify_optimum=False):
     scene, tags, _ = semantic_geometry(asset.with_name(stem + ".semantic.glb"), asset.with_name(stem + ".semantic.txt"))
     config = geometry["config"]
     by_key = {str(task["source_row"]): task for task in geometry["tasks"]}
-    has_shortcuts = built["format"] == "wifinav-objectnav-navmesh-graph-v5"
+    geometry_verified = built["format"] == "wifinav-objectnav-navmesh-graph-v6"
+    if geometry_verified and step_m not in built["native_check_sampling_steps_m"]:
+        raise ValueError("RSSI step was not included in the graph geometry checks")
+    has_shortcuts = geometry_verified or built["format"] == "wifinav-objectnav-navmesh-graph-v5"
     if (not has_shortcuts and built["format"] != "wifinav-objectnav-navmesh-graph-v4") or built["tasks"].keys() != by_key.keys():
         raise ValueError("Navigation graph does not cover the frozen tasks")
     results = {}
@@ -341,7 +403,8 @@ def score_graph(geometry, built, step_m=STEP_M, verify_optimum=False):
                 references[ap["id"]]["baseline_route_xyz"] = baseline_route
         results[key] = references
         print(f"{key}: {len(nodes)} nodes, {len(edges)} edges, {len(references)} APs", flush=True)
-    format_name = "wifinav-objectnav-rssi-graph-v6" if has_shortcuts else "wifinav-objectnav-rssi-graph-v5"
+    version = 7 if geometry_verified else 6 if has_shortcuts else 5
+    format_name = f"wifinav-objectnav-rssi-graph-v{version}"
     return {"format": format_name, "source_ref": geometry["source_ref"],
             "objective_order": ["outage_length_m", "weak_length_m", "length_m"],
             "max_length_ratio": None, "sampling_steps_m": [step_m], "graph_grid_m": built["grid_m"],
@@ -356,13 +419,14 @@ def main():
     mode.add_argument("--graph", type=Path)
     mode.add_argument("--audit-graph", type=Path, help="Check the actual surface heights of an existing graph")
     mode.add_argument("--augment-graph", type=Path, help="Add floor-checked local straight links to an existing graph")
+    mode.add_argument("--validate-graph", type=Path, help="Run dense native checks on a shortcut-augmented graph")
     parser.add_argument("--previous-routes", type=Path, help="Frozen route results used to propose local links")
     parser.add_argument("--rssi-step-m", type=float, default=STEP_M)
     parser.add_argument("--verify-optimum", action="store_true", help="Check every AP result with independent scalar solves")
     parser.add_argument("--proposals", type=Path, help="Include the audited paths from the earlier review")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    if (args.graph or args.audit_graph or args.augment_graph) and args.proposals:
+    if (args.graph or args.audit_graph or args.augment_graph or args.validate_graph) and args.proposals:
         parser.error("--proposals is only used during graph construction")
     if bool(args.augment_graph) != bool(args.previous_routes):
         parser.error("--augment-graph and --previous-routes are used together")
@@ -378,14 +442,18 @@ def main():
     for name, expected in geometry["source_sha256"].items():
         if name.endswith(suffixes) and hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != expected:
             raise ValueError(f"Frozen asset changed: {name}")
-    if args.graph or args.audit_graph or args.augment_graph:
-        graph_raw = (args.graph or args.audit_graph or args.augment_graph).read_bytes()
+    graph_input = args.graph or args.audit_graph or args.augment_graph or args.validate_graph
+    if graph_input:
+        graph_raw = graph_input.read_bytes()
         graph = json.loads(graph_raw)
         if graph["geometry_sha256"] != digest:
             raise ValueError("Navigation graph does not match the frozen geometry")
         if args.audit_graph:
             result = audit_floor_graph(geometry, graph)
             result["original_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
+        elif args.validate_graph:
+            result = validate_graph_geometry(geometry, graph)
+            result["validated_input_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
         elif args.augment_graph:
             previous_raw = args.previous_routes.read_bytes()
             previous = json.loads(previous_raw)
