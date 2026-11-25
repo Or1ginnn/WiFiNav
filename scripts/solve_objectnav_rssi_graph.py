@@ -25,6 +25,19 @@ SHORTCUT_MAX_ARC_M = 4.0
 SHORTCUT_MIN_SAVED_M = .20
 
 
+def sample_route(points, step):
+    """Subdivide the polyline while retaining its original bends."""
+    import numpy as np
+
+    points = np.asarray(points, dtype=float)
+    samples = [points[0]]
+    for a, b in zip(points, points[1:]):
+        length = float(np.linalg.norm(b - a))
+        subdivisions = max(1, int(np.ceil(length / step)))
+        samples.extend(a + (b - a) * (i / subdivisions) for i in range(1, subdivisions + 1))
+    return np.round(np.asarray(samples), 6).tolist()
+
+
 def build_graph(geometry, proposals=None):
     import habitat_sim
     import numpy as np

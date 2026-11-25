@@ -125,6 +125,8 @@ def segments_below(values, lengths, threshold):
     position = 0.0
     start = None
     for a, b, length in zip(values, values[1:], lengths):
+        if not length:
+            continue
         if (a + b) / 2 < threshold:
             if start is None:
                 start = position

@@ -61,6 +61,17 @@ class ScopeTests(unittest.TestCase):
         self.assertLess(preview_rssi([2,0,0],[0,0,0],4,0,config),preview_rssi([2,0,0],[0,0,0],2,0,config))
         self.assertFalse(route_metrics([-50,None],[1])['available'])
 
+    def test_rssi_distance_weighted_deficit_and_longest_weak_run(self):
+        result = route_metrics([-77, -77, -77, -65, -76, -76], [1, 2, 1, 1, .5])
+        self.assertEqual(result["weak_length_m"], 5.5)
+        self.assertEqual(result["outage_length_m"], 3.5)
+        self.assertEqual(result["longest_outage_m"], 3)
+        self.assertEqual(result["signal_deficit_db_m"], 42)
+        self.assertAlmostEqual(result["weak_mean_dbm"], -67 - 42 / 5.5)
+        clear = route_metrics([-67, -67], [2])
+        self.assertEqual(clear["signal_deficit_db_m"], 0)
+        self.assertIsNone(clear["weak_mean_dbm"])
+
 
 class DraftTests(unittest.TestCase):
     def setUp(self):

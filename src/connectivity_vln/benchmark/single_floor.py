@@ -65,12 +65,28 @@ def preview_rssi(position, ap, geodesic, shadow, config):
 
 
 def route_metrics(values, lengths, weak=-67., outage=-75.):
-    total = sum(lengths); weak_m=outage_m=0.
-    if len(lengths)!=max(0,len(values)-1): raise ValueError('Route dimensions do not match')
-    if any(v is None for v in values): return {'available':False,'length_m':total}
-    for i,length in enumerate(lengths):
-        value=(values[i]+values[i+1])/2
-        weak_m+=length*(value<weak);outage_m+=length*(value<outage)
-    return {'available':True,'length_m':total,'weak_length_m':weak_m,'outage_length_m':outage_m,
-            'outage_length_ratio':outage_m/total if total else None,
-            'minimum_dbm':min(values) if values else None}
+    total = sum(lengths)
+    if len(lengths) != max(0, len(values) - 1):
+        raise ValueError("Route dimensions do not match")
+    if any(value is None for value in values):
+        return {"available": False, "length_m": total}
+    weak_m = outage_m = current = longest = deficit = 0.0
+    for length, first, second in zip(lengths, values, values[1:]):
+        if not length:
+            continue
+        value = (first + second) / 2
+        if value < weak:
+            weak_m += length
+            deficit += (weak - value) * length
+        if value < outage:
+            outage_m += length
+            current += length
+            longest = max(longest, current)
+        else:
+            current = 0.0
+    return {
+        "available": True, "length_m": total, "weak_length_m": weak_m, "outage_length_m": outage_m,
+        "outage_length_ratio": outage_m / total if total else None, "minimum_dbm": min(values) if values else None,
+        "longest_outage_m": longest, "signal_deficit_db_m": deficit,
+        "weak_mean_dbm": weak - deficit / weak_m if weak_m else None,
+    }

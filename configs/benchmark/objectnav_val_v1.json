@@ -1,0 +1,10 @@
+{
+  "radio_config": "configs/benchmark/objectnav_train_ap_review_v1.json",
+  "scope": "official_val_single_floor_benchmark_v1",
+  "small_scene": "GLAQ4DNUx5U",
+  "ap_selection": "nearest_legal_anchor_to_floor_center",
+  "route_rssi_steps_m": [0.01875, 0.0375],
+  "material_improvement_m": 0.5,
+  "review_count": 20,
+  "review_seed": "wifinav-objectnav-val-v1-review"
+}

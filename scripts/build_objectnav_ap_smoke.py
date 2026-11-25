@@ -14,6 +14,7 @@ import habitat_sim
 import numpy as np
 
 from export_ap_review_topdown import topdown_slice
+from solve_objectnav_rssi_graph import VERIFIED_FLOOR_STEP_M, edge_on_floor, sample_route
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,15 +42,6 @@ def shortest(finder, start, end, floor, tolerance):
     if np.max(np.abs(points[:, 1] - floor)) > tolerance:
         return None
     return points
-
-
-def sample_route(points, step):
-    samples = [points[0]]
-    for a, b in zip(points, points[1:]):
-        length = float(np.linalg.norm(b - a))
-        subdivisions = max(1, int(np.ceil(length / step)))
-        samples.extend(a + (b - a) * (i / subdivisions) for i in range(1, subdivisions + 1))
-    return np.round(np.asarray(samples), 6).tolist()
 
 
 def anchor_ap_candidates(finder, topdown, mask, floor, config):
@@ -88,6 +80,9 @@ def anchor_ap_candidates(finder, topdown, mask, floor, config):
 
 
 def build(shard, asset, config, count):
+    complete_shard = count is None
+    if complete_shard and "episode_pool_per_category" in config:
+        raise ValueError("Full-shard screening requires all source episodes")
     with gzip.open(shard, "rt", encoding="utf-8") as handle:
         source = json.load(handle)
     episodes = source["episodes"]
@@ -104,11 +99,14 @@ def build(shard, asset, config, count):
     starts = sorted(elevations if sampled_pool else set(elevations))
     floor_groups = [[]]
     for y in starts:
-        if floor_groups[-1] and y - floor_groups[-1][0 if sampled_pool else -1] > floor_tol:
+        if floor_groups[-1] and y - floor_groups[-1][0 if sampled_pool or complete_shard else -1] > floor_tol:
             floor_groups.append([])
         floor_groups[-1].append(y)
     anchors = [round(float(np.median(group)), 3) for group in floor_groups]
     floors, by_group, audit = {}, defaultdict(list), []
+    def snap(point):
+        return finder.snap_point(np.asarray(point, dtype=np.float32))
+
     for row_index, episode in audit_pool(episodes, config, expected_ref):
         start = episode["start_position"]
         floor_index = int(np.argmin(np.abs(np.asarray(anchors) - start[1])))
@@ -130,6 +128,12 @@ def build(shard, asset, config, count):
                 if path is not None and np.linalg.norm(path[-1] - position) < config["stop_radius_m"]:
                     length = float(np.linalg.norm(np.diff(path, axis=0), axis=1).sum())
                     witnesses.append((length, goal["object_id"], position, path))
+        if complete_shard and witnesses:
+            # The reference must follow the actual surface, even when a native
+            # shortest path interpolates across a stair or a raised threshold.
+            verified = next((item for item in sorted(witnesses, key=lambda item: item[0])
+                             if edge_on_floor(item[3], snap, floor, floor_tol, VERIFIED_FLOOR_STEP_M)), None)
+            witnesses = [verified] if verified is not None else []
         if not witnesses:
             audit.append({**ids, "status": "no_verified_same_floor_viewpoint"})
             continue
@@ -144,12 +148,16 @@ def build(shard, asset, config, count):
             "verified_viewpoints_xyz": [list(map(float, item[3][-1])) for item in witnesses],
             "max_height_from_floor_m": round(float(np.max(np.abs(route[:, 1] - floor))), 5),
         })
-    # Round robin by floor and goal category, before reading any RF values.
-    tasks = []
-    while len(tasks) < count and any(by_group.values()):
-        for _, group in sorted(by_group.items()):
-            if group and len(tasks) < count:
-                tasks.append(group.pop(0))
+    if complete_shard:
+        tasks = sorted((task for group in by_group.values() for task in group), key=lambda task: task["source_row"])
+        count = len(tasks)
+    else:
+        # Round robin by floor and goal category, before reading any RF values.
+        tasks = []
+        while len(tasks) < count and any(by_group.values()):
+            for _, group in sorted(by_group.items()):
+                if group and len(tasks) < count:
+                    tasks.append(group.pop(0))
     selected = {row["source_row"] for row in tasks}
     for row in audit:
         if row["source_row"] in selected:
