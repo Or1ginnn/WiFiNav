@@ -28,26 +28,38 @@
 
 ### 当前路径计算公式
 
+**上帝视角（Oracle）的输入。** 离线规划器知道完整的单层 Habitat 导航网格、用于模拟遮挡的场景几何、当前 AP 的位置、任务起点及合法停止视点。ObjectNav 评测中的机器人接收目标类别和协议允许的观测，由它自己搜索并决定何时 `STOP`。完整 RSSI 场、停止视点和参考路径留在离线构建与评测端。
+
 **几何最短参考（黄虚线）。** 对每个官方停止视点 $v$，用 Habitat NavMesh 从任务起点 $s$ 求得路径 $Q_v$。只保留通过同层可达性检查的视点集合 $V$。设路径的连续顶点为 $x_i$，其长度为 $L(Q_v)=\sum_i\lVert x_{i+1}-x_i\rVert_2$，则
 
 $$
 v^*=\arg\min_{v\in V} L(Q_v),\qquad P_{\mathrm{geo}}=Q_{v^*}.
 $$
 
-**RSSI 图上最优（蓝线）。** 固定起点 $s$、停止视点 $v^*$ 和当前 AP $a$。把边上的 Habitat 路径按不超过 0.075 m 的步长细分。第 $i$ 段的长度为 $\ell_i$，以两端模拟 RSSI 的平均值 $\bar r_i(a)=[r_a(x_i)+r_a(x_{i+1})]/2$ 判定该段的信号强度。低于阈值 $\tau$ 的累计距离为
+**构图和 RSSI 仿真。** 固定同一个 $s$、$v^*$ 和当前 AP $a$。用 0.15 m 网格构建单层可通行图 $G$，将起点、停止视点和几何最短参考接入图中。图的边沿用 Habitat 核实的同层通行路径。对每个采样点 $x$，由 AP 到接收点的三维距离 $d(a,x)$ 和直射线上穿过的结构估算 RSSI。
+
+$$
+r_a(x)=\operatorname{round}_{0.01}\!\left[-48-20\log_{10}\!\left(\max\!\left(\frac{d(a,x)}{1\,\mathrm{m}},1\right)\right)-A_a(x)\right]\ \mathrm{dBm}.
+$$
+
+$A_a(x)$ 是每组遮挡交点的损耗之和。同组交点按 0.20 m 的射线上距离规则归并，组内取最大损耗。当前墙、门、窗每组分别为 8、5、4 dB，AP 和接收器相对高度为 1.60、0.60 m。这些参数与 RSSI 阈值均可通过 JSON 配置，使用审核时随批次冻结的版本。它们是墙／门／窗的类别损耗，细分材质系数需要对应标注与校准。[当前参数](configs/benchmark/objectnav_train_ap_review_v1.json) · [多墙仿真实现](scripts/run_objectnav_ap_radio.py)
+
+**边代价和图上最优路线（蓝线）。** 将边按不超过 0.075 m 的步长细分。第 $i$ 段长度为 $\ell_i$，以两端模拟 RSSI 的平均值 $\bar r_i(a)=[r_a(x_i)+r_a(x_{i+1})]/2$ 判定该段的信号。低于阈值 $\tau$ 的累计距离为
 
 $$
 W_{\tau}(P;a)=\sum_i \ell_i\,\mathbf{1}\!\left[\bar r_i(a)<\tau\right],\qquad L(P)=\sum_i\ell_i.
 $$
 
-在单层 0.15 m Habitat 可通行图 $G$ 上，求从 $s$ 到 $v^*$ 的字典序最优路径。
+每条边的代价是 $(W_{-67}, W_{-75}, L)$，沿整条路径逐项累加。求解从 $s$ 到 $v^*$ 的字典序最优路径。
 
 $$
 P^*(a)=\underset{P\in\mathcal{P}_G(s,v^*)}{\arg\min_{\mathrm{lex}}}
 \left(W_{-67}(P;a),\ W_{-75}(P;a),\ L(P)\right).
 $$
 
-$\mathcal{P}_G(s,v^*)$ 是图上连接这两个端点的全部可行路径。阈值单位是 dBm，距离单位是米。字典序先比较 $W_{-67}$，相等时比较 $W_{-75}$，再相等才比较总路长。总路长排在第三位，第一项哪怕只改善一小段，求解器也可能选较长的绕行。实现将各短段长度向上取整到微米，用字典序 Dijkstra 精确求解，报告显示未取整的距离。该路线供离线审阅，官方 ObjectNav 评分沿用原定义。[几何参考实现](scripts/build_objectnav_ap_smoke.py) · [RSSI 路径实现](scripts/solve_objectnav_rssi_graph.py) · [原带预算记录](docs/experiments/objectnav_rssi_graph_2026-11-25.md)
+$\mathcal{P}_G(s,v^*)$ 是图上连接固定起终点的全部可行路径。阈值单位是 dBm，距离单位是米。$W_{-67}$ 相等时比较 $W_{-75}$，两项都相等才比较总路长。实现将各短段长度向上取整到微米，用字典序 Dijkstra 求给定图和信号模型下的精确最优解，报告显示未取整的距离。当前无 120% 路长上限。换 AP 时使用新位置对应的边代价和求解结果。[几何参考实现](scripts/build_objectnav_ap_smoke.py) · [RSSI 路径实现](scripts/solve_objectnav_rssi_graph.py) · [无长度上限验收](docs/experiments/objectnav_rssi_graph_2026-11-25.md#取消长度上限)
+
+**达标与弱覆盖。** 有全程达到 −67 dBm 的路线时，两个弱信号距离都是 0，求解器选其中最短的路线。若蓝线仍有 $W_{-67}>0$，说明在当前 AP 和固定起终点的图上不存在全程达标的路线。仍返回能到终点、弱信号距离最少的路线。覆盖不足可作为审阅提示，任务成功仍按官方 ObjectNav 的 `STOP` 规则判定。例 `12 · 找沙发` 在 `AP-09` 下沿用 5.69 m 的几何最短路，弱信号距离为 0。换到 `AP-10`，蓝线为 6.10 m，弱信号距离从同 AP 下几何参考的 1.34 m 降至 0.96 m。
 
 **阈值依据。** 首版以 −67 dBm 表示偏保守的覆盖目标，−75 dBm 表示严重弱信号，实际链路可用性需要用目标设备的 SNR、丢包和时延校准。同一对固定路线的复算已观察到 −67 与 −70 dBm 下的排序翻转。正式报告宜并列不同阈值下的结果。[来源与复算](docs/experiments/objectnav_rssi_graph_2026-11-25.md#阈值依据与固定路线复算)
 
