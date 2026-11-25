@@ -238,3 +238,5 @@ RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数
 单层边修正使用 Habitat 0.3.0 核查实际导航表面，并在原 CPU 射线环境重算结果。产物位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v5/`，原批次保留。
 
 全量 Oracle 审计复用这两个 CPU 环境。局部补边的中间产物及异常记录保留在 `runtime/diagnostics/objectnav_rssi_graph_20261125_v6/`，加密几何检查与三档信号采样结果位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v7/`。两批均关闭 CUDA 可见设备，无模型调用。HTML 从验收产物在本机渲染，使用原本机审阅入口。[全量 Oracle 审计](experiments/objectnav_rssi_graph_2026-11-25.md#全量-oracle-审计)
+
+2026-11-26 复用上述已有 CPU 环境完成官方 `val` 单场景工程小批。产物和复跑位于 `runtime/diagnostics/objectnav_val_small_20261126_v2/` 及其 `_replay` 副本，未启动模型服务。正式全量入口按官方分片检查资产，返回缺 35 个场景。授权档案到齐后暂存于 `runtime/data_imports/hm3d_val_v0.2/` 并用项目安装入口核验。[小批与全量状态](experiments/objectnav_val_small_2026-11-26.md)

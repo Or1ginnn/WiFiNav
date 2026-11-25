@@ -25,6 +25,10 @@ WIFI+Nav/
 ├── scripts/
 │   ├── download_model.py                        # 模型下载与镜像SHA256核验
 │   ├── install_hm3d_train.py                    # 验证归档与安装官方 ObjectNav 引用的 HM3D 场景
+│   ├── install_hm3d_val.py                      # 核验并安装正式 val 所引用的场景
+│   ├── build_objectnav_benchmark.py             # 小批验收和全量单 AP 制作入口
+│   ├── audit_objectnav_benchmark.py             # 独立核对清单、AP、参考路线和随机样本
+│   ├── score_objectnav_trace.py                 # Habitat 导航指标和多墙 RSSI 轨迹评分
 │   ├── build_objectnav_train_ap_review.py        # 先于 RSSI 固定同层任务与 AP 候选
 │   ├── run_objectnav_ap_radio.py                 # CPU 重算各 AP 候选的多墙 RSSI 与纹理
 │   ├── audit_objectnav_train_route_pair.py      # 固定端点的受控绕行对照
