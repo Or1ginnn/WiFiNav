@@ -15,6 +15,7 @@ const chosen = Object.fromEntries(Object.entries(floors).map(([key, f]) => [key,
 const taskKey = task => task.task_key ?? task.source_row;
 const taskNumbers = new Map(tasks.map((task, index) => [taskKey(task), String(index + 1).padStart(2, "0")]));
 const cache = new Map();
+const reportTabs = [$("layout-tab"), $("method-tab")];
 let selected = tasks[0];
 let projection;
 let mapFrame;
@@ -128,6 +129,7 @@ function marker(ctx, x, y, radius, color, border = "#102e2a", borderWidth = 2) {
 
 function drawMap() {
   mapFrame = null;
+  if ($("layout-panel").hidden) return;
   const floorId = selected.floor, floor = floors[floorId], native = floor.map;
   const rf = radio.floors[floorId], ap = chosen[floorId];
   const {ctx, width, height} = canvasContext("map");
@@ -249,6 +251,7 @@ function scheduleMap() {
 }
 
 function drawProfile() {
+  if ($("layout-panel").hidden) return;
   const reference = referenceEntry(selected);
   const profile = reference?.profile ?? apEntry(selected).tasks[selected.source_row];
   const route = reference?.route_xyz ?? selected.route_xyz;
@@ -398,6 +401,35 @@ function setAP(id) {
   draw();
 }
 
+function selectReportTab(activeTab) {
+  for (const tab of reportTabs) {
+    const active = tab === activeTab;
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+    $(tab.getAttribute("aria-controls")).hidden = !active;
+  }
+  $("export").hidden = activeTab !== $("layout-tab");
+  if (!$("layout-panel").hidden) {
+    scheduleMap();
+    drawProfile();
+  }
+}
+
+for (const [index, tab] of reportTabs.entries()) {
+  tab.onclick = () => {
+    selectReportTab(tab);
+    tab.focus({preventScroll:true});
+  };
+  tab.onkeydown = event => {
+    const keys = {ArrowLeft: 1 - index, ArrowRight: 1 - index, Home: 0, End: reportTabs.length - 1};
+    const next = reportTabs[keys[event.key]];
+    if (!next) return;
+    event.preventDefault();
+    selectReportTab(next);
+    next.focus();
+  };
+}
+
 function showTaskOnMap(task, ap) {
   selected = task;
   $("floor-filter").value = task.floor;
@@ -522,7 +554,9 @@ if (independentlyVerified) {
       format(yellow.weak_length_m, "m", 2) + "，蓝线 " + format(blue.weak_length_m, "m", 2) + "。";
     $("oracle-example-show").onclick = () => {
       $("baseline").checked = true;
+      selectReportTab($("layout-tab"));
       showTaskOnMap(task, ap);
+      $("ap-choice").focus({preventScroll:true});
     };
   }
 }

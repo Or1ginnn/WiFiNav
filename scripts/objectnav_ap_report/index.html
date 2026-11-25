@@ -9,53 +9,68 @@
 <body>
 <header class="masthead">
   <div class="frame heading">
-    <div><p class="eyebrow">WIFINAV / OBJECTNAV</p><h1>HM3D AP 布局审阅</h1><p id="overview"></p></div>
+    <div><p class="eyebrow">WIFINAV / OBJECTNAV</p><h1>HM3D AP 审阅</h1><p id="overview"></p></div>
     <button id="export" class="primary" type="button">导出 AP 草稿</button>
+  </div>
+  <div class="frame report-tabs" role="tablist" aria-label="报告栏目">
+    <button id="layout-tab" type="button" role="tab" aria-selected="true" aria-controls="layout-panel">布局审阅</button>
+    <button id="method-tab" type="button" role="tab" aria-selected="false" aria-controls="method-panel" tabindex="-1">计算方法</button>
   </div>
 </header>
 <main class="frame">
-  <p class="notice"><span id="scope">公开样例 · 工程 smoke。任务来自官方 val 中唯一已安装的公开场景，仅用于此审阅。热力图和路线为离线模拟。</span> <a href="#method">查看计算方法</a></p>
-  <div class="workspace">
-    <section class="card explorer" aria-label="楼层地图">
-      <div class="panel-head">
-        <div><h2 id="map-title">楼层地图</h2><p id="task-instruction"></p><p id="map-detail"></p></div>
-        <label class="ap-select">当前 AP<select id="ap-choice" aria-label="当前 AP"></select></label>
-      </div>
-      <div class="toolbar">
-        <label><input type="checkbox" id="heat" checked> RSSI 热力</label>
-        <label><input type="checkbox" id="edge" checked> 覆盖边界</label>
-        <label><input type="checkbox" id="path" checked> <span id="path-label">参考路线</span></label>
-        <span id="baseline-layer" hidden><label><input type="checkbox" id="baseline"> 几何最短路（黄虚线）</label></span>
-        <label><input type="checkbox" id="texture" checked> 场景纹理</label>
-        <label><input type="checkbox" id="ap-labels" checked> 候选 AP 编号</label>
-        <button id="reset" type="button">恢复本层默认</button>
-      </div>
-      <canvas id="map" role="img" aria-label="含 AP、信号覆盖和参考路线的 Habitat 楼层地图"></canvas>
-      <div class="map-footer">
-        <div class="symbols"><span><i class="ap-dot"></i> AP</span><span><i class="start-dot"></i> 起点</span><span><i class="stop-dot"></i> 参考 STOP</span><span><i class="candidate-dot"></i> 候选</span></div>
-        <div class="color-key"><span>−92</span><i></i><span>−45 dBm</span></div>
-      </div>
-      <p class="hint" id="map-hint" aria-live="polite">空心点旁的编号对应 AP 下拉菜单。点击候选点可同步更新热力图和路线。</p>
+  <div id="layout-panel" role="tabpanel" aria-labelledby="layout-tab" tabindex="0">
+    <p class="notice" id="scope">公开样例 · 工程 smoke。任务来自官方 val 中唯一已安装的公开场景，仅用于此审阅。热力图和路线为离线模拟。</p>
+    <div class="workspace">
+      <section class="card explorer" aria-label="楼层地图">
+        <div class="panel-head">
+          <div><h2 id="map-title">楼层地图</h2><p id="task-instruction"></p><p id="map-detail"></p></div>
+          <label class="ap-select">当前 AP<select id="ap-choice" aria-label="当前 AP"></select></label>
+        </div>
+        <div class="toolbar">
+          <label><input type="checkbox" id="heat" checked> RSSI 热力</label>
+          <label><input type="checkbox" id="edge" checked> 覆盖边界</label>
+          <label><input type="checkbox" id="path" checked> <span id="path-label">参考路线</span></label>
+          <span id="baseline-layer" hidden><label><input type="checkbox" id="baseline"> 几何最短路（黄虚线）</label></span>
+          <label><input type="checkbox" id="texture" checked> 场景纹理</label>
+          <label><input type="checkbox" id="ap-labels" checked> 候选 AP 编号</label>
+          <button id="reset" type="button">恢复本层默认</button>
+        </div>
+        <canvas id="map" role="img" aria-label="含 AP、信号覆盖和参考路线的 Habitat 楼层地图"></canvas>
+        <div class="map-footer">
+          <div class="symbols"><span><i class="ap-dot"></i> AP</span><span><i class="start-dot"></i> 起点</span><span><i class="stop-dot"></i> 参考 STOP</span><span><i class="candidate-dot"></i> 候选</span></div>
+          <div class="color-key"><span>−92</span><i></i><span>−45 dBm</span></div>
+        </div>
+        <p class="hint" id="map-hint" aria-live="polite">空心点旁的编号对应 AP 下拉菜单。点击候选点可同步更新热力图和路线。</p>
+      </section>
+      <aside class="card tasks">
+        <div class="panel-head"><div><h2>官方任务</h2><p id="task-summary"></p></div><label><span class="sr">按楼层筛选</span><select id="floor-filter" aria-label="按楼层筛选"></select></label></div>
+        <div id="task-list" class="task-list" aria-label="任务列表"></div>
+      </aside>
+    </div>
+    <section class="card profile" aria-label="参考路线的信号">
+      <div class="panel-head"><div><h2 id="profile-title">参考路线 RSSI</h2><p id="profile-detail"></p></div></div>
+      <p class="hint" id="reference-comparison" hidden></p>
+      <dl id="metrics" class="metrics"></dl>
+      <canvas id="profile" role="img" aria-label="沿参考路线距离变化的 RSSI 曲线"></canvas>
     </section>
-    <aside class="card tasks">
-      <div class="panel-head"><div><h2>官方任务</h2><p id="task-summary"></p></div><label><span class="sr">按楼层筛选</span><select id="floor-filter" aria-label="按楼层筛选"></select></label></div>
-      <div id="task-list" class="task-list" aria-label="任务列表"></div>
-    </aside>
+    <section class="card technical" id="route-audit" hidden aria-label="同起终点选路对照">
+      <h2>同起终点选路对照</h2>
+      <p id="route-evidence"></p>
+      <button id="route-show" type="button" hidden>在地图上查看</button>
+    </section>
+    <details class="card technical">
+      <summary>选样、数据来源与参数</summary>
+      <p id="audit"></p><p id="config"></p><p id="mesh-audit" hidden></p><p class="mono" id="hashes"></p>
+    </details>
   </div>
-  <section class="card profile" aria-label="参考路线的信号">
-    <div class="panel-head"><div><h2 id="profile-title">参考路线 RSSI</h2><p id="profile-detail"></p></div></div>
-    <p class="hint" id="reference-comparison" hidden></p>
-    <dl id="metrics" class="metrics"></dl>
-    <canvas id="profile" role="img" aria-label="沿参考路线距离变化的 RSSI 曲线"></canvas>
-  </section>
-  <section class="card technical" id="method" aria-labelledby="method-title">
+  <section class="card technical" id="method-panel" role="tabpanel" aria-labelledby="method-tab" tabindex="0" hidden>
     <h2 id="method-title">计算方法</h2>
     <h3>Wi‑Fi 信号怎么算</h3>
     <p>对地图上的每个采样点，计算从当前 AP 到机器人接收位置的直线距离，再估算直线上穿过的墙、门、窗带来的额外衰减。距离越远、遮挡越多，通常信号越弱。</p>
     <p id="radio-formula"></p>
     <p id="radio-loss"></p>
     <p id="radio-example"></p>
-    <p>右侧任务列表显示的是黄色「参考 STOP」点的模拟信号。路线下方的曲线才展示沿途每个位置的变化。阈值用于标记模拟弱覆盖，实际链路表现需要现场校准。</p>
+    <p>「布局审阅」的任务列表显示黄色「参考 STOP」点的模拟信号，RSSI 曲线展示沿途的信号变化。阈值用于标记模拟弱覆盖，实际链路表现需要现场校准。</p>
     <div id="oracle-method" hidden>
       <h3>上帝视角怎么选蓝线</h3>
       <p>离线规划器知道整层的可通行地图和模拟信号。黄虚线是几何最短参考，蓝线把沿途信号也纳入比较。两条线使用同一个起点和参考 STOP，便于看出信号对选路的影响。</p>
@@ -73,15 +88,6 @@
       <p><button id="oracle-example-show" type="button">在地图上看这个例子</button></p>
     </div>
   </section>
-  <section class="card technical" id="route-audit" hidden aria-label="同起终点选路对照">
-    <h2>同起终点选路对照</h2>
-    <p id="route-evidence"></p>
-    <button id="route-show" type="button" hidden>在地图上查看</button>
-  </section>
-  <details class="card technical">
-    <summary>选样、数据来源与参数</summary>
-    <p id="audit"></p><p id="config"></p><p id="mesh-audit" hidden></p><p class="mono" id="hashes"></p>
-  </details>
 </main>
 <script type="application/json" id="report-data">__REPORT_JSON__</script>
 <script>__SCRIPT__</script>
