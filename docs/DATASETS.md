@@ -25,7 +25,7 @@
 | `val` | 1,000 | 36 | 1 |
 | `val_mini` | 30 | 2 | 0 |
 
-六个目标类别为 `bed`、`chair`、`plant`、`sofa`、`toilet`、`tv_monitor`。表内是官方原始记录数。正式开发批次的单层任务和 AP 仍待筛选。
+六个目标类别为 `bed`、`chair`、`plant`、`sofa`、`toilet`、`tv_monitor`。表内是官方原始记录数。首批 `train` 开发审阅使用 5 个已安装场景中的 20 条单层任务和 7 套 AP 草稿。[首批开发审阅](experiments/objectnav_train_ap_review_2026-11-24.md)
 
 任务包来自 [Habitat-Lab 官方数据清单](https://github.com/facebookresearch/habitat-lab/blob/main/DATASETS.md)，场景配置、几何、navmesh 与语义样例来自 [Matterport 官方发布](https://github.com/matterport/habitat-matterport-3dresearch#-downloading-hm3d-v02)。公开样例 `00861-GLAQ4DNUx5U` 匹配 `val` 的 28 条记录，按原任务引用放在 `hm3d_v0.2/val/00861-GLAQ4DNUx5U/`。原 navmesh 判定 28 个起点可通行，无渲染模拟器成功加载场景与 908 个语义对象。Habitat 0.3.0 的任务加载器在 CPU 读入 `val` 的 1,000 条和 `val_mini` 的 30 条。样例用于资源验收，未进行导航评分或模型调用。
 

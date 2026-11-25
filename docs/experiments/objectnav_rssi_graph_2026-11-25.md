@@ -38,3 +38,10 @@
 - Cisco 的 WLAN 勘测指南以 −67 dBm 和至少 25 dB SNR 作为语音覆盖推荐。MiR 的 WLAN 指南 v2.2 给最强和次强 AP 分别设 −67、−75 dBm 的部署参考，同时列出丢包和时延要求。欧姆龙 MD 系列手册给出 −60 dBm 的推荐下限。不同业务和设备对应不同覆盖目标。[Cisco 勘测指南](https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.pdf) · [MiR WLAN 指南 v2.2，第 2.1 节](https://noll-sondermaschinenbau.de/downloads/downloads_fts/mir_main_network_and_wifi_guide_22.pdf#page=6) · [欧姆龙 MD 系列手册，第 4-26 节](https://assets.omron.eu/downloads/latest/manual/en/md-series_platform_users_manual_en.pdf?v=2)
 - WiFiNav 单 AP 仿真中，−67 dBm 用作覆盖目标，−75 dBm 统计严重弱信号暴露。链路质量能否满足任务要求，需要结合目标设备、SNR、丢包、时延和实际业务流量。当前配置按这两档统计模拟 RSSI，现场链路阈值待实测校准。
 - 只改变统计阈值，在 `DBBESbk4Y3k/L2` 源行 `20747`、`AP-10` 的两条固定路线及已有采样上重算。−67 dBm 下几何路线与蓝线分别有 1.34 m 和 0.96 m 低于阈值，−70 dBm 下分别为 0.75 m 和 0.88 m，−75 dBm 下两条均为 0 m。固定路径的相对表现会随阈值改变，完整敏感性验证还需要在各阈值下重新求解。主配置继续使用 −67 和 −75 dBm。
+
+## 首版复核
+
+- 校验本机 HTML 的内嵌报告 SHA256、选样 manifest SHA256、20 个唯一任务键、320 个配对结果的端点和 Oracle 目标值。服务器批次 `checksums.sha256` 的 10 个产物全部通过，65 项仓库测试通过。5 个开发场景的物理场景 ID 与官方 `val` 的交集为 0。
+- 320 个组合中有 63 个能到达当前固定停止视点且全程达标。184 个组合的固定停止点低于 −67 dBm，其中 89 个的同一任务存在达标的其他同层合法停止视点。后一项用每个任务/AP 的 `stop_viewpoints_max_dbm` 判定，只说明终点局部覆盖。全程可行性需要对其他停止视点另行规划。固定终点的路线对照仍可用；正式成功和 SPL 用原 ObjectNav 的目标口径。[Habitat Challenge 评分](https://github.com/facebookresearch/habitat-challenge#evaluation) · [Habitat-Lab v0.3.0 配置](https://github.com/facebookresearch/habitat-lab/blob/v0.3.0/habitat-lab/habitat/config/habitat/task/objectnav.yaml)
+- 与几何参考相比，19 个组合的蓝线增加至少 0.05 m 的低于 −75 dBm 距离。最长绕行是几何参考的 4.10 倍。现行代价适用于观察覆盖充分时的路径差异，通信可靠性结论需并报两档暴露和长度，并保留阈值敏感性对照。
+- 已有 `runtime/diagnostics/objectnav_scoring_smoke_20261122/score.json` 仅覆盖一条公开场景任务的三种评分探针。20 条开发任务的联合轨迹评分待接通。服务器正式 `val` 的 36 处场景仅就绪 1 处，该处已作工程检查。正式比较前按物理场景固定保留集，锁定 AP 选择和评分配置。统计以任务或场景分组，16 个 AP 是同一任务的配对条件。
