@@ -398,6 +398,14 @@ function setAP(id) {
   draw();
 }
 
+function showTaskOnMap(task, ap) {
+  selected = task;
+  $("floor-filter").value = task.floor;
+  $("path").checked = true;
+  setAP(ap);
+  $("map").scrollIntoView({block:"center"});
+}
+
 $("map").addEventListener("click", event => {
   if (!projection) return;
   const rect = $("map").getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
@@ -465,21 +473,58 @@ $("config").textContent = "多墙传播 · AP 高 " + format(config.ap_height_ab
   format(config.weak_threshold_dbm, "dBm", 0) + " · 现场实测待校准。";
 $("hashes").textContent = "覆盖计算 " + data.radio_commit.slice(0, 7) +
   (referencePolicy ? " · 选路 " + referencePolicy.execution_commit.slice(0, 7) : "") + " · 报告 SHA256 " + reportHash;
+
+const {wall, door, window: windowLoss} = config.loss_db_per_crossing;
+const referenceRssi = config.reference_rss_1m_dbm;
+$("radio-formula").textContent = "RSSI（dBm）= " + referenceRssi +
+  " − 20 × log₁₀(max(d, 1)) − 遮挡损耗。d 是以米计的三维距离，距离不足 1 米时按 1 米算。";
+$("radio-loss").textContent = "AP 和接收器距地高度分别为 " + format(config.ap_height_above_floor_m, "m", 2) +
+  " 和 " + format(config.rx_height_above_floor_m, "m", 2) + "。每组遮挡扣 " +
+  wall + " dB（墙）、" + door + " dB（门）或 " + windowLoss + " dB（窗）。沿射线距离相近的交点按 " +
+  format(config.merge_distance_m, "m", 2) + " 的规则归并，同一组只扣其中最大的损耗。";
+const rssiAtTwoMeters = referenceRssi - 20 * Math.log10(2);
+$("radio-example").textContent = "例如，机器人接收器离 AP 两米，无遮挡时约 " +
+  format(rssiAtTwoMeters, "dBm") + "。如果中间多穿过一组墙，约为 " +
+  format(rssiAtTwoMeters - wall, "dBm") + "。";
+
 if (referencePolicy) {
   $("path-label").textContent = graphSearch ? "RSSI 图上最优（蓝线）" : "RSSI 优先路线（蓝线）";
   $("baseline-layer").hidden = false;
   $("reference-policy").hidden = false;
-  const search = graphSearch ? "在 " + format(referencePolicy.graph_grid_m, "m", 2) + " 的可通行图上求精确最优。" : "两种采样步长均须确认改善。";
-  const lengthRule = referencePolicy.max_length_ratio === null ? "总路长用于最后的平局比较。" :
-    "长度最多增加 " + format(100 * (referencePolicy.max_length_ratio - 1), "%", 0) + "。";
+  const lengthRule = referencePolicy.max_length_ratio === null ? "" :
+    "长度最多比几何参考增加 " + format(100 * (referencePolicy.max_length_ratio - 1), "%", 0) + "。";
   const weak = format(config.weak_threshold_dbm, "dBm", 0);
   const severe = format(config.outage_threshold_dbm, "dBm", 0);
   const [primary, secondary] = severeFirst ? [severe, weak] : [weak, severe];
-  $("reference-policy").textContent = "RSSI 路线固定起点、停止视点和楼层。" + lengthRule +
-    "先比较低于 " + primary + " 的距离，再比较低于 " + secondary + " 的距离及总长度。" + search +
-    (referencePolicy.floor_check_step_m ? "选路前逐段核验实际导航表面高度。" : "") +
-    (independentlyVerified ? "已补查可直行的局部连线，由第二种求解方法复核。RSSI 采样间距最多 " +
+  if (graphSearch) {
+    $("oracle-method").hidden = false;
+    $("oracle-primary").textContent = "先比较低于 " + primary + " 的累计路程，越短越好。";
+    $("oracle-secondary").textContent = "第一项相同，再比较低于 " + secondary + " 的累计路程。";
+    $("reference-policy").textContent = "每个短段以两端信号的平均值判断是否低于阈值。蓝线是在这张单层可通行图和当前采样规则下求得的最优路线。" +
+      lengthRule + (independentlyVerified ? "由第二种求解方法复核。RSSI 采样间距最多 " +
       format(referencePolicy.sampling_steps_m[0] * 100, "cm", 3) + "。阈值附近的路线可能随采样间距改变。" : "");
+  } else {
+    $("reference-policy").textContent = "RSSI 优先路线固定起点、停止视点和楼层。" + lengthRule +
+      "先比较低于 " + primary + " 的距离，再比较低于 " + secondary + " 的距离及总长度。两种采样步长均须确认改善。";
+  }
+}
+if (independentlyVerified) {
+  const task = tasks.find(item => taskKey(item) === "g7hUFVNac26:41773");
+  const ap = "AP-12";
+  const sample = task && radio.floors[task.floor].candidates[ap]?.reference_tasks?.[task.source_row];
+  if (sample) {
+    const {baseline_profile: yellow, profile: blue} = sample;
+    const title = "任务 " + taskNumbers.get(taskKey(task)) + "「找马桶」";
+    $("oracle-example").hidden = false;
+    $("oracle-example-metrics").textContent = title + "用 " + ap + " 时，黄线 " +
+      format(yellow.length_m, "m", 2) + "，蓝线 " + format(blue.length_m, "m", 2) + "。低于 " +
+      format(config.weak_threshold_dbm, "dBm", 0) + " 的路程，黄线 " +
+      format(yellow.weak_length_m, "m", 2) + "，蓝线 " + format(blue.weak_length_m, "m", 2) + "。";
+    $("oracle-example-show").onclick = () => {
+      $("baseline").checked = true;
+      showTaskOnMap(task, ap);
+    };
+  }
 }
 const partialMeshes = (geometry.scenes ?? []).filter(s => s.mesh_faces.faces_with_unannotated_black > 0);
 if (partialMeshes.length) {
@@ -499,11 +544,7 @@ if (data.route_diagnostic) {
       "、弱信号 " + format(b.weak_motion_s, "s", 1) + "。时间按 0.25 m/s 的匀速移动换算。这是离线选路诊断。";
     $("route-show").hidden = false;
     $("route-show").onclick = () => {
-      selected = tasks.find(task => taskKey(task) === routeExample.task_key);
-      $("floor-filter").value = selected.floor;
-      $("path").checked = true;
-      setAP(routeExample.ap);
-      $("map").scrollIntoView({block:"center"});
+      showTaskOnMap(tasks.find(task => taskKey(task) === routeExample.task_key), routeExample.ap);
     };
   }
   $("route-evidence").textContent = evidence;
