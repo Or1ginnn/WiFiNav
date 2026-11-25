@@ -172,7 +172,7 @@ def score_graph(geometry, built):
             means = (signal[segment_start_ids] + signal[segment_end_ids]) / 2
             weak = np.add.reduceat(seg_lengths * (means < config["weak_threshold_dbm"]), segment_offsets)
             severe = np.add.reduceat(seg_lengths * (means < config["outage_threshold_dbm"]), segment_offsets)
-            edge_costs = list(zip(weak.tolist(), severe.tolist(), edge_lengths))
+            edge_costs = list(zip(severe.tolist(), weak.tolist(), edge_lengths))
             path, cost = lexicographic_route(adjacency, edge_costs, start, goal)
             native_cost = tuple(sum(edge_costs[i][j] for _, _, i in native_path) for j in range(3))
             if cost > native_cost:
@@ -186,7 +186,8 @@ def score_graph(geometry, built):
                                      "baseline_objective_um": native_cost}
         results[key] = references
         print(f"{key}: {len(nodes)} nodes, {len(edges)} edges, {len(references)} APs", flush=True)
-    return {"format": "wifinav-objectnav-rssi-graph-v3", "source_ref": geometry["source_ref"],
+    return {"format": "wifinav-objectnav-rssi-graph-v4", "source_ref": geometry["source_ref"],
+            "objective_order": ["outage_length_m", "weak_length_m", "length_m"],
             "max_length_ratio": None, "sampling_steps_m": [STEP_M], "graph_grid_m": built["grid_m"],
             "length_unit_m": LENGTH_UNIT_M, "tasks": results}
 

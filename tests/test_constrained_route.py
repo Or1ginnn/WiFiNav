@@ -23,6 +23,14 @@ def graphs(n, edges):
 
 
 class OptimalRouteTests(unittest.TestCase):
+    def test_severe_weak_exposure_takes_priority_over_weak_distance(self):
+        # Each edge stores (severe weak distance, all weak distance, length).
+        edges = [(0, 1, (0, 2, 3)), (1, 2, (0, 0, 1)), (0, 2, (1, 1, 3))]
+        adjacency, costs, _ = graphs(3, edges)
+        path, cost = lexicographic_route(adjacency, costs, 0, 2)
+        self.assertEqual([destination for _, destination, _ in path], [1, 2])
+        self.assertEqual(cost, (0, 2, 4))
+
     def test_unbounded_prefers_clean_detour_outside_old_cap(self):
         edges = [(0, 2, (1, 0, 10)), (0, 1, (0, 0, 7)), (1, 2, (0, 0, 7))]
         adjacency, costs, bounds = graphs(3, edges)

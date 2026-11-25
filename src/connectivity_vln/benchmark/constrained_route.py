@@ -3,7 +3,7 @@ import heapq
 
 
 def lexicographic_route(adjacency, edge_costs, start, goal):
-    """Dijkstra with nonnegative additive (weak, severe, length) edge costs."""
+    """Dijkstra with three nonnegative additive costs in priority order."""
     costs = {start: (0, 0, 0)}
     previous = {}
     queue = [(costs[start], start)]
@@ -19,8 +19,8 @@ def lexicographic_route(adjacency, edge_costs, start, goal):
                 node = origin
             return path[::-1], cost
         for other, edge in adjacency[node]:
-            weak, severe, length = edge_costs[edge]
-            new = (cost[0] + weak, cost[1] + severe, cost[2] + length)
+            primary, secondary, length = edge_costs[edge]
+            new = (cost[0] + primary, cost[1] + secondary, cost[2] + length)
             if other not in costs or new < costs[other]:
                 costs[other] = new
                 previous[other] = (node, edge)
