@@ -27,6 +27,7 @@
         <label><input type="checkbox" id="path" checked> <span id="path-label">参考路线</span></label>
         <span id="baseline-layer" hidden><label><input type="checkbox" id="baseline"> 几何最短路（黄虚线）</label></span>
         <label><input type="checkbox" id="texture" checked> 场景纹理</label>
+        <label><input type="checkbox" id="ap-labels" checked> 候选 AP 编号</label>
         <button id="reset" type="button">恢复本层默认</button>
       </div>
       <canvas id="map" role="img" aria-label="含 AP、信号覆盖和参考路线的 Habitat 楼层地图"></canvas>
@@ -34,7 +35,7 @@
         <div class="symbols"><span><i class="ap-dot"></i> AP</span><span><i class="start-dot"></i> 起点</span><span><i class="stop-dot"></i> 参考 STOP</span><span><i class="candidate-dot"></i> 候选</span></div>
         <div class="color-key"><span>−92</span><i></i><span>−45 dBm</span></div>
       </div>
-      <p class="hint" id="map-hint" aria-live="polite">点击空心候选点，热力图、边界和当前 AP 的路线会一起更新。</p>
+      <p class="hint" id="map-hint" aria-live="polite">空心点旁的编号对应 AP 下拉菜单。点击候选点可同步更新热力图和路线。</p>
     </section>
     <aside class="card tasks">
       <div class="panel-head"><div><h2>官方任务</h2><p id="task-summary"></p></div><label><span class="sr">按楼层筛选</span><select id="floor-filter" aria-label="按楼层筛选"></select></label></div>

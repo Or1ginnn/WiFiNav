@@ -11,7 +11,7 @@ const names = {bed:"床", chair:"椅子", plant:"盆栽", sofa:"沙发", toilet:
 const goalText = {bed:"一张床", chair:"一把椅子", plant:"一盆植物", sofa:"一张沙发", toilet:"一个马桶", tv_monitor:"一台电视"};
 const chosen = Object.fromEntries(Object.entries(floors).map(([key, f]) => [key, f.candidates[0].id]));
 const taskKey = task => task.task_key ?? task.source_row;
-const selectedIndex = new Map(tasks.map((task, index) => [taskKey(task), index + 1]));
+const taskNumbers = new Map(tasks.map((task, index) => [taskKey(task), String(index + 1).padStart(2, "0")]));
 const cache = new Map();
 let selected = tasks[0];
 let projection;
@@ -220,6 +220,19 @@ function drawMap() {
       ctx.fillText(ap, a + 12, b - 10);
     } else {
       marker(ctx, a, b, 4.6, "rgba(255,255,255,.87)", "#344c48", 1.5);
+      if ($("ap-labels").checked) {
+        ctx.save();
+        const label = point.id.replace(/^AP-/, "");
+        const anchor = a + 25 < width ? a + 8 : a - 8;
+        ctx.textAlign = anchor > a ? "left" : "right";
+        ctx.font = "700 11px system-ui";
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 3;
+        ctx.strokeText(label, anchor, b + 4);
+        ctx.fillStyle = "#163c35";
+        ctx.fillText(label, anchor, b + 4);
+        ctx.restore();
+      }
     }
   }
   ctx.fillStyle = "#193d36";
@@ -294,9 +307,10 @@ function drawTaskList() {
     row.type = "button";
     row.setAttribute("aria-pressed", String(task === selected));
     row.dataset.sourceRow = String(task.source_row);
+    row.dataset.taskNumber = taskNumbers.get(taskKey(task));
     const text = document.createElement("span"), caption = document.createElement("small");
-    text.textContent = "找" + (names[task.category] || task.category);
-    caption.textContent = task.floor + " · 任务 " + selectedIndex.get(taskKey(task)) + " · 源行 " + task.source_row;
+    text.textContent = row.dataset.taskNumber + " · 找" + (names[task.category] || task.category);
+    caption.textContent = task.floor + " · 源行 " + task.source_row;
     text.append(caption);
     const profile = referenceEntry(task)?.profile ?? apEntry(task).tasks[task.source_row];
     const value = profile.samples_dbm.at(-1);
@@ -317,7 +331,7 @@ function drawTaskList() {
 function draw() {
   const floor = floors[selected.floor], ap = apEntry(selected), originalProfile = ap.tasks[selected.source_row];
   const reference = referenceEntry(selected), profile = reference?.profile ?? originalProfile;
-  $("map-title").textContent = selected.floor + " · Habitat 楼层地图";
+  $("map-title").textContent = "任务 " + taskNumbers.get(taskKey(selected)) + " · " + selected.floor;
   $("task-instruction").textContent = "任务指令：找" + (goalText[selected.category] ?? selected.category) + "。目标类别 " + selected.category;
   $("map-detail").textContent = "楼层 Y " + format(floor.y, "m", 2) + " · 覆盖边界 " +
     format(config.weak_threshold_dbm, "dBm", 0) + " · 本层采样覆盖 " +
@@ -394,7 +408,7 @@ $("map").addEventListener("click", event => {
 
 $("ap-choice").onchange = () => setAP($("ap-choice").value);
 $("reset").onclick = () => setAP(floors[selected.floor].candidates[0].id);
-for (const id of ["heat","edge","path","texture","baseline"]) $(id).onchange = scheduleMap;
+for (const id of ["heat","edge","path","texture","baseline","ap-labels"]) $(id).onchange = scheduleMap;
 option($("floor-filter"), "all", "全部楼层");
 const sceneOrder = new Map((geometry.scenes ?? []).map((scene, index) => [scene.scene, index + 1]));
 for (const key of Object.keys(floors)) {
