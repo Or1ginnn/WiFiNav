@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from connectivity_vln.benchmark.constrained_route import lexicographic_route, optimal_route
 from connectivity_vln.benchmark.single_floor import distances
-from solve_objectnav_rssi_graph import edge_on_floor
+from solve_objectnav_rssi_graph import edge_on_floor, shortcut_pairs
 
 
 def graphs(n, edges):
@@ -25,6 +25,11 @@ def graphs(n, edges):
 
 
 class OptimalRouteTests(unittest.TestCase):
+    def test_shortcut_candidates_cut_an_indirect_walk_without_replacing_endpoints(self):
+        points = [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)]
+        self.assertIn((0, 3), list(shortcut_pairs(points)))
+        self.assertEqual(list(shortcut_pairs([(0, 0, 0), (1, 0, 0), (2, 0, 0)])), [])
+
     def test_floor_guard_rejects_flat_waypoints_over_a_raised_surface(self):
         def snap(point):
             x, y, z = point

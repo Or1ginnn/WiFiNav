@@ -18,6 +18,9 @@ GRID_M = .15
 STEP_M = .075
 FLOOR_CHECK_STEP_M = STEP_M / 2
 LENGTH_UNIT_M = 1e-6
+SHORTCUT_MAX_CHORD_M = 2.25
+SHORTCUT_MAX_ARC_M = 4.0
+SHORTCUT_MIN_SAVED_M = .20
 
 
 def build_graph(geometry, proposals=None):
@@ -135,10 +138,101 @@ def audit_floor_graph(geometry, graph):
     return graph
 
 
-def score_graph(geometry, built):
+def shortcut_pairs(points):
+    """Propose bounded local straight links along a previously solved path."""
+    total = [0.0]
+    for a, b in zip(points, points[1:]):
+        total.append(total[-1] + math.dist(a, b))
+    for i in range(0, len(points) - 2, 2):
+        for j in range(i + 2, len(points)):
+            arc = total[j] - total[i]
+            if arc > SHORTCUT_MAX_ARC_M:
+                break
+            chord = math.dist(points[i], points[j])
+            if .001 < chord <= SHORTCUT_MAX_CHORD_M and arc - chord >= SHORTCUT_MIN_SAVED_M:
+                yield i, j
+
+
+def add_shortcuts(geometry, graph, references):
+    import habitat_sim
+    import numpy as np
+
+    if (graph["format"] != "wifinav-objectnav-navmesh-graph-v4"
+            or references["format"] != "wifinav-objectnav-rssi-graph-v5"
+            or references["tasks"].keys() != graph["tasks"].keys()):
+        raise ValueError("Expected matching audited ObjectNav graph and route results")
+    navmesh = (ROOT / "data/scene_datasets" / geometry["source_ref"]).with_suffix(".navmesh")
+    finder = habitat_sim.PathFinder()
+    if not finder.load_nav_mesh(str(navmesh)):
+        raise ValueError(f"Cannot load navmesh for {navmesh}")
+    tolerance = geometry["config"]["floor_tolerance_m"]
+
+    def snap(p):
+        return finder.snap_point(np.asarray(p, dtype=np.float32))
+
+    for key, task in graph["tasks"].items():
+        floor = geometry["floors"][task["floor"]]["y"]
+        points = graph["floors"][task["floor"]]["points"] + task["points"]
+        indices = {tuple(p): i for i, p in enumerate(points)}
+        start, stop = task["native_ids"][0], task["native_ids"][-1]
+        edges = {(min(a, b), max(a, b)) for a, b, _ in task["edges"]}
+        tested = {}
+        shortcuts = set()
+
+        def node_ids(route):
+            yield start
+            for point in route[1:-1]:
+                position = tuple(point)
+                if position not in indices:
+                    indices[position] = len(points)
+                    points.append(point)
+                    task["points"].append(point)
+                yield indices[position]
+            yield stop
+
+        routes = {tuple(map(tuple, result["route_xyz"])) for result in references["tasks"][key].values()}
+        for route in sorted(routes):
+            if math.dist(route[0], points[start]) > .005 or math.dist(route[-1], points[stop]) > .005:
+                raise ValueError(f"Shortcut route uses different endpoints for row {key}")
+            legal = []
+            for i, j in shortcut_pairs(route):
+                a, b = route[i], route[j]
+                pair = tuple(sorted((a, b)))
+                if pair not in tested:
+                    p, q = np.asarray(a, dtype=np.float32), np.asarray(b, dtype=np.float32)
+                    reached, back = finder.try_step_no_sliding(p, q), finder.try_step_no_sliding(q, p)
+                    tested[pair] = (np.linalg.norm((reached - q)[[0, 2]]) <= .01
+                                    and np.linalg.norm((back - p)[[0, 2]]) <= .01
+                                    and edge_on_floor([a, b], snap, floor, tolerance))
+                if tested[pair]:
+                    legal.append((i, j))
+            if not legal:
+                continue
+            ids = list(node_ids(route))
+            for a, b in zip(ids, ids[1:]):
+                pair = min(a, b), max(a, b)
+                if a != b and pair not in edges:
+                    task["edges"].append((a, b, []))
+                    edges.add(pair)
+            for i, j in legal:
+                a, b = ids[i], ids[j]
+                pair = min(a, b), max(a, b)
+                if a != b and pair not in edges:
+                    shortcuts.add(pair)
+                    task["edges"].append((a, b, []))
+                    edges.add(pair)
+        task["shortcut_edges"] = len(shortcuts)
+        print(f"{key}: {len(shortcuts)} floor-checked shortcuts", flush=True)
+    graph["format"] = "wifinav-objectnav-navmesh-graph-v5"
+    graph["shortcut_max_chord_m"] = SHORTCUT_MAX_CHORD_M
+    return graph
+
+
+def score_graph(geometry, built, step_m=STEP_M, verify_optimum=False):
     import drjit as dr
     from run_objectnav_ap_radio import habitat_to_glb, semantic_geometry, signal_for_anchor
     from run_rss_raytrace_pilot import summarize_profile
+    from check_objectnav_graph_optimum import independent_cost
     import numpy as np
 
     dr.set_thread_count(4)
@@ -147,7 +241,8 @@ def score_graph(geometry, built):
     scene, tags, _ = semantic_geometry(asset.with_name(stem + ".semantic.glb"), asset.with_name(stem + ".semantic.txt"))
     config = geometry["config"]
     by_key = {str(task["source_row"]): task for task in geometry["tasks"]}
-    if built["format"] != "wifinav-objectnav-navmesh-graph-v4" or built["tasks"].keys() != by_key.keys():
+    has_shortcuts = built["format"] == "wifinav-objectnav-navmesh-graph-v5"
+    if (not has_shortcuts and built["format"] != "wifinav-objectnav-navmesh-graph-v4") or built["tasks"].keys() != by_key.keys():
         raise ValueError("Navigation graph does not cover the frozen tasks")
     results = {}
     floor_signals = {}
@@ -158,6 +253,7 @@ def score_graph(geometry, built):
         edges = floor["edges"] + task["edges"]
         floor_nodes = len(floor["points"])
         floor_edges = len(floor["edges"])
+        endpoints = [(a, b) for a, b, _ in edges]
         baseline = task["native_ids"]
         start, goal = baseline[0], baseline[-1]
         adjacency = [[] for _ in nodes]
@@ -171,7 +267,7 @@ def score_graph(geometry, built):
         for i, (a, b, midpoints) in enumerate(edges):
             points = np.asarray([nodes[a], *midpoints, nodes[b]])
             pieces = np.linalg.norm(np.diff(points, axis=0), axis=1)
-            steps = np.maximum(1, np.ceil(pieces / STEP_M)).astype(int)
+            steps = np.maximum(1, np.ceil(pieces / step_m)).astype(int)
             intermediate = [point for x, y, n in zip(points, points[1:], steps)
                             for point in np.linspace(x, y, n, endpoint=False).tolist()][1:]
             ids = [a, *range(len(sample_points), len(sample_points) + len(intermediate)), b]
@@ -229,6 +325,8 @@ def score_graph(geometry, built):
             severe = np.add.reduceat(seg_lengths * (means < config["outage_threshold_dbm"]), segment_offsets)
             edge_costs = list(zip(severe.tolist(), weak.tolist(), edge_lengths))
             path, cost = lexicographic_route(adjacency, edge_costs, start, goal)
+            if verify_optimum and cost != independent_cost(len(nodes), endpoints, edge_costs, start, goal):
+                raise AssertionError(f"Independent shortest-path audit disagrees for {key}/{ap['id']}")
             native_cost = tuple(sum(edge_costs[i][j] for _, _, i in native_path) for j in range(3))
             if cost > native_cost:
                 raise AssertionError(f"Graph optimization failed to match the included baseline: {key}/{ap['id']}")
@@ -243,10 +341,12 @@ def score_graph(geometry, built):
                 references[ap["id"]]["baseline_route_xyz"] = baseline_route
         results[key] = references
         print(f"{key}: {len(nodes)} nodes, {len(edges)} edges, {len(references)} APs", flush=True)
-    return {"format": "wifinav-objectnav-rssi-graph-v5", "source_ref": geometry["source_ref"],
+    format_name = "wifinav-objectnav-rssi-graph-v6" if has_shortcuts else "wifinav-objectnav-rssi-graph-v5"
+    return {"format": format_name, "source_ref": geometry["source_ref"],
             "objective_order": ["outage_length_m", "weak_length_m", "length_m"],
-            "max_length_ratio": None, "sampling_steps_m": [STEP_M], "graph_grid_m": built["grid_m"],
-            "floor_check_step_m": built["floor_check_step_m"], "length_unit_m": LENGTH_UNIT_M, "tasks": results}
+            "max_length_ratio": None, "sampling_steps_m": [step_m], "graph_grid_m": built["grid_m"],
+            "floor_check_step_m": built["floor_check_step_m"], "length_unit_m": LENGTH_UNIT_M,
+            "independent_solver_checked": verify_optimum, "tasks": results}
 
 
 def main():
@@ -255,11 +355,19 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--graph", type=Path)
     mode.add_argument("--audit-graph", type=Path, help="Check the actual surface heights of an existing graph")
+    mode.add_argument("--augment-graph", type=Path, help="Add floor-checked local straight links to an existing graph")
+    parser.add_argument("--previous-routes", type=Path, help="Frozen route results used to propose local links")
+    parser.add_argument("--rssi-step-m", type=float, default=STEP_M)
+    parser.add_argument("--verify-optimum", action="store_true", help="Check every AP result with independent scalar solves")
     parser.add_argument("--proposals", type=Path, help="Include the audited paths from the earlier review")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    if (args.graph or args.audit_graph) and args.proposals:
+    if (args.graph or args.audit_graph or args.augment_graph) and args.proposals:
         parser.error("--proposals is only used during graph construction")
+    if bool(args.augment_graph) != bool(args.previous_routes):
+        parser.error("--augment-graph and --previous-routes are used together")
+    if not 0 < args.rssi_step_m <= STEP_M or ((args.verify_optimum or args.rssi_step_m != STEP_M) and not args.graph):
+        parser.error("RSSI scoring options require --graph and a positive step no larger than 0.075 m")
     output = args.output.resolve()
     if (ROOT / "runtime") not in output.parents or output.exists():
         parser.error("Expected a new output file in project runtime")
@@ -270,16 +378,24 @@ def main():
     for name, expected in geometry["source_sha256"].items():
         if name.endswith(suffixes) and hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != expected:
             raise ValueError(f"Frozen asset changed: {name}")
-    if args.graph or args.audit_graph:
-        graph_raw = (args.graph or args.audit_graph).read_bytes()
+    if args.graph or args.audit_graph or args.augment_graph:
+        graph_raw = (args.graph or args.audit_graph or args.augment_graph).read_bytes()
         graph = json.loads(graph_raw)
         if graph["geometry_sha256"] != digest:
             raise ValueError("Navigation graph does not match the frozen geometry")
         if args.audit_graph:
             result = audit_floor_graph(geometry, graph)
             result["original_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
+        elif args.augment_graph:
+            previous_raw = args.previous_routes.read_bytes()
+            previous = json.loads(previous_raw)
+            if previous["graph_sha256"] != hashlib.sha256(graph_raw).hexdigest():
+                raise ValueError("Previous routes do not match the graph being augmented")
+            result = add_shortcuts(geometry, graph, previous)
+            result["augmentation_input_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
+            result["augmentation_input_routes_sha256"] = hashlib.sha256(previous_raw).hexdigest()
         else:
-            result = score_graph(geometry, graph)
+            result = score_graph(geometry, graph, args.rssi_step_m, args.verify_optimum)
             result["graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
     else:
         proposal_raw = args.proposals.read_bytes() if args.proposals else None
