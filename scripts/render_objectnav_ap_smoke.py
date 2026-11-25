@@ -12,7 +12,8 @@ def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
     scene = row["scene"]
     suffix = "navmesh_graph" if graph_mode else "refined_routes"
     source_data = manifest_path.with_name(f"{scene}.{suffix}.json").read_bytes()
-    formats = ("wifinav-objectnav-rssi-graph-v2", "wifinav-objectnav-rssi-graph-v3") if graph_mode else (
+    severe_first_format = "wifinav-objectnav-rssi-graph-v4"
+    formats = ("wifinav-objectnav-rssi-graph-v2", "wifinav-objectnav-rssi-graph-v3", severe_first_format) if graph_mode else (
         "wifinav-objectnav-rssi-reference-v1",)
     hash_field = "graph_sha256" if graph_mode else "proposals_sha256"
     payload = json.loads(manifest_path.with_name(f"{scene}.rssi_reference.json").read_bytes())
@@ -22,6 +23,11 @@ def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
             or payload["tasks"].keys() != {str(task["source_row"]) for task in source["tasks"]}):
         raise ValueError(f"RSSI references do not match the frozen sample: {scene}")
     ratio = payload["max_length_ratio"]
+    objective_order = ["weak_length_m", "outage_length_m", "length_m"]
+    if payload["format"] == severe_first_format:
+        objective_order = ["outage_length_m", "weak_length_m", "length_m"]
+        if payload["objective_order"] != objective_order:
+            raise ValueError(f"Unexpected graph cost order: {scene}")
     for task in source["tasks"]:
         key = str(task["source_row"])
         candidates = radio["floors"][task["floor"]]["candidates"]
@@ -41,7 +47,7 @@ def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
             candidates[ap].setdefault("reference_tasks", {})[key] = reference
     fields = ("execution_commit", "max_length_ratio", "sampling_steps_m")
     fields += ("graph_grid_m", "length_unit_m") if graph_mode else ("minimum_gain_m",)
-    return {name: payload[name] for name in fields}
+    return {**{name: payload[name] for name in fields}, "objective_order": objective_order}
 
 
 def assemble(manifest_path, with_routes=False, with_rssi_reference=False, with_rssi_graph=False):

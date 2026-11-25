@@ -7,6 +7,7 @@ const {config, tasks, floors} = geometry;
 const routeExample = data.route_diagnostic?.example;
 const referencePolicy = data.rssi_reference_policy;
 const graphSearch = Boolean(referencePolicy?.graph_grid_m);
+const severeFirst = referencePolicy?.objective_order?.[0] === "outage_length_m";
 const names = {bed:"床", chair:"椅子", plant:"盆栽", sofa:"沙发", toilet:"马桶", tv_monitor:"电视"};
 const goalText = {bed:"一张床", chair:"一把椅子", plant:"一盆植物", sofa:"一张沙发", toilet:"一个马桶", tv_monitor:"一台电视"};
 const chosen = Object.fromEntries(Object.entries(floors).map(([key, f]) => [key, f.candidates[0].id]));
@@ -371,11 +372,13 @@ function draw() {
     $("reference-comparison").hidden = false;
     const ratio = reference.baseline_profile.length_m > 0 ?
       "（最短路的 " + format(100 * profile.length_m / reference.baseline_profile.length_m, "%", 0) + "）" : "";
+    const weak = "低于 " + format(config.weak_threshold_dbm, "dBm", 0) + " 的距离 " +
+      format(reference.baseline_profile.weak_length_m, "m", 2) + " → " + format(profile.weak_length_m, "m", 2);
+    const severe = "低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的距离 " +
+      format(reference.baseline_profile.outage_length_m, "m", 2) + " → " + format(profile.outage_length_m, "m", 2);
     $("reference-comparison").textContent = status +
       " 几何最短路 " + format(reference.baseline_profile.length_m, "m", 2) + "，当前路线 " + format(profile.length_m, "m", 2) + ratio +
-      "。弱信号距离 " + format(reference.baseline_profile.weak_length_m, "m", 2) + " → " + format(profile.weak_length_m, "m", 2) +
-      "；低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的距离 " + format(reference.baseline_profile.outage_length_m, "m", 2) +
-      " → " + format(profile.outage_length_m, "m", 2) + "。";
+      "。" + (severeFirst ? [severe, weak] : [weak, severe]).join("；") + "。";
   }
   drawTaskList();
   scheduleMap();
@@ -440,6 +443,7 @@ $("export").onclick = () => {
 
 const scope = geometry.split === "train" ? (geometry.scene_count ?? 1) + " 个官方 train 开发场景" : "1 个公开场景";
 if (geometry.split === "train") $("scope").textContent = "HM3D ObjectNav v2 官方 train · 开发审阅。中文指令由目标类别生成。地图上的参考路线、目标视点和 RSSI 场供离线验收。";
+if (severeFirst) $("scope").textContent += " 蓝线优先避开低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的严重弱信号区。";
 $("overview").textContent = tasks.length + " 条任务 · " + scope + " · " + Object.keys(floors).length +
   " 个独立单层布局 · 每层在用 1 个 AP";
 const audit = geometry.scope_audit.reduce((counts, row) => {
@@ -455,7 +459,8 @@ $("config").textContent = "多墙传播 · AP 高 " + format(config.ap_height_ab
   " · 接收高 " + format(config.rx_height_above_floor_m, "m", 2) + " · 1 米参考 " +
   format(config.reference_rss_1m_dbm, "dBm", 0) + " · 低信号阈值 " +
   format(config.weak_threshold_dbm, "dBm", 0) + " · 现场实测待校准。";
-$("hashes").textContent = "代码 " + data.radio_commit.slice(0, 7) + " · 报告 SHA256 " + reportHash;
+$("hashes").textContent = "覆盖计算 " + data.radio_commit.slice(0, 7) +
+  (referencePolicy ? " · 选路 " + referencePolicy.execution_commit.slice(0, 7) : "") + " · 报告 SHA256 " + reportHash;
 if (referencePolicy) {
   $("path-label").textContent = graphSearch ? "RSSI 全图最优（蓝线）" : "RSSI 优先路线（蓝线）";
   $("baseline-layer").hidden = false;
@@ -463,9 +468,11 @@ if (referencePolicy) {
   const search = graphSearch ? "在 " + format(referencePolicy.graph_grid_m, "m", 2) + " 的可通行图上求精确最优。" : "两种采样步长均须确认改善。";
   const lengthRule = referencePolicy.max_length_ratio === null ? "总路长用于最后的平局比较。" :
     "长度最多增加 " + format(100 * (referencePolicy.max_length_ratio - 1), "%", 0) + "。";
+  const weak = format(config.weak_threshold_dbm, "dBm", 0);
+  const severe = format(config.outage_threshold_dbm, "dBm", 0);
+  const [primary, secondary] = severeFirst ? [severe, weak] : [weak, severe];
   $("reference-policy").textContent = "RSSI 路线固定起点、停止视点和楼层。" + lengthRule +
-    "先比较低于 " + format(config.weak_threshold_dbm, "dBm", 0) +
-    " 的距离，再比较低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的距离及总长度。" + search;
+    "先比较低于 " + primary + " 的距离，再比较低于 " + secondary + " 的距离及总长度。" + search;
 }
 const partialMeshes = (geometry.scenes ?? []).filter(s => s.mesh_faces.faces_with_unannotated_black > 0);
 if (partialMeshes.length) {
