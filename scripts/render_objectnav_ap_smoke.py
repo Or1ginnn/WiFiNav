@@ -12,8 +12,9 @@ def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
     scene = row["scene"]
     suffix = "navmesh_graph" if graph_mode else "refined_routes"
     source_data = manifest_path.with_name(f"{scene}.{suffix}.json").read_bytes()
-    audited_format = "wifinav-objectnav-rssi-graph-v5"
-    severe_first_formats = ("wifinav-objectnav-rssi-graph-v4", audited_format)
+    verified_formats = ("wifinav-objectnav-rssi-graph-v6", "wifinav-objectnav-rssi-graph-v7")
+    audited_formats = ("wifinav-objectnav-rssi-graph-v5", *verified_formats)
+    severe_first_formats = ("wifinav-objectnav-rssi-graph-v4", *audited_formats)
     formats = (("wifinav-objectnav-rssi-graph-v2", "wifinav-objectnav-rssi-graph-v3", *severe_first_formats)
                if graph_mode else ("wifinav-objectnav-rssi-reference-v1",))
     hash_field = "graph_sha256" if graph_mode else "proposals_sha256"
@@ -29,6 +30,8 @@ def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
         objective_order = ["outage_length_m", "weak_length_m", "length_m"]
         if payload["objective_order"] != objective_order:
             raise ValueError(f"Unexpected graph cost order: {scene}")
+    if payload["format"] in verified_formats and not payload["independent_solver_checked"]:
+        raise ValueError(f"Expected independently verified shortcut routes: {scene}")
     for task in source["tasks"]:
         key = str(task["source_row"])
         candidates = radio["floors"][task["floor"]]["candidates"]
@@ -47,15 +50,17 @@ def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
                 raise ValueError(f"Inconsistent graph optimum: {scene}/{key}/{ap}")
             if "baseline_route_xyz" in reference:
                 baseline = reference["baseline_route_xyz"]
-                if (payload["format"] != audited_format or not baseline
+                if (payload["format"] not in audited_formats or not baseline
                         or len(baseline) != len(reference["baseline_profile"]["samples_dbm"])
                         or any(math.dist(baseline[i], task["route_xyz"][i]) > .005 for i in (0, -1))):
                     raise ValueError(f"Invalid same-floor geometric reference: {scene}/{key}/{ap}")
             candidates[ap].setdefault("reference_tasks", {})[key] = reference
     fields = ("execution_commit", "max_length_ratio", "sampling_steps_m")
     fields += ("graph_grid_m", "length_unit_m") if graph_mode else ("minimum_gain_m",)
-    if payload["format"] == audited_format:
+    if payload["format"] in audited_formats:
         fields += ("floor_check_step_m",)
+    if payload["format"] in verified_formats:
+        fields += ("independent_solver_checked",)
     return {**{name: payload[name] for name in fields}, "objective_order": objective_order}
 
 

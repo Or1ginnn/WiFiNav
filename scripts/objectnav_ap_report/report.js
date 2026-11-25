@@ -8,6 +8,7 @@ const routeExample = data.route_diagnostic?.example;
 const referencePolicy = data.rssi_reference_policy;
 const graphSearch = Boolean(referencePolicy?.graph_grid_m);
 const severeFirst = referencePolicy?.objective_order?.[0] === "outage_length_m";
+const independentlyVerified = referencePolicy?.independent_solver_checked === true;
 const names = {bed:"床", chair:"椅子", plant:"盆栽", sofa:"沙发", toilet:"马桶", tv_monitor:"电视"};
 const goalText = {bed:"一张床", chair:"一把椅子", plant:"一盆植物", sofa:"一张沙发", toilet:"一个马桶", tv_monitor:"一台电视"};
 const chosen = Object.fromEntries(Object.entries(floors).map(([key, f]) => [key, f.candidates[0].id]));
@@ -342,7 +343,7 @@ function draw() {
   for (const candidate of floor.candidates) option($("ap-choice"), candidate.id, candidate.id);
   $("ap-choice").value = chosen[selected.floor];
   $("profile-title").textContent = "找" + (names[selected.category] || selected.category) +
-    (graphSearch ? " · RSSI 全图最优路线" : reference ? " · RSSI 优先参考路线" : " · 参考路线 RSSI");
+    (graphSearch ? " · RSSI 图上最优路线" : reference ? " · RSSI 优先参考路线" : " · 参考路线 RSSI");
   $("profile-detail").textContent = "源 episode " + selected.source_episode_id + " · 源行 " + selected.source_row +
     " · 评测器视点 " + selected.stop_object_id + " · AP 底座 XYZ [" +
     coordinate(floor.candidates.find(item => item.id === chosen[selected.floor]).xyz) + "]";
@@ -367,7 +368,8 @@ function draw() {
     metrics.append(cell);
   }
   if (reference) {
-    const status = graphSearch ? (reference.selected ? "全图最优路径与几何参考不同。" : "几何参考也是当前 AP 下的图上最优路径。") :
+    const optimum = independentlyVerified ? "图上最优路径" : "全图最优路径";
+    const status = graphSearch ? (reference.selected ? optimum + "与几何参考不同。" : "几何参考也是当前 AP 下的图上最优路径。") :
       "已比较 " + reference.candidate_count + " 条绕行。" + (reference.selected ? "已选用绕行。" :
         reference.candidate_count ? "这批绕行未达到稳定改善条件，沿用几何最短路。" : "本次搜索未找到预算内绕行，沿用几何最短路。");
     $("reference-comparison").hidden = false;
@@ -464,7 +466,7 @@ $("config").textContent = "多墙传播 · AP 高 " + format(config.ap_height_ab
 $("hashes").textContent = "覆盖计算 " + data.radio_commit.slice(0, 7) +
   (referencePolicy ? " · 选路 " + referencePolicy.execution_commit.slice(0, 7) : "") + " · 报告 SHA256 " + reportHash;
 if (referencePolicy) {
-  $("path-label").textContent = graphSearch ? "RSSI 全图最优（蓝线）" : "RSSI 优先路线（蓝线）";
+  $("path-label").textContent = graphSearch ? "RSSI 图上最优（蓝线）" : "RSSI 优先路线（蓝线）";
   $("baseline-layer").hidden = false;
   $("reference-policy").hidden = false;
   const search = graphSearch ? "在 " + format(referencePolicy.graph_grid_m, "m", 2) + " 的可通行图上求精确最优。" : "两种采样步长均须确认改善。";
@@ -475,7 +477,9 @@ if (referencePolicy) {
   const [primary, secondary] = severeFirst ? [severe, weak] : [weak, severe];
   $("reference-policy").textContent = "RSSI 路线固定起点、停止视点和楼层。" + lengthRule +
     "先比较低于 " + primary + " 的距离，再比较低于 " + secondary + " 的距离及总长度。" + search +
-    (referencePolicy.floor_check_step_m ? "选路前逐段核验实际导航表面高度。" : "");
+    (referencePolicy.floor_check_step_m ? "选路前逐段核验实际导航表面高度。" : "") +
+    (independentlyVerified ? "已补查可直行的局部连线，由第二种求解方法复核。RSSI 采样间距最多 " +
+      format(referencePolicy.sampling_steps_m[0] * 100, "cm", 3) + "。阈值附近的路线可能随采样间距改变。" : "");
 }
 const partialMeshes = (geometry.scenes ?? []).filter(s => s.mesh_faces.faces_with_unannotated_black > 0);
 if (partialMeshes.length) {

@@ -236,3 +236,5 @@ RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数
 严重弱信号优先批次复用 v3 导航图与 CPU 环境，结果位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v4/`，模型调用为 0。渲染后的 HTML 留在本机。
 
 单层边修正使用 Habitat 0.3.0 核查实际导航表面，并在原 CPU 射线环境重算结果。产物位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v5/`，原批次保留。
+
+全量 Oracle 审计复用这两个 CPU 环境。局部补边的中间产物及异常记录保留在 `runtime/diagnostics/objectnav_rssi_graph_20261125_v6/`，加密几何检查与三档信号采样结果位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v7/`。两批均关闭 CUDA 可见设备，无模型调用。HTML 从验收产物在本机渲染，使用原本机审阅入口。[全量 Oracle 审计](experiments/objectnav_rssi_graph_2026-11-25.md#全量-oracle-审计)
