@@ -32,3 +32,9 @@
 第一条「找一张床」切换 `AP-01` 到 `AP-09` 后，主路线从 1.91 m 变为 2.04 m，弱信号距离从 1.91 m 变为 0 m。在相同的 `AP-09` 下，和几何路线的对照仍是 0.57 m 至 0 m。Chrome 分别验收地图点选和下拉选择，线路、RSSI 曲线和弱信号距离使用同一 AP 的结果。报告离线切换每层 16 个已计算的位置。
 
 执行提交 `ba67d26`，使用同一几何 manifest，服务器新目录为 `runtime/diagnostics/objectnav_rssi_graph_20261125_v3/`。该批次 `subsegment_audit.json` 核验 9,521 个不同子段全可达。65 项仓库测试通过，其中穷举覆盖无上限求解，并检查了旧上限外的绕行能被选中。本机 HTML 仍使用 `index-reviewed.html`，带上限版保存在 `index-before-unlimited.html`。
+
+## 阈值依据与固定路线复算
+
+- Cisco 的 WLAN 勘测指南以 −67 dBm 和至少 25 dB SNR 作为语音覆盖推荐。MiR 的 WLAN 指南 v2.2 给最强和次强 AP 分别设 −67、−75 dBm 的部署参考，同时列出丢包和时延要求。欧姆龙 MD 系列手册给出 −60 dBm 的推荐下限。不同业务和设备对应不同覆盖目标。[Cisco 勘测指南](https://www.cisco.com/c/en/us/support/docs/wireless/5500-series-wireless-controllers/116057-site-survey-guidelines-wlan-00.pdf) · [MiR WLAN 指南 v2.2，第 2.1 节](https://noll-sondermaschinenbau.de/downloads/downloads_fts/mir_main_network_and_wifi_guide_22.pdf#page=6) · [欧姆龙 MD 系列手册，第 4-26 节](https://assets.omron.eu/downloads/latest/manual/en/md-series_platform_users_manual_en.pdf?v=2)
+- WiFiNav 单 AP 仿真中，−67 dBm 用作覆盖目标，−75 dBm 统计严重弱信号暴露。链路质量能否满足任务要求，需要结合目标设备、SNR、丢包、时延和实际业务流量。当前配置按这两档统计模拟 RSSI，现场链路阈值待实测校准。
+- 只改变统计阈值，在 `DBBESbk4Y3k/L2` 源行 `20747`、`AP-10` 的两条固定路线及已有采样上重算。−67 dBm 下几何路线与蓝线分别有 1.34 m 和 0.96 m 低于阈值，−70 dBm 下分别为 0.75 m 和 0.88 m，−75 dBm 下两条均为 0 m。固定路径的相对表现会随阈值改变，完整敏感性验证还需要在各阈值下重新求解。主配置继续使用 −67 和 −75 dBm。

@@ -49,6 +49,8 @@ $$
 
 $\mathcal{P}_G(s,v^*)$ 是图上连接这两个端点的全部可行路径。阈值单位是 dBm，距离单位是米。字典序先比较 $W_{-67}$，相等时比较 $W_{-75}$，再相等才比较总路长。总路长排在第三位，第一项哪怕只改善一小段，求解器也可能选较长的绕行。实现将各短段长度向上取整到微米，用字典序 Dijkstra 精确求解，报告显示未取整的距离。该路线供离线审阅，官方 ObjectNav 评分沿用原定义。[几何参考实现](scripts/build_objectnav_ap_smoke.py) · [RSSI 路径实现](scripts/solve_objectnav_rssi_graph.py) · [原带预算记录](docs/experiments/objectnav_rssi_graph_2026-11-25.md)
 
+**阈值依据。** 首版以 −67 dBm 表示偏保守的覆盖目标，−75 dBm 表示严重弱信号，实际链路可用性需要用目标设备的 SNR、丢包和时延校准。同一对固定路线的复算已观察到 −67 与 −70 dBm 下的排序翻转。正式报告宜并列不同阈值下的结果。[来源与复算](docs/experiments/objectnav_rssi_graph_2026-11-25.md#阈值依据与固定路线复算)
+
 ## 3. 评分和制作验收
 
 **评分。** 同一份轨迹用 Habitat ObjectNav 口径算 SR/SPL，并报告路径长度、低于冻结 RSSI 阈值的累计运动时间和最长连续低信号时间。复用离线 RSSI 积分器，计量用统一模拟运动时间。缺测留空，失败和已记录的轨迹前缀保留。弱 RSSI 时间描述模拟覆盖暴露。[Habitat-Lab 0.3.0 任务配置](https://github.com/facebookresearch/habitat-lab/blob/v0.3.0/habitat-lab/habitat/config/habitat/task/objectnav.yaml)
