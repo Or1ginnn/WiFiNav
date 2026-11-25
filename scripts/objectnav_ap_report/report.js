@@ -3,6 +3,7 @@
 const $ = id => document.getElementById(id);
 const data = JSON.parse($("report-data").textContent);
 const {geometry, radio, report_sha256: reportHash} = data;
+const benchmarkReview = data.benchmark_review;
 const {config, tasks, floors} = geometry;
 const routeExample = data.route_diagnostic?.example;
 const referencePolicy = data.rssi_reference_policy;
@@ -362,6 +363,13 @@ function draw() {
     ["路线最低 RSSI", format(profile.minimum_dbm, "dBm")],
     ["低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的路段", format(profile.outage_length_m, "m", 2)],
   ];
+  if (benchmarkReview) {
+    values.push(
+      ["最长连续严重弱信号路段", format(profile.longest_outage_m, "m", 2)],
+      ["累计信号缺口", format(profile.signal_deficit_db_m, "dB·m", 2)],
+      ["弱区平均 RSSI", profile.weak_mean_dbm === null ? "无弱区" : format(profile.weak_mean_dbm, "dBm")],
+    );
+  }
   for (const [label, value] of values) {
     const cell = document.createElement("div");
     const key = document.createElement("dt"), item = document.createElement("dd");
@@ -487,14 +495,23 @@ $("export").onclick = () => {
 
 const scope = geometry.split === "train" ? (geometry.scene_count ?? 1) + " 个官方 train 开发场景" : "1 个公开场景";
 if (geometry.split === "train") $("scope").textContent = "HM3D ObjectNav v2 官方 train · 开发审阅。中文指令由目标类别生成。地图上的参考路线、目标视点和 RSSI 场供离线验收。";
+if (benchmarkReview) {
+  const phase = benchmarkReview.scope === "full" ? "全量正式集" : "单场景工程小批";
+  $("scope").textContent = phase + " · 官方 val。本批筛查 " + benchmarkReview.source_scenes + " 个场景的 " +
+    benchmarkReview.source_episodes + " 条任务，纳入 " + benchmarkReview.qualified_episodes +
+    " 条。本页按固定种子随机展示 " + tasks.length + " 条，每层展示冻结的 AP。“成功”和“SPL”通过实际轨迹评分。";
+}
 if (severeFirst) $("scope").textContent += " 蓝线优先避开低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的严重弱信号区。";
 $("overview").textContent = tasks.length + " 条任务 · " + scope + " · " + Object.keys(floors).length +
   " 个独立单层布局 · 每层在用 1 个 AP";
+if (benchmarkReview) $("overview").textContent = tasks.length + " 条抽查任务 · " + geometry.scene_count +
+  " 个场景 · " + Object.keys(floors).length + " 个单层布局";
 const audit = geometry.scope_audit.reduce((counts, row) => {
   counts[row.status] = (counts[row.status] || 0) + 1;
   return counts;
 }, {});
-const sourceScope = geometry.scene_count > 1 ? "官方 train 场景分片" : "场景 " + geometry.source_ref.split("/").at(-2);
+const sourceScope = geometry.scene_count > 1 ? "官方 " + geometry.split + " 场景分片" :
+  "场景 " + geometry.source_ref.split("/").at(-2);
 $("audit").textContent = sourceScope + "。几何抽审 " + geometry.scope_audit.length +
   " 行，选入 " + (audit.selected || 0) + " 行。合格未选 " + (audit.eligible || 0) +
   " 行，尚无同层见证或起点不满足规则 " +

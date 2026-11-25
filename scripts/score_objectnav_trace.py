@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Score executed ObjectNav poses with native Habitat measures and an RSSI replay."""
 import argparse
+import gzip
 import json
 import math
 from pathlib import Path
@@ -78,7 +79,11 @@ def score_habitat(geometry, probes=False, traces=None):
                         data_path="data/datasets/objectnav/hm3d/v2/{split}/{split}.json.gz",
                         scenes_dir="data/scene_datasets", content_scenes=[scan])
     dataset = habitat.make_dataset(cfg.type, config=cfg)
-    if len(dataset.episodes) != geometry["source_episode_count"]:
+    episode_path = ROOT / cfg.data_path.format(split=split)
+    shard = episode_path.parent / "content" / f"{scan}.json.gz"
+    with gzip.open(shard, "rt", encoding="utf-8") as handle:
+        source_rows = json.load(handle)["episodes"]
+    if len(dataset.episodes) != len(source_rows) or len(source_rows) != geometry["source_episode_count"]:
         raise ValueError("Official source count and loaded Habitat episodes differ")
     sim = habitat_sim.SimulatorConfiguration()
     sim.scene_id = str(ROOT / "data/scene_datasets" / source)
@@ -92,9 +97,16 @@ def score_habitat(geometry, probes=False, traces=None):
     by_key = {str(row["source_row"]): row for row in geometry["tasks"]}
 
     def episode_at(key):
-        episode = dataset.episodes[int(key)]
-        if (str(episode.episode_id) != str(by_key[key]["source_episode_id"])
+        row = int(key)
+        original = source_rows[row]
+        episode = dataset.episodes[row]
+        # Habitat renumbers episode IDs when loading each shard. Check the raw
+        # identity from the shard and match the loaded episode's actual inputs.
+        if (str(original["episode_id"]) != str(by_key[key]["source_episode_id"])
+                or str(episode.episode_id) != key
                 or episode.object_category != by_key[key]["category"]
+                or not np.allclose(episode.start_position, original["start_position"], atol=1e-6, rtol=0)
+                or not np.allclose(episode.start_rotation, original["start_rotation"], atol=1e-6, rtol=0)
                 or str(episode.scene_id) != "data/scene_datasets/" + str(source)):
             raise ValueError(f"Official episode identity differs for source row {key}")
         return episode

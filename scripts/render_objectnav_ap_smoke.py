@@ -134,11 +134,87 @@ def assemble(manifest_path, with_routes=False, with_rssi_reference=False, with_r
     return result
 
 
+def assemble_benchmark(manifest_path):
+    raw = manifest_path.read_bytes()
+    manifest = json.loads(raw)
+    if manifest["format"] != "wifinav-objectnav-benchmark-v1" or not manifest["validation"]["passed"]:
+        raise ValueError("Expected an accepted benchmark batch")
+    config = manifest["config"]
+    identity = manifest["identity"]
+    sample = [(row["scene"], row["source_row"]) for row in manifest["review_sample"]]
+    if (len(set(sample)) != len(sample) or not sample
+            or (manifest["scope"] == "full" and len(sample) != manifest["rules"]["review_count"])):
+        raise ValueError("Invalid frozen review sample")
+    sampled_scenes = {scene for scene, _ in sample}
+    geom = {"format": "wifinav-objectnav-ap-review-v1", "split": "val", "scope": config["scope"],
+            "config": config, "config_sha256": identity["config_sha256"], "scene_count": len(sampled_scenes),
+            "requested": len(sample), "tasks": [], "floors": {}, "scope_audit": [], "scenes": [],
+            "source_episode_count": manifest["source_episodes"], "manifest_sha256": hashlib.sha256(raw).hexdigest()}
+    radio = {"floors": {}}
+    selected = {}
+    reference_policy = None
+    commits = set()
+    for row in manifest["scenes"]:
+        scene = row["scene"]
+        if scene not in sampled_scenes:
+            continue
+        for suffix in ("radio", "rssi_reference", "navmesh_graph"):
+            filename = f"{scene}.{suffix}.json"
+            if hashlib.sha256(manifest_path.with_name(filename).read_bytes()).hexdigest() != row["files"][filename]:
+                raise ValueError(f"Frozen review input changed: {filename}")
+        report = json.loads(manifest_path.with_name(f"{scene}.radio.json").read_bytes())
+        source = report["geometry"]
+        if (source["split"] != "val" or source["source_ref"] != row["source_ref"]
+                or source["config_sha256"] != identity["config_sha256"] or report["models_called"]
+                or report["geometry_sha256"] != row["geometry_sha256"]):
+            raise ValueError(f"Invalid benchmark review source: {scene}")
+        commits.add(report["radio_commit"])
+        geom["source_ref"] = row["source_ref"]
+        geom["scenes"].append({"scene": scene, "source_ref": row["source_ref"],
+                               "mesh_faces": report["radio"]["mesh_faces"]})
+        geom["scope_audit"].extend({**item, "scene": scene} for item in source["scope_audit"])
+        policy = add_rssi_reference(manifest_path, row, source, report["radio"], graph_mode=True)
+        if reference_policy and policy != reference_policy:
+            raise ValueError("Review sample mixes incompatible reference policies")
+        reference_policy = policy
+        kept = {key for name, key in sample if name == scene}
+        task_info = {task["source_row"]: task for task in row["tasks"]}
+        by_floor = {}
+        for task in source["tasks"]:
+            key = task["source_row"]
+            if key not in kept:
+                continue
+            fid = task["floor"]
+            by_floor.setdefault(fid, set()).add(str(key))
+            selected[scene, key] = {**task, "scene": scene, "task_key": f"{scene}:{key}",
+                                    "floor": f"{scene}/{fid}", "difficulty": task_info[key]}
+        for fid, keys in by_floor.items():
+            floor = source["floors"][fid]
+            floor_radio = report["radio"]["floors"][fid]
+            for ap in floor_radio["candidates"].values():
+                for field in ("tasks", "reference_tasks"):
+                    ap[field] = {key: value for key, value in ap[field].items() if key in keys}
+            name = f"{scene}/{fid}"
+            geom["floors"][name] = {**floor, "source_ref": row["source_ref"], "floor_id": fid}
+            radio["floors"][name] = floor_radio
+    if len(commits) != 1 or selected.keys() != set(sample):
+        raise ValueError("Review sample differs from frozen tasks or mixes code versions")
+    geom["tasks"] = [selected[key] for key in sample]
+    return {
+        "geometry": geom, "radio": radio, "radio_commit": commits.pop(), "models_called": 0,
+        "rssi_reference_policy": reference_policy,
+        "benchmark_review": {"scope": manifest["scope"], "source_episodes": manifest["source_episodes"],
+                             "qualified_episodes": manifest["qualified_episodes"], "source_scenes": len(manifest["scenes"]),
+                             "review_seed": manifest["rules"]["review_seed"]},
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     source_type = parser.add_mutually_exclusive_group(required=True)
     source_type.add_argument("--report", type=Path)
     source_type.add_argument("--manifest", type=Path)
+    source_type.add_argument("--benchmark-manifest", type=Path)
     parser.add_argument("--with-routes", action="store_true")
     ref_mode = parser.add_mutually_exclusive_group()
     ref_mode.add_argument("--with-rssi-reference", action="store_true")
@@ -147,7 +223,10 @@ def main():
     args = parser.parse_args()
     if not args.manifest and (args.with_routes or args.with_rssi_reference or args.with_rssi_graph):
         parser.error("Route overlays require --manifest")
-    if args.manifest:
+    if args.benchmark_manifest:
+        report = assemble_benchmark(args.benchmark_manifest)
+        raw = json.dumps(report, separators=(",", ":"), allow_nan=False).encode()
+    elif args.manifest:
         report = assemble(args.manifest, args.with_routes, args.with_rssi_reference, args.with_rssi_graph)
         raw = json.dumps(report, separators=(",", ":"), allow_nan=False).encode()
     else:
