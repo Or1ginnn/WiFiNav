@@ -234,3 +234,5 @@ RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数
 取消长度上限后的 CPU 批次位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v3/`。保留带预算版及其原始报告。新版离线 HTML 在本机验证地图点选和下拉的 AP 路线联动。
 
 严重弱信号优先批次复用 v3 导航图与 CPU 环境，结果位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v4/`，模型调用为 0。渲染后的 HTML 留在本机。
+
+单层边修正使用 Habitat 0.3.0 核查实际导航表面，并在原 CPU 射线环境重算结果。产物位于 `runtime/diagnostics/objectnav_rssi_graph_20261125_v5/`，原批次保留。

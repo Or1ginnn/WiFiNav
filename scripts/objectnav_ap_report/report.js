@@ -162,6 +162,7 @@ function drawMap() {
     ctx.stroke();
   }
   const reference = referenceEntry(selected), route = reference?.route_xyz ?? selected.route_xyz;
+  const baseline = reference?.baseline_route_xyz ?? selected.route_xyz;
   function trace(points) {
     ctx.beginPath();
     points.forEach(([x, , z], i) => {
@@ -171,7 +172,7 @@ function drawMap() {
   }
   if ($("baseline").checked && (reference?.selected || !$("path").checked)) {
     ctx.save();
-    trace(selected.route_xyz);
+    trace(baseline);
     ctx.setLineDash([6, 5]);
     ctx.strokeStyle = "#273023";
     ctx.lineWidth = 5;
@@ -376,7 +377,8 @@ function draw() {
       format(reference.baseline_profile.weak_length_m, "m", 2) + " → " + format(profile.weak_length_m, "m", 2);
     const severe = "低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的距离 " +
       format(reference.baseline_profile.outage_length_m, "m", 2) + " → " + format(profile.outage_length_m, "m", 2);
-    $("reference-comparison").textContent = status +
+    const floorCorrection = reference.baseline_route_xyz ? " 黄线已按实际导航表面重新计算。" : "";
+    $("reference-comparison").textContent = status + floorCorrection +
       " 几何最短路 " + format(reference.baseline_profile.length_m, "m", 2) + "，当前路线 " + format(profile.length_m, "m", 2) + ratio +
       "。" + (severeFirst ? [severe, weak] : [weak, severe]).join("；") + "。";
   }
@@ -472,7 +474,8 @@ if (referencePolicy) {
   const severe = format(config.outage_threshold_dbm, "dBm", 0);
   const [primary, secondary] = severeFirst ? [severe, weak] : [weak, severe];
   $("reference-policy").textContent = "RSSI 路线固定起点、停止视点和楼层。" + lengthRule +
-    "先比较低于 " + primary + " 的距离，再比较低于 " + secondary + " 的距离及总长度。" + search;
+    "先比较低于 " + primary + " 的距离，再比较低于 " + secondary + " 的距离及总长度。" + search +
+    (referencePolicy.floor_check_step_m ? "选路前逐段核验实际导航表面高度。" : "");
 }
 const partialMeshes = (geometry.scenes ?? []).filter(s => s.mesh_faces.faces_with_unannotated_black > 0);
 if (partialMeshes.length) {
