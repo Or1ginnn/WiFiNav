@@ -5,8 +5,10 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from connectivity_vln.benchmark.constrained_route import lexicographic_route, optimal_route
 from connectivity_vln.benchmark.single_floor import distances
+from solve_objectnav_rssi_graph import edge_on_floor
 
 
 def graphs(n, edges):
@@ -23,6 +25,14 @@ def graphs(n, edges):
 
 
 class OptimalRouteTests(unittest.TestCase):
+    def test_floor_guard_rejects_flat_waypoints_over_a_raised_surface(self):
+        def snap(point):
+            x, y, z = point
+            return x, .5 if .09 < x < .20 else y, z
+
+        self.assertFalse(edge_on_floor([[0, 0, 0], [.30, 0, 0]], snap, 0, .28))
+        self.assertTrue(edge_on_floor([[0, 0, 0], [.30, 0, 0]], lambda point: point, 0, .28))
+
     def test_severe_weak_exposure_takes_priority_over_weak_distance(self):
         # Each edge stores (severe weak distance, all weak distance, length).
         edges = [(0, 1, (0, 2, 3)), (1, 2, (0, 0, 1)), (0, 2, (1, 1, 3))]

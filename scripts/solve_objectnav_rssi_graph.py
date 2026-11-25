@@ -16,6 +16,7 @@ from connectivity_vln.benchmark.constrained_route import lexicographic_route
 
 GRID_M = .15
 STEP_M = .075
+FLOOR_CHECK_STEP_M = STEP_M / 2
 LENGTH_UNIT_M = 1e-6
 
 
@@ -88,6 +89,52 @@ def build_graph(geometry, proposals=None):
     return {"format": "wifinav-objectnav-navmesh-graph-v3", "grid_m": GRID_M, "floors": floor_graphs, "tasks": task_graphs}
 
 
+def edge_on_floor(points, snap_point, floor_y, tolerance):
+    """Check actual NavMesh surface height throughout each stored edge."""
+    for a, b in zip(points, points[1:]):
+        steps = max(1, math.ceil(math.dist(a, b) / FLOOR_CHECK_STEP_M))
+        for i in range(steps + 1):
+            point = [x + (y - x) * (i / steps) for x, y in zip(a, b)]
+            x, y, z = snap_point(point)
+            if (not all(map(math.isfinite, (x, y, z))) or abs(y - floor_y) > tolerance + 1e-5
+                    or math.hypot(x - point[0], z - point[2]) > .025):
+                return False
+    return True
+
+
+def audit_floor_graph(geometry, graph):
+    import habitat_sim
+    import numpy as np
+
+    if graph["format"] != "wifinav-objectnav-navmesh-graph-v3":
+        raise ValueError("Expected an unaudited ObjectNav floor graph")
+    navmesh = (ROOT / "data/scene_datasets" / geometry["source_ref"]).with_suffix(".navmesh")
+    finder = habitat_sim.PathFinder()
+    if not finder.load_nav_mesh(str(navmesh)):
+        raise ValueError(f"Cannot load navmesh for {navmesh}")
+    tolerance = geometry["config"]["floor_tolerance_m"]
+
+    def snap(point):
+        return finder.snap_point(np.asarray(point, dtype=np.float32))
+
+    def filter_edges(points, edges, floor):
+        y = geometry["floors"][floor]["y"]
+        return [(a, b, bends) for a, b, bends in edges if edge_on_floor([points[a], *bends, points[b]], snap, y, tolerance)]
+
+    for floor, spec in graph["floors"].items():
+        edges = filter_edges(spec["points"], spec["edges"], floor)
+        spec["removed_edges"] = len(spec["edges"]) - len(edges)
+        spec["edges"] = edges
+    for task in graph["tasks"].values():
+        floor = graph["floors"][task["floor"]]
+        edges = filter_edges(floor["points"] + task["points"], task["edges"], task["floor"])
+        task["removed_edges"] = len(task["edges"]) - len(edges)
+        task["edges"] = edges
+    graph["format"] = "wifinav-objectnav-navmesh-graph-v4"
+    graph["floor_check_step_m"] = FLOOR_CHECK_STEP_M
+    return graph
+
+
 def score_graph(geometry, built):
     import drjit as dr
     from run_objectnav_ap_radio import habitat_to_glb, semantic_geometry, signal_for_anchor
@@ -100,7 +147,7 @@ def score_graph(geometry, built):
     scene, tags, _ = semantic_geometry(asset.with_name(stem + ".semantic.glb"), asset.with_name(stem + ".semantic.txt"))
     config = geometry["config"]
     by_key = {str(task["source_row"]): task for task in geometry["tasks"]}
-    if built["format"] != "wifinav-objectnav-navmesh-graph-v3" or built["tasks"].keys() != by_key.keys():
+    if built["format"] != "wifinav-objectnav-navmesh-graph-v4" or built["tasks"].keys() != by_key.keys():
         raise ValueError("Navigation graph does not cover the frozen tasks")
     results = {}
     floor_signals = {}
@@ -142,7 +189,15 @@ def score_graph(geometry, built):
             adjacency[a].append((b, i))
             adjacency[b].append((a, i))
             baseline_edges[a, b] = i
-        native_path = [(a, b, baseline_edges[a, b]) for a, b in zip(baseline, baseline[1:])]
+        native_pairs = list(zip(baseline, baseline[1:]))
+        replaced_baseline = any(pair not in baseline_edges for pair in native_pairs)
+        if replaced_baseline:
+            try:
+                native_path, _ = lexicographic_route(adjacency, [(0, 0, length) for length in edge_lengths], start, goal)
+            except ValueError as exc:
+                raise ValueError(f"No same-floor route to the frozen STOP for row {key}") from exc
+        else:
+            native_path = [(a, b, baseline_edges[a, b]) for a, b in native_pairs]
         sample_points = np.asarray(sample_points)
         receivers = habitat_to_glb(sample_points, config["rx_height_above_floor_m"])
         seg_lengths = np.asarray(seg_lengths)
@@ -177,29 +232,33 @@ def score_graph(geometry, built):
             native_cost = tuple(sum(edge_costs[i][j] for _, _, i in native_path) for j in range(3))
             if cost > native_cost:
                 raise AssertionError(f"Graph optimization failed to match the included baseline: {key}/{ap['id']}")
-            baseline_profile = profile(native_path, signal)[1]
+            baseline_route, baseline_profile = profile(native_path, signal)
             # For equal objectives keep the original trace as the visual tie breaker.
             changed = cost < native_cost
             route, route_profile = profile(path if changed else native_path, signal)
             references[ap["id"]] = {"selected": int(changed), "route_xyz": route, "profile": route_profile,
                                      "baseline_profile": baseline_profile, "objective_um": cost,
                                      "baseline_objective_um": native_cost}
+            if replaced_baseline:
+                references[ap["id"]]["baseline_route_xyz"] = baseline_route
         results[key] = references
         print(f"{key}: {len(nodes)} nodes, {len(edges)} edges, {len(references)} APs", flush=True)
-    return {"format": "wifinav-objectnav-rssi-graph-v4", "source_ref": geometry["source_ref"],
+    return {"format": "wifinav-objectnav-rssi-graph-v5", "source_ref": geometry["source_ref"],
             "objective_order": ["outage_length_m", "weak_length_m", "length_m"],
             "max_length_ratio": None, "sampling_steps_m": [STEP_M], "graph_grid_m": built["grid_m"],
-            "length_unit_m": LENGTH_UNIT_M, "tasks": results}
+            "floor_check_step_m": built["floor_check_step_m"], "length_unit_m": LENGTH_UNIT_M, "tasks": results}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--geometry", required=True, type=Path)
-    parser.add_argument("--graph", type=Path)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--graph", type=Path)
+    mode.add_argument("--audit-graph", type=Path, help="Check the actual surface heights of an existing graph")
     parser.add_argument("--proposals", type=Path, help="Include the audited paths from the earlier review")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    if args.graph and args.proposals:
+    if (args.graph or args.audit_graph) and args.proposals:
         parser.error("--proposals is only used during graph construction")
     output = args.output.resolve()
     if (ROOT / "runtime") not in output.parents or output.exists():
@@ -211,19 +270,23 @@ def main():
     for name, expected in geometry["source_sha256"].items():
         if name.endswith(suffixes) and hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != expected:
             raise ValueError(f"Frozen asset changed: {name}")
-    if args.graph:
-        graph_raw = args.graph.read_bytes()
+    if args.graph or args.audit_graph:
+        graph_raw = (args.graph or args.audit_graph).read_bytes()
         graph = json.loads(graph_raw)
         if graph["geometry_sha256"] != digest:
             raise ValueError("Navigation graph does not match the frozen geometry")
-        result = score_graph(geometry, graph)
-        result["graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
+        if args.audit_graph:
+            result = audit_floor_graph(geometry, graph)
+            result["original_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
+        else:
+            result = score_graph(geometry, graph)
+            result["graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
     else:
         proposal_raw = args.proposals.read_bytes() if args.proposals else None
         proposals = json.loads(proposal_raw) if proposal_raw else None
         if proposals and proposals["geometry_sha256"] != digest:
             raise ValueError("Previous routes do not match the frozen geometry")
-        result = build_graph(geometry, proposals)
+        result = audit_floor_graph(geometry, build_graph(geometry, proposals))
         if proposal_raw:
             result["proposals_sha256"] = hashlib.sha256(proposal_raw).hexdigest()
     result["geometry_sha256"] = digest
