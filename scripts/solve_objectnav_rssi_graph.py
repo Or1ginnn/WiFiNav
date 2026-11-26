@@ -153,12 +153,12 @@ def audit_floor_graph(geometry, graph):
     return graph
 
 
-def shortcut_pairs(points):
+def shortcut_pairs(points, *, start_stride=2):
     """Propose bounded local straight links along a previously solved path."""
     total = [0.0]
     for a, b in zip(points, points[1:]):
         total.append(total[-1] + math.dist(a, b))
-    for i in range(0, len(points) - 2, 2):
+    for i in range(0, len(points) - 2, start_stride):
         for j in range(i + 2, len(points)):
             arc = total[j] - total[i]
             if arc > SHORTCUT_MAX_ARC_M:
@@ -172,9 +172,14 @@ def add_shortcuts(geometry, graph, references):
     import habitat_sim
     import numpy as np
 
-    if (graph["format"] != "wifinav-objectnav-navmesh-graph-v4"
-            or references["format"] != "wifinav-objectnav-rssi-graph-v5"
-            or references["tasks"].keys() != graph["tasks"].keys()):
+    refinement = graph["format"] == "wifinav-objectnav-navmesh-graph-v6"
+    allowed = {
+        "wifinav-objectnav-navmesh-graph-v4": "wifinav-objectnav-rssi-graph-v5",
+        "wifinav-objectnav-navmesh-graph-v6": "wifinav-objectnav-rssi-graph-v7",
+    }
+    if (allowed.get(graph["format"]) != references["format"]
+            or references["tasks"].keys() != graph["tasks"].keys()
+            or (refinement and not references["independent_solver_checked"])):
         raise ValueError("Expected matching audited ObjectNav graph and route results")
     navmesh = (ROOT / "data/scene_datasets" / geometry["source_ref"]).with_suffix(".navmesh")
     finder = habitat_sim.PathFinder()
@@ -210,7 +215,7 @@ def add_shortcuts(geometry, graph, references):
             if math.dist(route[0], points[start]) > .005 or math.dist(route[-1], points[stop]) > .005:
                 raise ValueError(f"Shortcut route uses different endpoints for row {key}")
             legal = []
-            for i, j in shortcut_pairs(route):
+            for i, j in shortcut_pairs(route, start_stride=1 if refinement else 2):
                 a, b = route[i], route[j]
                 pair = tuple(sorted((a, b)))
                 if pair not in tested:
@@ -236,9 +241,10 @@ def add_shortcuts(geometry, graph, references):
                     shortcuts.add(pair)
                     task["edges"].append((a, b, []))
                     edges.add(pair)
-        task["shortcut_edges"] = len(shortcuts)
+        task["refinement_shortcut_edges" if refinement else "shortcut_edges"] = len(shortcuts)
         print(f"{key}: {len(shortcuts)} floor-checked shortcuts", flush=True)
     graph["format"] = "wifinav-objectnav-navmesh-graph-v5"
+    graph["shortcut_passes"] = 2 if refinement else 1
     graph["shortcut_max_chord_m"] = SHORTCUT_MAX_CHORD_M
     return graph
 
@@ -472,9 +478,11 @@ def main():
             previous = json.loads(previous_raw)
             if previous["graph_sha256"] != hashlib.sha256(graph_raw).hexdigest():
                 raise ValueError("Previous routes do not match the graph being augmented")
+            is_refinement = graph["format"] == "wifinav-objectnav-navmesh-graph-v6"
             result = add_shortcuts(geometry, graph, previous)
-            result["augmentation_input_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
-            result["augmentation_input_routes_sha256"] = hashlib.sha256(previous_raw).hexdigest()
+            prefix = "refinement" if is_refinement else "augmentation"
+            result[f"{prefix}_input_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
+            result[f"{prefix}_input_routes_sha256"] = hashlib.sha256(previous_raw).hexdigest()
         else:
             result = score_graph(geometry, graph, args.rssi_step_m, args.verify_optimum)
             result["graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()

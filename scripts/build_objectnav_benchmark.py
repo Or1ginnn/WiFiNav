@@ -118,8 +118,15 @@ def build_scene(ref, config, rules, identity, output, radio_python, decoder):
     previous = product("base_reference", radio_python, "solve_objectnav_rssi_graph.py", "--graph", graph)
     augmented = product("augmented_graph", sys.executable, "solve_objectnav_rssi_graph.py",
                         "--augment-graph", graph, "--previous-routes", previous)
-    graph = product("navmesh_graph", sys.executable, "solve_objectnav_rssi_graph.py", "--validate-graph", augmented)
+    graph = product("first_navmesh_graph", sys.executable, "solve_objectnav_rssi_graph.py", "--validate-graph", augmented)
     steps = rules["route_rssi_steps_m"]
+    first_reference = product("first_fine_reference", radio_python, "solve_objectnav_rssi_graph.py",
+                              "--graph", graph, "--verify-optimum", "--rssi-step-m", steps[0])
+    # The fine solution can use different turns than the coarse route that
+    # seeded the first pass. Recheck its straight links before freezing it.
+    refined = product("refined_graph", sys.executable, "solve_objectnav_rssi_graph.py",
+                      "--augment-graph", graph, "--previous-routes", first_reference)
+    graph = product("navmesh_graph", sys.executable, "solve_objectnav_rssi_graph.py", "--validate-graph", refined)
     final = load(product("rssi_reference", radio_python, "solve_objectnav_rssi_graph.py",
                          "--graph", graph, "--verify-optimum", "--rssi-step-m", steps[0]))
     cross = load(product("cross_reference", radio_python, "solve_objectnav_rssi_graph.py",

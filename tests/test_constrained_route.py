@@ -30,6 +30,11 @@ class OptimalRouteTests(unittest.TestCase):
         self.assertIn((0, 3), list(shortcut_pairs(points)))
         self.assertEqual(list(shortcut_pairs([(0, 0, 0), (1, 0, 0), (2, 0, 0)])), [])
 
+    def test_refinement_can_recheck_odd_fine_route_sample(self):
+        points = [(0, 0, 0), (.1, 0, 0), (.1, 0, .7), (.8, 0, .7), (.8, 0, 0)]
+        self.assertNotIn((1, 4), list(shortcut_pairs(points)))
+        self.assertIn((1, 4), list(shortcut_pairs(points, start_stride=1)))
+
     def test_floor_guard_rejects_flat_waypoints_over_a_raised_surface(self):
         def snap(point):
             x, y, z = point
