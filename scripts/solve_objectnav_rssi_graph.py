@@ -2,6 +2,7 @@
 """Build the known-map ObjectNav graph in Habitat, then solve it for each AP on CPU."""
 import argparse
 import hashlib
+import itertools
 import json
 import math
 from pathlib import Path
@@ -153,22 +154,32 @@ def audit_floor_graph(geometry, graph):
     return graph
 
 
-def shortcut_pairs(points, *, start_stride=2):
+def shortcut_pairs(points, *, start_stride=2, final=False):
     """Propose bounded local straight links along a previously solved path."""
     total = [0.0]
     for a, b in zip(points, points[1:]):
         total.append(total[-1] + math.dist(a, b))
+    # Keep the proposal granularity tied to the original 7.5 cm path
+    # sampling, even when the reference is sampled at the finer RSSI step.
+    # The final pass has no geometric-improvement gate beyond roundoff.
+    minimum_saving = LENGTH_UNIT_M if final else SHORTCUT_MIN_SAVED_M
+    end_stride = start_stride if final else 1
+    last = len(points) - 1
     for i in range(0, len(points) - 2, start_stride):
-        for j in range(i + 2, len(points)):
+        first = i + max(2, end_stride)
+        ends = range(first, last + 1, end_stride)
+        if final and last > i + 1 and last not in ends:
+            ends = itertools.chain(ends, (last,))
+        for j in ends:
             arc = total[j] - total[i]
             if arc > SHORTCUT_MAX_ARC_M:
                 break
             chord = math.dist(points[i], points[j])
-            if .001 < chord <= SHORTCUT_MAX_CHORD_M and arc - chord >= SHORTCUT_MIN_SAVED_M:
+            if .001 < chord <= SHORTCUT_MAX_CHORD_M and arc - chord >= minimum_saving:
                 yield i, j
 
 
-def add_shortcuts(geometry, graph, references):
+def add_shortcuts(geometry, graph, references, *, final=False):
     import habitat_sim
     import numpy as np
 
@@ -179,8 +190,13 @@ def add_shortcuts(geometry, graph, references):
     }
     if (allowed.get(graph["format"]) != references["format"]
             or references["tasks"].keys() != graph["tasks"].keys()
-            or (refinement and not references["independent_solver_checked"])):
+            or (refinement and not references["independent_solver_checked"])
+            or (final and (not refinement or graph.get("shortcut_passes") != 2))):
         raise ValueError("Expected matching audited ObjectNav graph and route results")
+    start_stride = 1 if refinement else 2
+    if final:
+        step, = references["sampling_steps_m"]
+        start_stride = max(1, round(STEP_M / step))
     navmesh = (ROOT / "data/scene_datasets" / geometry["source_ref"]).with_suffix(".navmesh")
     finder = habitat_sim.PathFinder()
     if not finder.load_nav_mesh(str(navmesh)):
@@ -215,7 +231,7 @@ def add_shortcuts(geometry, graph, references):
             if math.dist(route[0], points[start]) > .005 or math.dist(route[-1], points[stop]) > .005:
                 raise ValueError(f"Shortcut route uses different endpoints for row {key}")
             legal = []
-            for i, j in shortcut_pairs(route, start_stride=1 if refinement else 2):
+            for i, j in shortcut_pairs(route, start_stride=start_stride, final=final):
                 a, b = route[i], route[j]
                 pair = tuple(sorted((a, b)))
                 if pair not in tested:
@@ -241,10 +257,13 @@ def add_shortcuts(geometry, graph, references):
                     shortcuts.add(pair)
                     task["edges"].append((a, b, []))
                     edges.add(pair)
-        task["refinement_shortcut_edges" if refinement else "shortcut_edges"] = len(shortcuts)
+        count_key = "final_shortcut_edges" if final else "refinement_shortcut_edges" if refinement else "shortcut_edges"
+        task[count_key] = len(shortcuts)
         print(f"{key}: {len(shortcuts)} floor-checked shortcuts", flush=True)
     graph["format"] = "wifinav-objectnav-navmesh-graph-v5"
-    graph["shortcut_passes"] = 2 if refinement else 1
+    graph["shortcut_passes"] = 3 if final else 2 if refinement else 1
+    if final:
+        graph["final_shortcut_sample_stride"] = start_stride
     graph["shortcut_max_chord_m"] = SHORTCUT_MAX_CHORD_M
     return graph
 
@@ -331,7 +350,10 @@ def score_graph(geometry, built, step_m=STEP_M, verify_optimum=False):
         floor_id = task["floor"]
         floor = built["floors"][floor_id]
         nodes = np.asarray(floor["points"] + task["points"], dtype=float)
-        edges = floor["edges"] + task["edges"]
+        # Canonicalize stored edge order within each group, keeping the shared
+        # floor samples together. Equal-cost parallel edges then have a stable
+        # order even if a serialization contains the same edges in another order.
+        edges = sorted(floor["edges"]) + sorted(task["edges"])
         floor_nodes = len(floor["points"])
         floor_edges = len(floor["edges"])
         endpoints = [(a, b) for a, b, _ in edges]
@@ -440,6 +462,7 @@ def main():
     mode.add_argument("--augment-graph", type=Path, help="Add floor-checked local straight links to an existing graph")
     mode.add_argument("--validate-graph", type=Path, help="Run dense native checks on a shortcut-augmented graph")
     parser.add_argument("--previous-routes", type=Path, help="Frozen route results used to propose local links")
+    parser.add_argument("--complete-shortcuts", action="store_true", help="Check final local links without a minimum saving")
     parser.add_argument("--rssi-step-m", type=float, default=STEP_M)
     parser.add_argument("--verify-optimum", action="store_true", help="Check every AP result with independent scalar solves")
     parser.add_argument("--proposals", type=Path, help="Include the audited paths from the earlier review")
@@ -449,6 +472,8 @@ def main():
         parser.error("--proposals is only used during graph construction")
     if bool(args.augment_graph) != bool(args.previous_routes):
         parser.error("--augment-graph and --previous-routes are used together")
+    if args.complete_shortcuts and not args.augment_graph:
+        parser.error("--complete-shortcuts requires --augment-graph")
     if not 0 < args.rssi_step_m <= STEP_M or ((args.verify_optimum or args.rssi_step_m != STEP_M) and not args.graph):
         parser.error("RSSI scoring options require --graph and a positive step no larger than 0.075 m")
     output = args.output.resolve()
@@ -479,8 +504,8 @@ def main():
             if previous["graph_sha256"] != hashlib.sha256(graph_raw).hexdigest():
                 raise ValueError("Previous routes do not match the graph being augmented")
             is_refinement = graph["format"] == "wifinav-objectnav-navmesh-graph-v6"
-            result = add_shortcuts(geometry, graph, previous)
-            prefix = "refinement" if is_refinement else "augmentation"
+            result = add_shortcuts(geometry, graph, previous, final=args.complete_shortcuts)
+            prefix = "final_shortcuts" if args.complete_shortcuts else "refinement" if is_refinement else "augmentation"
             result[f"{prefix}_input_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
             result[f"{prefix}_input_routes_sha256"] = hashlib.sha256(previous_raw).hexdigest()
         else:

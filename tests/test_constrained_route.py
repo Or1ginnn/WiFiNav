@@ -35,6 +35,11 @@ class OptimalRouteTests(unittest.TestCase):
         self.assertNotIn((1, 4), list(shortcut_pairs(points)))
         self.assertIn((1, 4), list(shortcut_pairs(points, start_stride=1)))
 
+    def test_final_shortcuts_include_smaller_turns_and_stop(self):
+        points = [(i * .025, 0, 0) for i in range(5)] + [(.1, 0, i * .025) for i in range(1, 7)]
+        self.assertNotIn((0, 10), list(shortcut_pairs(points, start_stride=1)))
+        self.assertEqual(list(shortcut_pairs(points, start_stride=4, final=True)), [(0, 8), (0, 10)])
+
     def test_floor_guard_rejects_flat_waypoints_over_a_raised_surface(self):
         def snap(point):
             x, y, z = point

@@ -23,7 +23,7 @@ OPERATIONAL_FILES = (
     "scripts/build_objectnav_benchmark.py", "scripts/build_objectnav_ap_smoke.py",
     "scripts/score_objectnav_trace.py", "scripts/run_objectnav_ap_radio.py",
     "scripts/run_rss_raytrace_pilot.py", "scripts/solve_objectnav_rssi_graph.py", "scripts/check_objectnav_graph_optimum.py",
-    "src/connectivity_vln/benchmark/single_floor.py",
+    "src/connectivity_vln/benchmark/single_floor.py", "src/connectivity_vln/benchmark/constrained_route.py",
 )
 RENDER_ENV = ROOT / "runtime/envs/sionna_rt_2_2_0_py311/bin/python"
 DECODER = ROOT / "runtime/tools/basisu_v1_60/decode_basis_ppm"
@@ -126,7 +126,12 @@ def build_scene(ref, config, rules, identity, output, radio_python, decoder):
     # seeded the first pass. Recheck its straight links before freezing it.
     refined = product("refined_graph", sys.executable, "solve_objectnav_rssi_graph.py",
                       "--augment-graph", graph, "--previous-routes", first_reference)
-    graph = product("navmesh_graph", sys.executable, "solve_objectnav_rssi_graph.py", "--validate-graph", refined)
+    graph = product("second_navmesh_graph", sys.executable, "solve_objectnav_rssi_graph.py", "--validate-graph", refined)
+    reference = product("second_fine_reference", radio_python, "solve_objectnav_rssi_graph.py",
+                        "--graph", graph, "--verify-optimum", "--rssi-step-m", steps[0])
+    completed = product("completed_graph", sys.executable, "solve_objectnav_rssi_graph.py",
+                        "--augment-graph", graph, "--previous-routes", reference, "--complete-shortcuts")
+    graph = product("navmesh_graph", sys.executable, "solve_objectnav_rssi_graph.py", "--validate-graph", completed)
     final = load(product("rssi_reference", radio_python, "solve_objectnav_rssi_graph.py",
                          "--graph", graph, "--verify-optimum", "--rssi-step-m", steps[0]))
     cross = load(product("cross_reference", radio_python, "solve_objectnav_rssi_graph.py",
