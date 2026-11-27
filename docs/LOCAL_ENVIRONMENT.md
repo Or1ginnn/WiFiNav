@@ -242,3 +242,5 @@ RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数
 2026-11-26 复用上述已有 CPU 环境完成官方 `val` 单场景工程小批。产物和复跑位于 `runtime/diagnostics/objectnav_val_small_20261126_v2/` 及其 `_replay` 副本，未启动模型服务。正式全量入口按官方分片检查资产，返回缺 35 个场景。授权档案到齐后暂存于 `runtime/data_imports/hm3d_val_v0.2/` 并用项目安装入口核验。[小批与全量状态](experiments/objectnav_val_small_2026-11-26.md)
 
 2026-11-27 沿用同一 CPU 环境验收路径直连修复。后续全量入口使用新版小批清单 `runtime/diagnostics/objectnav_val_small_20261127_v3/manifest.json`。服务器保留两版批次及独立复跑，本机保留新旧 HTML。[新版验收](experiments/objectnav_val_small_2026-11-26.md#2026-11-27-新版验收)
+
+2026-11-28，同一 CPU 环境验收固定直连规则和输出采样表面检查。当前放量入口使用 `runtime/diagnostics/objectnav_val_small_20261128_v5_parallel/manifest.json`，本机 HTML 已更新。保留独立验收拒绝的 v4 批次供追溯。[当前验收](experiments/objectnav_val_small_2026-11-26.md#2026-11-28-确定性复核与最终直连修复)
