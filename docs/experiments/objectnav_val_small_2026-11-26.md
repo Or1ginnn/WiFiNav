@@ -37,6 +37,8 @@
 
 调用 `--full-after` 已通过小批配置与源码校验，随后因缺失 35 个正式 `val` 场景返回状态 2。三个官方 v0.2 `val` 场景包的匿名请求均返回登录 HTML。需补齐 `hm3d-val-habitat-v0.2.tar`、`hm3d-val-semantic-annots-v0.2.tar` 和 `hm3d-val-semantic-configs-v0.2.tar`。下载先经 Matterport 已有授权，再暂存到项目 `runtime/data_imports/hm3d_val_v0.2/`。[Matterport 官方下载表](https://github.com/matterport/habitat-matterport-3dresearch#-downloading-hm3d-v02)
 
+2026-11-28 用户完成 v5 HTML 审阅并同意放量。服务器在 `72ad8be` 上以当期 v5 清单再次调用全量入口，仍只找到 1 个完整场景，缺 35 个。三份归档均未在本机项目或服务器项目中找到，服务器限量匿名 GET 确认仍返回 HTML。预检记录位于 `runtime/diagnostics/objectnav_full_preflight_20261128/`。正式批次尚未生成。
+
 ```sh
 /opt/anaconda3/envs/habitat0.3.0/bin/python scripts/install_hm3d_val.py
 /opt/anaconda3/envs/habitat0.3.0/bin/python scripts/build_objectnav_benchmark.py \
