@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from connectivity_vln.benchmark.constrained_route import lexicographic_route, optimal_route
 from connectivity_vln.benchmark.single_floor import distances
-from solve_objectnav_rssi_graph import VERIFIED_FLOOR_STEP_M, edge_on_floor, shortcut_pairs
+from solve_objectnav_rssi_graph import VERIFIED_FLOOR_STEP_M, edge_on_floor, sampled_edge_on_floor, shortcut_pairs
 
 
 def graphs(n, edges):
@@ -56,6 +56,16 @@ class OptimalRouteTests(unittest.TestCase):
         line = [[0, 0, 0], [.30, 0, 0]]
         self.assertTrue(edge_on_floor(line, snap, 0, .28))
         self.assertFalse(edge_on_floor(line, snap, 0, .28, VERIFIED_FLOOR_STEP_M))
+
+    def test_surface_guard_covers_midpoint_of_exported_sample_pair(self):
+        line = [[0, 0, 0], [.37, 0, 0]]
+
+        def snap(point):
+            x, _, z = point
+            return x, .281 if abs(x - .00925) < .00001 else 0, z
+
+        self.assertTrue(edge_on_floor(line, snap, 0, .28, VERIFIED_FLOOR_STEP_M))
+        self.assertFalse(sampled_edge_on_floor(line, .01875, lambda *point: snap(point)[1] <= .28))
 
     def test_severe_weak_exposure_takes_priority_over_weak_distance(self):
         # Each edge stores (severe weak distance, all weak distance, length).

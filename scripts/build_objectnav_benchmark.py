@@ -131,7 +131,8 @@ def build_scene(ref, config, rules, identity, output, radio_python, decoder):
                         "--graph", graph, "--verify-optimum", "--rssi-step-m", steps[0])
     completed = product("completed_graph", sys.executable, "solve_objectnav_rssi_graph.py",
                         "--augment-graph", graph, "--previous-routes", reference, "--complete-shortcuts")
-    graph = product("navmesh_graph", sys.executable, "solve_objectnav_rssi_graph.py", "--validate-graph", completed)
+    dense = product("dense_navmesh_graph", sys.executable, "solve_objectnav_rssi_graph.py", "--validate-graph", completed)
+    graph = product("navmesh_graph", sys.executable, "solve_objectnav_rssi_graph.py", "--certify-sampled-surface", dense)
     final = load(product("rssi_reference", radio_python, "solve_objectnav_rssi_graph.py",
                          "--graph", graph, "--verify-optimum", "--rssi-step-m", steps[0]))
     cross = load(product("cross_reference", radio_python, "solve_objectnav_rssi_graph.py",

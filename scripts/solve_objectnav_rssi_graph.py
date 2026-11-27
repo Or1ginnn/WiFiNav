@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build the known-map ObjectNav graph in Habitat, then solve it for each AP on CPU."""
 import argparse
+from functools import lru_cache
 import hashlib
 import itertools
 import json
@@ -19,6 +20,7 @@ GRID_M = .15
 STEP_M = .075
 FLOOR_CHECK_STEP_M = STEP_M / 2
 VERIFIED_FLOOR_STEP_M = STEP_M / 16
+ROUTE_AUDIT_STEP_M = STEP_M / 8
 VERIFIED_RSSI_STEPS_M = (STEP_M, STEP_M / 2, STEP_M / 4)
 LENGTH_UNIT_M = 1e-6
 SHORTCUT_MAX_CHORD_M = 2.25
@@ -325,6 +327,63 @@ def validate_graph_geometry(geometry, graph):
     return graph
 
 
+def sampled_edge_on_floor(points, step_m, point_check):
+    """Check the exported samples and each interval between them."""
+    import numpy as np
+
+    trace = np.asarray(points, dtype=float)
+    sizes = np.maximum(1, np.ceil(np.linalg.norm(np.diff(trace, axis=0), axis=1) / step_m)).astype(int)
+    for x, y, count in zip(trace, trace[1:], sizes):
+        samples = [*np.linspace(x, y, count, endpoint=False).tolist(), y.tolist()]
+        for p, q in zip(samples, samples[1:]):
+            a, b = sorted((p, q))
+            pieces = max(1, math.ceil(math.dist(a, b) / ROUTE_AUDIT_STEP_M))
+            if not all(point_check(*point) for point in np.linspace(a, b, pieces + 1, dtype=np.float32)):
+                return False
+    return True
+
+
+def certify_sampled_surface(geometry, graph):
+    """Reject edges whose actual scoring samples leave the single-floor surface."""
+    import habitat_sim
+    import numpy as np
+
+    if graph["format"] != "wifinav-objectnav-navmesh-graph-v6" or graph.get("shortcut_passes") != 3:
+        raise ValueError("Expected the final dense-checked ObjectNav graph")
+    navmesh = (ROOT / "data/scene_datasets" / geometry["source_ref"]).with_suffix(".navmesh")
+    finder = habitat_sim.PathFinder()
+    if not finder.load_nav_mesh(str(navmesh)):
+        raise ValueError(f"Cannot load navmesh for {navmesh}")
+    tolerance = geometry["config"]["floor_tolerance_m"]
+
+    @lru_cache(maxsize=65536)
+    def point_on_floor(floor_y, x, y, z):
+        surface = finder.snap_point(np.asarray((x, y, z), dtype=np.float32))
+        return (np.isfinite(surface).all() and abs(surface[1] - floor_y) <= tolerance + 1e-5
+                and math.hypot(surface[0] - x, surface[2] - z) <= .025)
+
+    def filter_edges(spec, points, floor_y):
+        def point_check(x, y, z):
+            return point_on_floor(floor_y, x, y, z)
+
+        kept = []
+        for a, b, bends in spec["edges"]:
+            trace = [points[a], *bends, points[b]]
+            if all(sampled_edge_on_floor(trace, step, point_check) for step in graph["native_check_sampling_steps_m"]):
+                kept.append((a, b, bends))
+        spec["sampled_surface_rejections"] = len(spec["edges"]) - len(kept)
+        spec["edges"] = kept
+
+    for key, floor in graph["floors"].items():
+        filter_edges(floor, floor["points"], geometry["floors"][key]["y"])
+    for key, task in graph["tasks"].items():
+        floor = graph["floors"][task["floor"]]
+        filter_edges(task, floor["points"] + task["points"], geometry["floors"][task["floor"]]["y"])
+        print(f"{key}: {task['sampled_surface_rejections']} edges fail the sampled surface check", flush=True)
+    graph["route_surface_step_m"] = ROUTE_AUDIT_STEP_M
+    return graph
+
+
 def score_graph(geometry, built, step_m=STEP_M, verify_optimum=False):
     import drjit as dr
     from run_objectnav_ap_radio import habitat_to_glb, semantic_geometry, signal_for_anchor
@@ -461,6 +520,7 @@ def main():
     mode.add_argument("--audit-graph", type=Path, help="Check the actual surface heights of an existing graph")
     mode.add_argument("--augment-graph", type=Path, help="Add floor-checked local straight links to an existing graph")
     mode.add_argument("--validate-graph", type=Path, help="Run dense native checks on a shortcut-augmented graph")
+    mode.add_argument("--certify-sampled-surface", type=Path, help="Check the surface at the actual output sample positions")
     parser.add_argument("--previous-routes", type=Path, help="Frozen route results used to propose local links")
     parser.add_argument("--complete-shortcuts", action="store_true", help="Check final local links without a minimum saving")
     parser.add_argument("--rssi-step-m", type=float, default=STEP_M)
@@ -468,7 +528,7 @@ def main():
     parser.add_argument("--proposals", type=Path, help="Include the audited paths from the earlier review")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    if (args.graph or args.audit_graph or args.augment_graph or args.validate_graph) and args.proposals:
+    if (args.graph or args.audit_graph or args.augment_graph or args.validate_graph or args.certify_sampled_surface) and args.proposals:
         parser.error("--proposals is only used during graph construction")
     if bool(args.augment_graph) != bool(args.previous_routes):
         parser.error("--augment-graph and --previous-routes are used together")
@@ -486,7 +546,7 @@ def main():
     for name, expected in geometry["source_sha256"].items():
         if name.endswith(suffixes) and hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != expected:
             raise ValueError(f"Frozen asset changed: {name}")
-    graph_input = args.graph or args.audit_graph or args.augment_graph or args.validate_graph
+    graph_input = args.graph or args.audit_graph or args.augment_graph or args.validate_graph or args.certify_sampled_surface
     if graph_input:
         graph_raw = graph_input.read_bytes()
         graph = json.loads(graph_raw)
@@ -498,6 +558,9 @@ def main():
         elif args.validate_graph:
             result = validate_graph_geometry(geometry, graph)
             result["validated_input_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
+        elif args.certify_sampled_surface:
+            result = certify_sampled_surface(geometry, graph)
+            result["sampled_surface_input_graph_sha256"] = hashlib.sha256(graph_raw).hexdigest()
         elif args.augment_graph:
             previous_raw = args.previous_routes.read_bytes()
             previous = json.loads(previous_raw)
