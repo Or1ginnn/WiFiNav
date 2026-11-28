@@ -1,10 +1,10 @@
 # Social Navigation benchmark 对照与 WiFiNav v1 审查
 
-2026-11-28。对照任务定义、场景设计、评分、基线和公开复现入口。优先读论文正式版本、作者的版本化预印本和评测仓库。本文的完成度判断属于项目审查。文献来源提供评测实践和作者建议，各会议没有统一的导航 benchmark 准入门槛。
+2026-11-28。对照任务定义、场景设计、评分、基线和公开复现入口。优先读论文正式版本、作者的版本化预印本和评测仓库。本文的完成度判断属于项目审查。文献来源提供评测实践和作者建议，各会议没有统一的导航 benchmark 准入门槛。第 2 节记录修复前的 v1 状态，最新工程结果见第 4 节。
 
 ## 结论
 
-WiFiNav 已完成一套可冻结的单层、模拟 RSSI ObjectNav **数据与离线参考 v1**。原始任务清点、AP、模拟信号、参考路线与内部复算都有证据。作为第三方可以用来公平比较方法的**闭环 benchmark**，当前还缺严格同层的执行与评分协议、同协议下的可复跑基线，以及第三方从授权资产到打分表的完整入口。扩大场景或重做已验收 AP 的优先级在这三项之后。
+WiFiNav 已完成一套可冻结的单层、模拟 RSSI ObjectNav **数据与离线参考 v1**。原始任务清点、AP、模拟信号、参考路线与内部复算都有证据。在此基础上，v1.1 补齐同层评分与闭环入口，通过 20 题的工程对照及独立复跑。论文主评测仍需具代表性的 ObjectNav 基线与更大规模的公平对照。[v1.1 验收报告](../experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md)
 
 本项目的问题是「机器人寻找目标物体时，能否少走弱信号区，同时保住找物体的表现」。应评测导航能力和通信覆盖两个维度。人群交互、社交行为、长文本路线指令和人类主观评分属于各文献具体任务的观测对象。模拟 RSSI 可用于覆盖诊断。关于丢包、时延、真正掉线或远端模型服务可用性的结论，需要链路模型或设备上的测量。
 
@@ -14,7 +14,7 @@ WiFiNav 已完成一套可冻结的单层、模拟 RSSI ObjectNav **数据与离
 |---|---|---|
 | **Habitat Challenge 2023 ObjectNav** | HM3D-Semantics v0.2，145/36/35 个 train/val/test 场景，6 类目标。给目标类别和传感器，固定机器人、动作及控制配置。官方说明任务可在同层完成。 | 同层可解是任务性质。WiFiNav 若要求实际轨迹全程单层，执行边界和最短路分母必须显式规定。赛题用 Stretch 连续控制，直接比较绝对 SR/SPL 时还要对齐机器人、观测和预算。[官方挑战赛](https://github.com/facebookresearch/habitat-challenge#task-objectnav) · [配置](https://github.com/facebookresearch/habitat-challenge/blob/main/configs/benchmark/nav/objectnav/objectnav_v2_hm3d_stretch_challenge.yaml) · [ObjectNav 评测定义](https://arxiv.org/abs/2006.13171) |
 | **HA-VLN 2.0** | 把动态行人、社会距离和相关语言加入 R2R-CE。90 个建筑扫描、16,844 条指令，公开划分，test 为 18 个保留建筑上的 3,408 条指令。提供离散和连续协议。 | 同时看到达准确度和人际碰撞。官方榜单的 SR 包含无碰撞条件，另报 NE、CR、TCR，区分 zero-shot 和 retrained。作者统计 35.5% 的路径与行人运动相交，说明新增变量确实有机会影响路线。沿用「先量化有机会改变行为的样本」的做法，比例由各自任务定义决定。[论文 §3、§5、§7](https://arxiv.org/html/2503.14229v5) · [官方榜单与定义](https://uwmilab.github.io/HA-VLN-webpage/) |
-| **LISN-Bench**（版本化预印本） | Arena 3.0 内定义 5 类具体任务，覆盖跟随行人、避让行人、到某区域、避开某区域。每任务至少 3 种场景变体，各随机初始化重复 5–9 次。 | 成功包含任务规定的行为，另看碰撞、平滑性、人群与区域合规指标。两种对照与作者方法使用相同 GPT-4o。可借鉴的是固定其余条件、对比是否接入新增信息，以及在同一设计下检验不同难度。[论文 §III、§V](https://arxiv.org/html/2512.09920v1) · [作者实现](https://github.com/Social-Nav/tvss_nav) |
+| **LISN-Bench**（ICRA 2026） | Arena 3.0 内定义 5 类具体任务，覆盖跟随行人、避让行人、到某区域、避开某区域。每任务至少 3 种场景变体，各随机初始化重复 5–9 次。 | 成功包含任务规定的行为，另看碰撞、平滑性、人群与区域合规指标。两种对照与作者方法使用相同 GPT-4o。可借鉴的是固定其余条件、对比是否接入新增信息，以及在同一设计下检验不同难度。[正式会议议程](https://ras.papercept.net/conferences/conferences/ICRA26/program/ICRA26_ContentListWeb_3.html) · [论文 §III、§V](https://arxiv.org/html/2512.09920v1) · [作者实现](https://github.com/Social-Nav/tvss_nav) |
 | **SocialNav 的 SocNav Benchmark**（CVPR 2026） | PointGoal 闭环评测，用 Isaac Sim 与 3DGS，在训练未见的 9 个新场景中各取 20 个 start–goal case，合计 180 个。近距离和远距离分别采样。论文中的约 700 万样本属于训练数据。 | SR、路线完成度、SPL 与社会合规的距离比例和时间比例并列。作者的合规率将失败赋 0，且在共同起终点的实机试验中比较方法。WiFiNav 可以独立报告覆盖和任务完成，也应防止提前停下造成人为低暴露。升级公开版 ABot-Navigation 提供固定阈值、统一 agent 接口及单一评测命令，采用自己的指标口径。[论文 §3、§5](https://openaccess.thecvf.com/content/CVPR2026/papers/Chen_SocialNav_Training_Human-Inspired_Foundation_Model_for_Socially-Aware_Embodied_Navigation_CVPR_2026_paper.pdf) · [升级版仓库](https://github.com/amap-cvlab/ABot-Navigation#metrics) |
 | **HabiCrowd**（IROS 2024）与 **SocNavBench** | HabiCrowd 在 HM3D 加模拟动态行人，480 个场景，400/40/40 划分，按行人密度覆盖难度。SocNavBench 用真实行人轨迹构造可复现的情境。 | HabiCrowd 验证行人动力学，并在 PointGoal 和 ObjectNav 上比较五种基线的 SR、SPL、到目标距离和单位距离人机碰撞。SocNavBench 统一比较多种方法，分别量化效率、避碰、社会遵从。对 WiFiNav，密度对应的是覆盖条件的多样性，行人模型验证对应的是对 RSSI 模型及阈值的验证。[HabiCrowd 原论文 §IV](https://www.csc.liv.ac.uk/~anguyen/assets/pdfs/2024_IROS_Habicrowd.pdf) · [SocNavBench 原论文](https://arxiv.org/abs/2103.00047) |
 | **CapNav**（CVPR 2026） | 45 个真实室内场景、473 个起终点任务，按 5 种身体与行动能力构造 2,365 个问答。用场景图标注门、楼梯、尺寸等限制。 | 分别评可达判断、路径有效性、是否符合移动能力及推理。测试 13 个 VLM，并分析不同能力的失败。它采用离线输出评估，适合借鉴明确边界、逐条件给结果的方法。[CVPR 原论文](https://openaccess.thecvf.com/content/CVPR2026/html/Su_CapNav_Benchmarking_Vision_Language_Models_on_Capability-conditioned_Indoor_Navigation_CVPR_2026_paper.html) |
@@ -48,3 +48,13 @@ Francis 等的 ACM THRI 指南把评价目标行为、定量指标、对照基�
 4. **打包可独立复跑的最小发行版。** 提供冻结清单版本、数据来源和许可要求、统一运行命令、闭环 agent 接口、评分脚本及小样例期望结果、基线汇总和已知局限。让另一环境按文档从用户自有的授权资产复跑小批。公开榜单可以在评测流程稳定后建设。
 
 上述条目是依据文献与本项目证据提出的发布检查。本文完成了调研和清单复核。闭环回归、方法实验和链路实测以各自后续实际记录为准。
+
+## 4. 10 月调研附件与 v1.1 复审
+
+附件前两页的六篇方法论文均有正式发表记录。EnvGuard 为 RSS 2026。Social-LLaVA 为 IROS 2025，CoNVOI 为 IROS 2024，BehAV 和 OLiVia-Nav 为 ICRA 2025，VLM-Social-Nav 为 RA-L 2025 年 1 月刊。附件中其余 RF 研究的发表状态应逐条核对。[历史附件存档](wifi_aware_vln_literature_review_2026-10-15.pdf) · [EnvGuard](https://roboticsproceedings.org/rss22/p133.html) · [Social-LLaVA](https://ieeexplore.ieee.org/document/11247618/) · [CoNVOI](https://doi.org/10.1109/IROS58592.2024.10802716) · [BehAV](https://doi.org/10.1109/ICRA55743.2025.11127890) · [OLiVia-Nav 作者机构](https://asblab.mie.utoronto.ca/publications/2025.html) · [VLM-Social-Nav](https://ieeexplore.ieee.org/document/10777573/)
+
+附件的核心可迁移点是直接量化新增约束。BehAV 在五种室外情境比较实际走法的规则遵从率。OLiVia-Nav 对同样的人机情境比较个人空间侵犯时间和路径误差。EnvGuard 在有烟、热、水等受控风险的实物环境比较导航暴露。Social-LLaVA 的四万余条是视觉问答数据量。按这些实验单位分别比较可以避免将问答、路线参考和闭环试验混计。[BehAV §V](https://arxiv.org/html/2409.16484v2#S5) · [OLiVia-Nav 论文](https://arxiv.org/pdf/2409.13675) · [EnvGuard](https://roboticsproceedings.org/rss22/p133.html) · [Social-LLaVA](https://ieeexplore.ieee.org/document/11247618/)
+
+附件还列出了已经能在 Habitat 里提供视觉和 RF 观测的工作。WiFiSpaces / ViFiNav 与 Navigation with RF Cues 使用 RF 寻找发射设备。WiFiNav 以物体类别定义目标，用固定 AP 的覆盖作为路径代价与评测属性。附件提出过在线估计完整信号场、语言路线指令和云推理链路等问题。v1.1 的实证范围为单层 ObjectNav 与模拟 RSSI 覆盖，应以这个范围陈述贡献。[WiFiSpaces / ViFiNav](https://arxiv.org/abs/2610.12733) · [Navigation with RF Cues](https://arxiv.org/abs/2610.08105) · [云推理执行](https://arxiv.org/abs/2606.31497)
+
+复核了 `dc882236` 的服务器结果。951 条参考距离精确，10 条保留区间。真实动作回归挡住了曾被判成功的跨层轨迹。固定 20 题配对与独立复跑的结果逐字节一致。两组仅 1 和 2 条成功，唯一共同成功的路线完全相同。ObservedRSSI 的全样本平均弱区距离为 5.72 m，NoSignal 为 2.69 m，其中包含失败前缀。数据集和工程协议已可验收，尚不能由此证明通信方法有效，也没有跨环境的独立复现实证。[验收、哈希与复跑命令](../experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md)
