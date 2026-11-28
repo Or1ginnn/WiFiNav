@@ -268,3 +268,5 @@ RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数
 2026-11-28 23:02，官方参数开发验收结束，复用 GPU 0 和原 localhost 服务，Habitat 0.3.0 跑完同一固定开发场景的 4 条，离线复验复用 CPU。模型端口关闭，复查四卡各 15 MiB。全量评测继续暂停。[结果与配置哈希](experiments/objectnav_vlfm_2026-11-28.md#暂停正式评测与对齐配置)
 
 2026-11-28 23:44，VLFM 官方 `vlfm.run` 用现有 Habitat 0.2.4 环境，在 GPU 1–3 并行完成官方 v1 `val` 的固定 20 条。签收原生 20 条评分后，复查本次 localhost 服务已关闭，四张卡各 15 MiB。原始 v1 任务包和小批与 v2 正式集分别存放，961 条仍暂停。[结果与复跑](experiments/objectnav_vlfm_2026-11-28.md#原入口-v1-小批)
+
+2026-11-29，复用两套 Habitat 与本地推理服务，GPU 0–1 运行原入口，GPU 2–3 运行 0.3.0 接入，完成 v2 `train` 的固定 20 条配对。CPU 复算原版动作并检查跨版本位姿，产物在 `runtime/diagnostics/objectnav_vlfm_20261129_v2_paired20/`。本次服务已退出，复查四卡均为 15 MiB，正式集继续暂停。[配对与差异](experiments/objectnav_vlfm_2026-11-28.md#v2-开发任务配对)
