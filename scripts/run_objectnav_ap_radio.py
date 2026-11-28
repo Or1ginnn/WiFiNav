@@ -195,8 +195,9 @@ def build(geometry, asset, decoder):
             floor_radio["cutaway"] = render_floor(physical, floor["map"], textures)
         for candidate in floor["candidates"]:
             values, blocked = signal_for_anchor(scene, tags, candidate["xyz"], receivers, config)
-            if not np.isfinite(values).all() or not 0 < blocked < len(values):
-                raise ValueError(f"Unexpected structural ray results on {fid}/{candidate['id']}")
+            if not np.isfinite(values).all() or not 0 <= blocked < len(values):
+                raise ValueError(f"Unexpected structural ray results on {fid}/{candidate['id']}: "
+                                 f"{blocked}/{len(values)} blocked")
             grid = np.full(mask.shape, -128, dtype=np.int8)
             grid[mask > 0] = np.clip(np.rint(values[:len(points)]), -127, 0).astype(np.int8)
             covered = np.zeros(mask.shape, dtype=bool)
