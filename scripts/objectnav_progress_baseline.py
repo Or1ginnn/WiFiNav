@@ -10,9 +10,12 @@ from objectnav_sensor_baseline import SensorBaseline
 class ProgressBaseline(SensorBaseline):
     """Try an open heading when local turns or collisions prevent progress."""
 
+    elevation_trigger_m = None
+
     def reset(self):
         super().reset()
         self.last_pose = None
+        self.last_height = None
         self.last_action = None
         self.stationary = 0
         self.recovery_moves = 0
@@ -27,11 +30,13 @@ class ProgressBaseline(SensorBaseline):
             moved = math.dist(self.last_pose, pose) >= .025
             self.stationary = 0 if moved else self.stationary + 1
             if self.last_action == "move_forward":
-                if moved:
-                    self.recovery_moves = max(0, self.recovery_moves - 1)
-                else:
-                    blocked_now = True
+                elevation_change = abs(obs.relative_height_m - self.last_height)
+                blocked_now = not moved or (self.elevation_trigger_m is not None
+                                            and elevation_change >= self.elevation_trigger_m)
+                if blocked_now:
                     self.blocked[cell].add(heading)
+                else:
+                    self.recovery_moves = max(0, self.recovery_moves - 1)
 
         nominal = super().act(obs)
         blocked = heading in self.blocked[cell]
@@ -56,6 +61,7 @@ class ProgressBaseline(SensorBaseline):
             action = nominal
 
         self.last_pose, self.last_action = pose, action
+        self.last_height = obs.relative_height_m
         return action
 
 
@@ -63,3 +69,11 @@ class EarlierStopBaseline(ProgressBaseline):
     """Development ablation that attempts STOP one forward step earlier."""
 
     stop_target_depth_m = .75
+
+
+class LevelRecoveryBaseline(EarlierStopBaseline):
+    """Change direction after a forward step with noticeable elevation change."""
+
+    # 2.5 cm is one tenth of the nominal forward step. Use the measured
+    # displacement only, with no map, floor anchor or scoring tolerance.
+    elevation_trigger_m = .025

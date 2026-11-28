@@ -16,6 +16,7 @@ class Observation:
     z: float
     yaw: float
     rssi_dbm: Optional[float]
+    relative_height_m: float = 0.
 
 
 class SensorBaseline:

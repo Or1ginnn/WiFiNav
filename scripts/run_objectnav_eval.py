@@ -132,7 +132,7 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
                     "depth_p25_m": float(np.quantile(valid, .25)) if len(valid) else None,
                 })
             action = policy.act(Observation(task["category"], frames["depth"], target_mask,
-                                            float(x), float(z), theta, rssi))
+                                            float(x), float(z), theta, rssi, relative_height_m=float(delta[1])))
         trace["actions"].append(action)
         if action == "stop":
             trace["positions"].append(state.position.tolist())
