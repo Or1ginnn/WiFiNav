@@ -144,3 +144,7 @@ bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
 服务器 `runtime/diagnostics/objectnav_vlfm_20261128_upstream_v1_small/` 保存 `sample_manifest.json`、`prepare_sample.py`、`launch.sh`、逐组原生 `eval.log`、官方逐任务 `stats/`、动作日志和实际配置。WiFiNav 的 961 条正式任务继续暂停。
 
 北京时间 23:44 三组全部退出码 0。**20 条成功 12 条，SR 60%，SPL 0.34750**，共执行 2,911 个动作。三个分组分别成功 5/7、5/7、2/6。原生日志记录失败原因为 5 条误检和 3 条未见目标且未穿越楼梯，后者由上游诊断标记为可能不可行。汇总核对每组的原生输出、单条分数和 20 个场景键。`config_parity.log` 验证配置仅有任务路径、场景根目录、PointNav 路径、TensorBoard 目录及视频目录五个配置字段与上游不同。汇总 SHA-256 为 `a5d63fe215317b94a7c10dcb8a6924c7bc1c8fc1dad00333d38896b87f42e4d2`。该小批用于核对运行与量级，论文的 52.5% 对应原 2,000 条验证任务。 [原论文](https://arxiv.org/html/2312.03275v1)
+
+### v2 开发任务配对
+
+2026-11-29，配对使用已经冻结的 5 个 `train` 场景、20 条任务。两条执行链均复用同一策略及权重、官方相机与 500 步配置。官方入口由 Habitat 0.2.4 原生环境驱动，保留原始动作和原生评分。WiFiNav 接入由 Habitat 0.3.0 单层规则驱动。为了比对原本的导航与停法，离线使用 WiFiNav v2 的目标视点、同层限制和 SPL 参考重放原版动作，比较首次分歧之前的动作并核对终止。正式 `val` 暂停，未参与该对照。

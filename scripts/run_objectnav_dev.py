@@ -101,7 +101,9 @@ def main():
     parser.add_argument("--agent", default=DEFAULT_AGENT)
     parser.add_argument("--vlfm-official", action="store_true", help="Use the upstream VLFM HM3D execution settings")
     parser.add_argument("--egl-device", type=int, default=0)
-    parser.add_argument("--smoke", action="store_true", help="Run the first frozen scene only")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--smoke", action="store_true", help="Run the first frozen scene only")
+    scope.add_argument("--scene", action="append", help="Run a whole frozen scene, repeat to partition the batch")
     args = parser.parse_args()
     profile, profile_hash = read_execution_profile(parser, args)
     action_budget = profile["max_actions"] if profile else MAX_ACTIONS
@@ -119,6 +121,11 @@ def main():
     agent = getattr(import_module(module), name)
     rgbd = getattr(agent, "requires_rgb", False)
     scenes = manifest["scenes"][:1] if args.smoke else manifest["scenes"]
+    if args.scene:
+        selected = set(args.scene)
+        scenes = [scene for scene in scenes if scene["scene"] in selected]
+        if len(scenes) != len(args.scene):
+            parser.error("--scene must name distinct scenes from the frozen manifest")
     args.output.mkdir(parents=True)
     metadata = {
         "diagnostic": DEV_DIAGNOSTIC, "protocol": PROTOCOL, "split": "train", "track": "no_signal",
@@ -132,6 +139,8 @@ def main():
     }
     if profile:
         metadata.update(execution_profile=profile, execution_profile_sha256=profile_hash)
+    if args.scene:
+        metadata.update(scope="selected_scenes", scenes=[scene["scene"] for scene in scenes])
     write(args.output / "metadata.json", metadata)
 
     records = []
@@ -160,6 +169,8 @@ def main():
                 rows.append({"scene": scan, "floor": task["floor"], "category": task["category"],
                              "reference_witness": "audited_geometric_route" if witness is not task else "original",
                              "trace": trace, "navigation": score, "diagnostics": diagnostics(rules, views, trace, score)})
+                if args.scene:
+                    print(f"{scan}: navigation {len(rows)}/{scene['tasks']}", flush=True)
         if len(rows) != scene["tasks"] or (not rgbd and not any(r["trace"]["labeled_frames"] for r in rows)):
             raise ValueError(f"Incomplete executions or missing semantics in {scan}")
         write(args.output / f"{scan}.json", rows)
