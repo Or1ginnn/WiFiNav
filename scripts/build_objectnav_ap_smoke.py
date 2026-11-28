@@ -82,7 +82,7 @@ def anchor_ap_candidates(finder, topdown, mask, floor, config, *, center_ranked=
     ]
 
 
-def build(shard, asset, config, count, *, center_ranked_aps=False):
+def build(shard, asset, config, count, *, center_ranked_aps=False, verify_sampled_routes=False):
     complete_shard = count is None
     if complete_shard and "episode_pool_per_category" in config:
         raise ValueError("Full-shard screening requires all source episodes")
@@ -131,7 +131,7 @@ def build(shard, asset, config, count, *, center_ranked_aps=False):
                 if path is not None and np.linalg.norm(path[-1] - position) < config["stop_radius_m"]:
                     length = float(np.linalg.norm(np.diff(path, axis=0), axis=1).sum())
                     witnesses.append((length, goal["object_id"], position, path))
-        if complete_shard and witnesses:
+        if (complete_shard or verify_sampled_routes) and witnesses:
             # The reference must follow the actual surface, even when a native
             # shortest path interpolates across a stair or a raised threshold.
             verified = next((item for item in sorted(witnesses, key=lambda item: item[0])

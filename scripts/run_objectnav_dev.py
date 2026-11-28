@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run NoSignal navigation on the five frozen HM3D train development scenes."""
+"""Run NoSignal navigation on a frozen HM3D train development sample."""
 import argparse
 from collections import Counter
 from hashlib import sha256
@@ -87,6 +87,8 @@ def summarize(rows):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument("--manifest-sha256", default=TRAIN_MANIFEST_SHA256,
+                        help="SHA-256 of the train manifest, recorded before execution")
     parser.add_argument("--witness-dir", type=Path,
                         default=ROOT / "runtime/diagnostics/objectnav_rssi_graph_20261125_v7")
     parser.add_argument("--output", required=True, type=Path)
@@ -96,16 +98,19 @@ def main():
     if ROOT / "runtime" not in args.output.resolve().parents or args.output.exists():
         parser.error("Output must be a new directory under runtime")
     raw = args.manifest.read_bytes()
-    if sha256(raw).hexdigest() != TRAIN_MANIFEST_SHA256:
-        parser.error("Expected the existing frozen five-scene train manifest")
+    if sha256(raw).hexdigest() != args.manifest_sha256:
+        parser.error("Train manifest does not match the recorded SHA-256")
     manifest = json.loads(raw)
+    if not manifest.get("scenes") or manifest["config"]["scope"] != "official_train_development_review":
+        parser.error("Expected an official train development review")
+    original = args.manifest_sha256 == TRAIN_MANIFEST_SHA256
     module, name = args.agent.split(":", 1)
     agent = getattr(import_module(module), name)
     args.output.mkdir(parents=True)
     write(args.output / "metadata.json", {
         "diagnostic": DEV_DIAGNOSTIC, "protocol": PROTOCOL, "split": "train", "track": "no_signal",
         "execution_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
-        "manifest_sha256": TRAIN_MANIFEST_SHA256, "train_witness_sha256": TRAIN_WITNESS_SHA256,
+        "manifest_sha256": args.manifest_sha256, "train_witness_sha256": TRAIN_WITNESS_SHA256 if original else None,
         "config_sha256": manifest["config_sha256"], "habitat_sim_version": habitat_sim.__version__,
         "agent": args.agent, "egl_device": args.egl_device, "action_budget": MAX_ACTIONS,
         "model_requests": 0,
@@ -119,7 +124,7 @@ def main():
         with simulator(geometry, render=True, gpu_device=args.egl_device) as sim:
             objects = sim.semantic_scene.objects
             for task in geometry["tasks"]:
-                witness = witness_task(task, scan, scene, args.witness_dir)
+                witness = witness_task(task, scan, scene, args.witness_dir) if original else task
                 episode, rules, views, bounds = prepare(sim.pathfinder, geometry, source, witness)
                 names = TRAIN_LABELS[task["category"]]
                 ids = [obj.semantic_id for obj in objects if obj and obj.category
@@ -137,8 +142,8 @@ def main():
         print(f"{scan}: {sum(r['navigation']['success'] for r in rows)}/{len(rows)}", flush=True)
         records.extend(rows)
     keys = {(r["scene"], r["trace"]["source_row"]) for r in records}
-    if len(keys) != len(records) or len(keys) != 20:
-        raise ValueError("Expected exactly the twenty frozen development cases")
+    if len(keys) != len(records) or len(keys) != manifest["config"]["scene_count"] * manifest["config"]["task_count"]:
+        raise ValueError("Incomplete or duplicate development cases")
     summary = summarize(records)
     write(args.output / "results.json", records)
     write(args.output / "summary.json", summary)
