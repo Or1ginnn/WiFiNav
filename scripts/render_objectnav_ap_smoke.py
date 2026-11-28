@@ -348,7 +348,8 @@ def main():
     for marker, filename in (("__STYLE__", "style.css"), ("__SCRIPT__", "report.js")):
         page = page.replace(marker, (source / filename).read_text(encoding="utf-8"))
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("x", encoding="utf-8") as handle:
+    # The BOM preserves UTF-8 even when a preview supplies a conflicting charset.
+    with args.output.open("x", encoding="utf-8-sig") as handle:
         handle.write(page.replace("__REPORT_JSON__", payload))
     print(args.output.resolve())
 
