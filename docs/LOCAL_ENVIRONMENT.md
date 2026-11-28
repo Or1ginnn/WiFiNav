@@ -270,3 +270,5 @@ RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数
 2026-11-28 23:44，VLFM 官方 `vlfm.run` 用现有 Habitat 0.2.4 环境，在 GPU 1–3 并行完成官方 v1 `val` 的固定 20 条。签收原生 20 条评分后，复查本次 localhost 服务已关闭，四张卡各 15 MiB。原始 v1 任务包和小批与 v2 正式集分别存放，961 条仍暂停。[结果与复跑](experiments/objectnav_vlfm_2026-11-28.md#原入口-v1-小批)
 
 2026-11-29，复用两套 Habitat 与本地推理服务，GPU 0–1 运行原入口，GPU 2–3 运行 0.3.0 接入，完成 v2 `train` 的固定 20 条配对。CPU 复算原版动作并检查跨版本位姿，产物在 `runtime/diagnostics/objectnav_vlfm_20261129_v2_paired20/`。本次服务已退出，复查四卡均为 15 MiB，正式集继续暂停。[配对与差异](experiments/objectnav_vlfm_2026-11-28.md#v2-开发任务配对)
+
+2026-11-29 00:55–01:37，在物理 GPU 0–3 复用 Habitat 0.2.4、0.3.0 和已冻结 VLFM 本地推理，完成 100 对开发任务。按设备注册 localhost 感知服务，端口从 12400 开始每张卡占用三个端口，组间间隔四。最后一张卡的 YOLO 请求因残留锁停顿约两分钟，到期后自动恢复并继续原批次。服务器产物在 `runtime/diagnostics/objectnav_vlfm_20261129_version100/`，独立评分复跑使用 CPU。核实本次所有服务退出、端口关闭，四卡各 15 MiB，961 条正式集处于暂停状态。[验收与复现](experiments/objectnav_habitat_version_acceptance_2026-11-29.md)

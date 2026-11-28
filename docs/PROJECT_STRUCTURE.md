@@ -29,6 +29,7 @@ WIFI+Nav/
 │   ├── build_objectnav_benchmark.py             # 小批验收和全量单 AP 制作入口
 │   ├── audit_objectnav_benchmark.py             # 独立核对清单、AP、参考路线和随机样本
 │   ├── run_objectnav_eval.py                   # v1.1 单层闭环、VLFM NoSignal、基线配对和真实动作回归
+│   ├── run_objectnav_sim_compare.py            # 两版 Habitat 配对闭环、原始位姿共同评分
 │   ├── run_objectnav_dev.py                    # 冻结 train 样本的 NoSignal 闭环与失败诊断
 │   ├── objectnav_vlfm_baseline.py              # 隔离 VLFM 原版策略、映射 RGB-D 观测与离散动作
 │   ├── audit_objectnav_dev_failures.py          # Habitat 重放核查越层和无效 STOP
@@ -123,6 +124,7 @@ WIFI+Nav/
 | 基线开发 | [NoSignal 开发首轮](experiments/objectnav_train_nosignal_2026-11-28.md) | 固定 train 闭环、失败分解和两项策略对照 |
 | 基线复核 | [NoSignal 失败复核与独立场景验证](experiments/objectnav_train_nosignal_followup_2026-11-28.md) | 越层与停车复核证据和独立样本配对结果 |
 | 外部基线 | [VLFM 接入](experiments/objectnav_vlfm_2026-11-28.md) | WiFiNav 接入、正式集暂停、官方原入口 v1 小批及复跑 |
+| 版本对照 | [VLFM 100 条验收](experiments/objectnav_habitat_version_acceptance_2026-11-29.md) | 两版 Habitat 的 200 次真实闭环、配对评分与轨迹复核 |
 | 原 benchmark 制作 | [R2R-Conn制作计划v0](design/r2r_conn_benchmark_plan_v0.md) | 原 R2R-CE 路线与冻结开发实验的制作依据 |
 | 阶段任务调研范围 | [任务调研任务单](design/task_benchmark_research_plan.md) | 保留历史讨论；不作为从零重选任务方向的要求 |
 | 阶段选型记录 | [基座选型简报](references/backbone_selection_report_2026-11-03.md) | 旧首选已撤销；保留候选取舍与源码审计，当前选择见 plan.md |
