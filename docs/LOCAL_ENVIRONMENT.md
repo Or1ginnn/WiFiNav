@@ -256,3 +256,5 @@ RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数
 2026-11-28，NoSignal 复核在同一 Habitat 环境用 CPU 重放失败动作并核验正式判分探针，闭环配对仅使用 GPU 0 渲染，模型请求为 0。开发样本冻结件、首跑加载失败日志及第二轮轨迹在 `runtime/diagnostics/objectnav_train_dev_followup_20261128*`。[执行与证据](experiments/objectnav_train_nosignal_followup_2026-11-28.md)
 
 2026-11-28，VLFM 冻结源码和额外运行依赖位于项目 `runtime/vendor` 与 `runtime/envs/vlfm_py39_*`，权重在 `models/vlfm`。复用现有 Torch 2.6.0+cu124，模型服务绑定 localhost 12382、12383、12384，仅使用 GPU 0。0.2.4 首场景和 0.3.0 全部 20 条均完成。确认本次服务退出、端口释放，四卡无计算进程。可复跑环境和权重指纹位于 `runtime/diagnostics/vlfm_setup_20261128/`。[评测与复跑](experiments/objectnav_vlfm_2026-11-28.md)
+
+2026-11-28，通信达标评分复用项目 CPU 射线环境及 Habitat 0.3.0，回放保存的 20 条 VLFM 轨迹并核对原导航判分探针。GPU 与模型调用为 0。服务器默认 GitHub 代理端口拒绝连接，本轮在单条 Git 命令中关闭代理后直连成功，按原分支快进同步。[配置与回放证据](experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md#通信达标成功率)
