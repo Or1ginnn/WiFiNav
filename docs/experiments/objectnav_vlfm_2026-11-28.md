@@ -107,3 +107,16 @@ bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
 论文表 I 的 52.5% 对应上游任务。当前首批 196 条的差距不能据此分摊给任何一项配置。上游配置差异需要在开发集按控制变量做闭环验证。该批正式轨迹继续保留供当前协议的基线。 [论文](https://arxiv.org/html/2312.03275v1) · [VLFM 实验配置](https://github.com/rai-opensource/vlfm/blob/584ed56008754fde7997d904983607def8328322/config/experiments/vlfm_objectnav_hm3d.yaml) · [相机和步数配置](https://github.com/facebookresearch/habitat-lab/blob/v0.2.4/habitat-lab/habitat/config/benchmark/nav/objectnav/objectnav_hm3d.yaml) · [评测配置](https://github.com/facebookresearch/habitat-lab/blob/v0.2.4/habitat-lab/habitat/config/habitat/task/objectnav.yaml)
 
 服务器证据位于 `runtime/diagnostics/objectnav_vlfm_20261128_port_audit/`，每版输出记录 7 个原始 `results.json` 的哈希。两份回放 JSON 的 SHA-256 均为 `d1fd90866f7e49c0ec9de3c862fd215f86efeb786ed7b160dc8d59b0d0641c96`。复用 `replay.py` 时复制到同级的新目录后，通过各 Habitat Python 解释器运行，导入路径指向项目 `scripts/`。
+
+### 暂停正式评测与对齐配置
+
+北京时间 22:53 按用户要求停止 961 条正式评测。保留已评分的 10 个场景、280 条任务和被中断场景的日志，批次的 `user_pause.json` 记录停机时间和评分数量。launcher 的非零退出码对应本次手动停止。原批次仍对应 200 步、90° 和 0–10 m 的参数。
+
+新增 `--vlfm-official` 配置，涵盖 640 × 480 RGB-D、79° 横向视野、0.88 m 相机高度、0.5–5 m 深度裁剪并归一化、关闭贴墙滑动、0.88 m 机身高度、0.18 m 半径设置和 500 步限制。配置从评分进程传至策略进程，元数据保存配置和 SHA-256。复用 WiFiNav 冻结的 v2 场景导航网格、单层规则和到有效视点的 0.10 m STOP 阈值。[配置文件](../../configs/benchmark/objectnav_vlfm_habitat024.json) · [上游设置](https://github.com/facebookresearch/habitat-lab/blob/v0.2.4/habitat-lab/habitat/config/benchmark/nav/objectnav/objectnav_hm3d.yaml)
+
+只在固定 `train` 首场景做工程验收，复用原来的模型和开发清单。以下入口启动旧环境中的本地感知服务并在 Habitat 0.3.0 执行四条开发轨迹。
+
+```sh
+bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
+  runtime/diagnostics/objectnav_vlfm_my_official_dev --vlfm-official --smoke
+```

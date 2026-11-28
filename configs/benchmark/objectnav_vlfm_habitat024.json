@@ -1,0 +1,14 @@
+{
+  "name": "vlfm_habitat024_objectnav_hm3d",
+  "max_actions": 500,
+  "camera": {
+    "width": 640,
+    "height": 480,
+    "hfov": 79.0,
+    "height_m": 0.88,
+    "depth_min_m": 0.5,
+    "depth_max_m": 5.0
+  },
+  "agent": {"height_m": 0.88, "radius_m": 0.18},
+  "allow_sliding": false
+}

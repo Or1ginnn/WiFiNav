@@ -1,6 +1,7 @@
 """Connect frozen upstream VLFM to the WiFiNav RGB-D development runner."""
 from contextlib import redirect_stdout
 from hashlib import sha256
+import json
 import os
 from pathlib import Path
 import pickle
@@ -13,7 +14,13 @@ import numpy as np
 VLFM_REVISION = "584ed56008754fde7997d904983607def8328322"
 POLICY_ACTIONS = ("stop", "move_forward", "turn_left", "turn_right")
 GOALS = ("chair", "bed", "plant", "toilet", "tv_monitor", "sofa")
-MAX_DEPTH_M = 10.
+DEFAULT_CAMERA = {"width": 640, "height": 480, "hfov": 90., "height_m": .88,
+                  "depth_min_m": 0., "depth_max_m": 10.}
+
+
+def normalize_depth(depth, minimum, maximum):
+    distance = np.nan_to_num(depth, nan=maximum, posinf=maximum, neginf=minimum)
+    return ((np.clip(distance, minimum, maximum) - minimum) / (maximum - minimum)).astype(np.float32)
 
 
 class VLFM:
@@ -21,23 +28,34 @@ class VLFM:
 
     requires_rgb = True
 
+    def __init__(self, camera=None):
+        self.camera = camera
+
     @staticmethod
-    def metadata():
+    def metadata(camera=None):
         path = Path(os.environ["WIFINAV_VLFM_POINTNAV"])
         receipt = Path(os.environ["WIFINAV_VLFM_RECEIPT"])
+        sensor = {"width": 640, "height": 480, "hfov": 90., "height_m": .88,
+                  "normalized_depth_max_m": DEFAULT_CAMERA["depth_max_m"]}
+        if camera is not None:
+            sensor.update({key: camera[key] for key in ("width", "height", "hfov", "height_m")})
+            sensor["normalized_depth_min_m"] = camera["depth_min_m"]
+            sensor["normalized_depth_max_m"] = camera["depth_max_m"]
         return {
             "policy_revision": VLFM_REVISION,
             "pointnav_sha256": sha256(path.read_bytes()).hexdigest(),
             "model_receipt_sha256": sha256(receipt.read_bytes()).hexdigest(),
             "policy_interpreter": os.environ["WIFINAV_VLFM_PYTHON"],
-            "sensor": {"width": 640, "height": 480, "hfov": 90., "height_m": .88,
-                       "normalized_depth_max_m": MAX_DEPTH_M},
+            "sensor": sensor,
         }
 
     def reset(self):
         env = {**os.environ, "PYTHONPATH": os.environ["WIFINAV_VLFM_PYTHONPATH"]}
+        command = [env["WIFINAV_VLFM_PYTHON"], __file__]
+        if self.camera is not None:
+            command.append(json.dumps(self.camera))
         self.process = subprocess.Popen(
-            [env["WIFINAV_VLFM_PYTHON"], __file__],
+            command,
             cwd=env["WIFINAV_VLFM_WORKDIR"], env=env,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         )
@@ -78,7 +96,7 @@ class VLFM:
                 process.wait()
 
 
-def worker():
+def worker(camera):
     import torch
     from habitat_baselines.common.tensor_dict import TensorDict
     from vlfm.policy.habitat_policies import HabitatITMPolicyV2, VLFMConfig
@@ -87,8 +105,10 @@ def worker():
     config = VLFMConfig()
     config.pointnav_policy_path = os.environ["WIFINAV_VLFM_POINTNAV"]
     kwargs = {field: getattr(config, field) for field in config.kwaarg_names}
-    policy = HabitatITMPolicyV2(camera_height=.88, min_depth=0., max_depth=MAX_DEPTH_M, camera_fov=90.,
-                               image_width=640, visualize=False, compute_frontiers=True, **kwargs)
+    minimum, maximum = camera["depth_min_m"], camera["depth_max_m"]
+    policy = HabitatITMPolicyV2(camera_height=camera["height_m"], min_depth=minimum, max_depth=maximum,
+                               camera_fov=camera["hfov"], image_width=camera["width"],
+                               visualize=False, compute_frontiers=True, **kwargs)
     hidden = None
     previous = torch.zeros((1, 1), dtype=torch.long, device="cuda")
     masks = torch.zeros((1, 1), dtype=torch.bool, device="cuda")
@@ -97,8 +117,7 @@ def worker():
             goal, rgb, depth, x, z, yaw = pickle.load(sys.stdin.buffer)
         except EOFError:
             return
-        distance = np.nan_to_num(depth, nan=MAX_DEPTH_M, posinf=MAX_DEPTH_M, neginf=0.)
-        distance = np.clip(distance / MAX_DEPTH_M, 0., 1.).astype(np.float32)
+        distance = normalize_depth(depth, minimum, maximum)
         inputs = TensorDict({
             "objectgoal": torch.tensor([[goal]], dtype=torch.long),
             "rgb": torch.from_numpy(rgb[None]),
@@ -119,8 +138,9 @@ def worker():
 
 
 if __name__ == "__main__":
+    camera = json.loads(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_CAMERA
     protocol = sys.stdout.buffer
     with redirect_stdout(sys.stderr):
-        for response in worker():
+        for response in worker(camera):
             pickle.dump(response, protocol, protocol=5)
             protocol.flush()

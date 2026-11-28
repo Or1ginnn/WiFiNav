@@ -10,7 +10,7 @@ import subprocess
 import habitat_sim
 import numpy as np
 
-from objectnav_floor_protocol import PROTOCOL, ROOT, load_scene, prepare
+from objectnav_floor_protocol import MAX_ACTIONS, PROTOCOL, ROOT, load_scene, prepare
 from run_objectnav_dev import TRAIN_MANIFEST_SHA256, witness_task
 from run_objectnav_eval import execute, simulator, write
 
@@ -67,6 +67,8 @@ def main():
     manifest_raw = args.manifest.read_bytes()
     run_raw = (args.run / "results.json").read_bytes()
     metadata = json.loads((args.run / "metadata.json").read_bytes())
+    profile = metadata.get("execution_profile")
+    action_budget = metadata.get("action_budget", MAX_ACTIONS)
     fingerprint = sha256(manifest_raw).hexdigest()
     if fingerprint != metadata["manifest_sha256"] or metadata["protocol"] != PROTOCOL:
         parser.error("Run manifest or scoring protocol did not match")
@@ -79,14 +81,15 @@ def main():
         if not any(key[0] == scan for key in failures):
             continue
         geometry, source, _ = load_scene(args.manifest, scene, manifest["config"], split="train")
-        with simulator(geometry, render=False, gpu_device=0) as sim:
+        with simulator(geometry, render=False, gpu_device=0, profile=profile) as sim:
             for task in geometry["tasks"]:
                 record = failures.get((scan, task["source_row"]))
                 if record is None:
                     continue
                 witness = (witness_task(task, scan, scene, ROOT / "runtime/diagnostics/objectnav_rssi_graph_20261125_v7")
                            if fingerprint == TRAIN_MANIFEST_SHA256 else task)
-                episode, rules, views, bounds = prepare(sim.pathfinder, geometry, source, witness)
+                episode, rules, views, bounds = prepare(sim.pathfinder, geometry, source, witness,
+                                                        action_budget=action_budget)
                 original = record["trace"]
                 replay = execute(sim, episode, rules, task, actions=original["actions"])
                 score = rules.score(episode["start_position"], views, bounds, replay)

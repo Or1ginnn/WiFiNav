@@ -12,7 +12,7 @@ import subprocess
 import habitat_sim
 
 from objectnav_floor_protocol import MAX_ACTIONS, PROTOCOL, ROOT, load_scene, prepare
-from run_objectnav_eval import DEFAULT_AGENT, SENSOR_LABELS, execute, simulator, write
+from run_objectnav_eval import DEFAULT_AGENT, SENSOR_LABELS, execute, read_execution_profile, simulator, write
 
 TRAIN_MANIFEST_SHA256 = "3f3034ece428556e27134aa16363b39da052e724a03b88d5757dae2219a3c7f0"
 TRAIN_WITNESS_SHA256 = "7f25f2331e46d00338e857b14150fba8b0c791b4ea6120238e94abdbe8b462ef"
@@ -82,7 +82,7 @@ def summarize(rows):
             for (s, t), count in sorted(Counter((r["diagnostics"]["category_stage"], r["navigation"]["termination"])
                                               for r in rows if not r["navigation"]["success"]).items())
         ],
-        "action_budget": MAX_ACTIONS, "total_actions": sum(len(r["trace"]["actions"]) for r in rows),
+        "action_budget": rows[0]["trace"]["action_budget"], "total_actions": sum(len(r["trace"]["actions"]) for r in rows),
         "total_collisions": sum(r["trace"]["collisions"] for r in rows),
         "blocked_forwards": sum(r["diagnostics"]["blocked_forward_count"] for r in rows),
         "total_forwards": sum(r["diagnostics"]["move_forward_count"] for r in rows),
@@ -99,9 +99,13 @@ def main():
                         default=ROOT / "runtime/diagnostics/objectnav_rssi_graph_20261125_v7")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--agent", default=DEFAULT_AGENT)
+    parser.add_argument("--vlfm-official", action="store_true", help="Use the upstream VLFM HM3D execution settings")
     parser.add_argument("--egl-device", type=int, default=0)
     parser.add_argument("--smoke", action="store_true", help="Run the first frozen scene only")
     args = parser.parse_args()
+    profile, profile_hash = read_execution_profile(parser, args)
+    action_budget = profile["max_actions"] if profile else MAX_ACTIONS
+    camera_kwargs = {"camera": profile["camera"]} if profile else {}
     if ROOT / "runtime" not in args.output.resolve().parents or args.output.exists():
         parser.error("Output must be a new directory under runtime")
     raw = args.manifest.read_bytes()
@@ -116,33 +120,37 @@ def main():
     rgbd = getattr(agent, "requires_rgb", False)
     scenes = manifest["scenes"][:1] if args.smoke else manifest["scenes"]
     args.output.mkdir(parents=True)
-    write(args.output / "metadata.json", {
+    metadata = {
         "diagnostic": DEV_DIAGNOSTIC, "protocol": PROTOCOL, "split": "train", "track": "no_signal",
         "execution_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "manifest_sha256": args.manifest_sha256, "train_witness_sha256": TRAIN_WITNESS_SHA256 if original else None,
         "config_sha256": manifest["config_sha256"], "habitat_sim_version": habitat_sim.__version__,
-        "agent": args.agent, "egl_device": args.egl_device, "action_budget": MAX_ACTIONS,
+        "agent": args.agent, "egl_device": args.egl_device, "action_budget": action_budget,
         "model_requests": None if rgbd else 0,
         **({"sensor_track": "rgbd", "scope": "first_scene" if args.smoke else "frozen_sample",
-            **agent.metadata()} if rgbd else {}),
-    })
+            **agent.metadata(**camera_kwargs)} if rgbd else {}),
+    }
+    if profile:
+        metadata.update(execution_profile=profile, execution_profile_sha256=profile_hash)
+    write(args.output / "metadata.json", metadata)
 
     records = []
     for scene in scenes:
         scan = scene["scene"]
         geometry, source, _ = load_scene(args.manifest, scene, manifest["config"], split="train")
         rows = []
-        with simulator(geometry, render=True, gpu_device=args.egl_device, rgbd=rgbd) as sim:
+        with simulator(geometry, render=True, gpu_device=args.egl_device, rgbd=rgbd, profile=profile) as sim:
             objects = () if rgbd else sim.semantic_scene.objects
             for task in geometry["tasks"]:
                 witness = witness_task(task, scan, scene, args.witness_dir) if original else task
-                episode, rules, views, bounds = prepare(sim.pathfinder, geometry, source, witness)
+                episode, rules, views, bounds = prepare(sim.pathfinder, geometry, source, witness,
+                                                        action_budget=action_budget)
                 names = TRAIN_LABELS[task["category"]]
                 ids = [obj.semantic_id for obj in objects if obj and obj.category
                        and obj.category.name().strip().lower() in names]
                 if not ids and not rgbd:
                     raise ValueError(f"No semantic sensor target label for {scan}:{task['source_row']}")
-                policy = agent()
+                policy = agent(**camera_kwargs)
                 try:
                     trace = execute(sim, episode, rules, task, policy, ids, trace_target=True, observe_elevation=True)
                 finally:

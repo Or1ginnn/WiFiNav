@@ -20,6 +20,8 @@ from objectnav_sensor_baseline import Observation
 from score_objectnav_trace import parse_max_continuous_severe_m, summarize_communication_success
 
 DEFAULT_AGENT = "objectnav_sensor_baseline:SensorBaseline"
+VLFM_AGENT = "objectnav_vlfm_baseline:VLFM"
+VLFM_OFFICIAL_PROFILE = ROOT / "configs/benchmark/objectnav_vlfm_habitat024.json"
 RADIO_PYTHON = ROOT / "runtime/envs/sionna_rt_2_2_0_py311/bin/python"
 LLVM = Path("/opt/anaconda3/pkgs/libllvm19-19.1.2-ha7bfdaf_0/lib/libLLVM-19.so")
 TRACKS = ("no_signal", "observed_rssi")
@@ -40,6 +42,15 @@ SENSOR_LABELS = {
 def write(path, value):
     with path.open("x", encoding="utf-8") as handle:
         json.dump(value, handle, ensure_ascii=False, indent=2, allow_nan=False)
+
+
+def read_execution_profile(parser, args):
+    if not args.vlfm_official:
+        return None, None
+    if args.agent != VLFM_AGENT:
+        parser.error(f"--vlfm-official requires --agent {VLFM_AGENT}")
+    raw = VLFM_OFFICIAL_PROFILE.read_bytes()
+    return json.loads(raw), sha256(raw).hexdigest()
 
 
 def load_radio(manifest_path, scene, geometry):
@@ -64,7 +75,7 @@ def current_rssi(mapping, pose):
     return None
 
 
-def simulator(geometry, *, render, gpu_device, rgbd=False):
+def simulator(geometry, *, render, gpu_device, rgbd=False, profile=None):
     options = habitat_sim.SimulatorConfiguration()
     options.scene_id = str(ROOT / "data/scene_datasets" / geometry["source_ref"])
     options.scene_dataset_config_file = str(ROOT / "data/scene_datasets/hm3d_v0.2/hm3d_annotated_basis.scene_dataset_config.json")
@@ -75,6 +86,12 @@ def simulator(geometry, *, render, gpu_device, rgbd=False):
     options.use_semantic_textures = False
     options.gpu_device_id = gpu_device
     agent = habitat_sim.agent.AgentConfiguration()
+    camera = None
+    if profile is not None:
+        options.allow_sliding = profile["allow_sliding"]
+        agent.height = profile["agent"]["height_m"]
+        agent.radius = profile["agent"]["radius_m"]
+        camera = profile["camera"]
     agent.action_space = {name: habitat_sim.agent.ActionSpec(name, habitat_sim.agent.ActuationSpec(amount))
                           for name, amount in ACTIONS.items()}
     if render:
@@ -83,6 +100,10 @@ def simulator(geometry, *, render, gpu_device, rgbd=False):
             spec = habitat_sim.CameraSensorSpec()
             spec.uuid, spec.sensor_type = name, kind
             spec.resolution, spec.hfov, spec.position = [480, 640] if rgbd else [96, 128], 90., [0., .88, 0.]
+            if camera is not None:
+                spec.resolution = [camera["height"], camera["width"]]
+                spec.hfov = camera["hfov"]
+                spec.position = [0., camera["height_m"], 0.]
             agent.sensor_specifications.append(spec)
     return habitat_sim.Simulator(habitat_sim.Configuration(options, [agent]))
 
@@ -103,14 +124,14 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
         policy.reset()
     trace = {"source_row": task["source_row"], "positions": [start.position.tolist()], "actions": [], "collisions": 0,
              "observed_rssi_samples": 0, "observed_rssi_missing": 0, "labeled_frames": 0, "target_visible_frames": 0,
-             "action_budget": MAX_ACTIONS}
+             "action_budget": rules.action_budget}
     commands = iter(actions) if actions is not None else None
     state = start
     frames = sim.get_sensor_observations() if policy is not None else None
     if trace_target:
         trace["target_observations"] = []
     a = float(quaternion.as_rotation_vector(start.rotation)[1])
-    for _ in range(MAX_ACTIONS):
+    for _ in range(rules.action_budget):
         if commands is not None:
             action = next(commands, None)
             if action is None:
@@ -195,6 +216,7 @@ def main():
     parser.add_argument("--track", choices=("paired", "no_signal"), default="paired")
     parser.add_argument("--scene", help="Execute one whole scene of the full NoSignal evaluation")
     parser.add_argument("--agent", default=DEFAULT_AGENT, help="module:factory with reset() and act(observation)")
+    parser.add_argument("--vlfm-official", action="store_true", help="Use the upstream VLFM HM3D execution settings")
     parser.add_argument("--radio-python", type=Path, default=RADIO_PYTHON)
     parser.add_argument("--max-continuous-severe-m", type=parse_max_continuous_severe_m,
                         help="Maximum continuous severe weak-signal distance for communication success")
@@ -207,6 +229,11 @@ def main():
     if args.audit_references and args.cross_floor_probe:
         parser.error("Reference audit and regression replay are separate runs")
     regression = args.audit_references or args.cross_floor_probe
+    if args.vlfm_official and regression:
+        parser.error("Use the VLFM execution profile for closed-loop evaluation")
+    profile, profile_hash = read_execution_profile(parser, args)
+    action_budget = profile["max_actions"] if profile else MAX_ACTIONS
+    camera_kwargs = {"camera": profile["camera"]} if profile else {}
     if args.scene and (args.population != "all" or args.track != "no_signal" or regression):
         parser.error("Scene execution requires --population all --track no_signal")
     limit = args.max_continuous_severe_m
@@ -243,14 +270,16 @@ def main():
         "manifest_sha256": manifest_hash, "source_identity": manifest["identity"],
         "agent": args.agent if agent_factory else None, "mode": "references" if args.audit_references else "regression" if probe else args.population,
         "probe_sha256": sha256(args.cross_floor_probe.read_bytes()).hexdigest() if probe else None,
-        "action_budget": MAX_ACTIONS, "rssi_step_m": RSSI_STEP_M, "habitat_sim_version": habitat_sim.__version__,
+        "action_budget": action_budget, "rssi_step_m": RSSI_STEP_M, "habitat_sim_version": habitat_sim.__version__,
         "egl_device": args.egl_device if agent_factory else None,
         "tracks": list(tracks) if agent_factory else [],
     }
     if args.scene:
         metadata["scene"] = args.scene
     if rgbd:
-        metadata.update(agent_factory.metadata(), sensor_track="rgbd")
+        metadata.update(agent_factory.metadata(**camera_kwargs), sensor_track="rgbd")
+    if profile:
+        metadata.update(execution_profile=profile, execution_profile_sha256=profile_hash)
     if limit is not None:
         metadata["communication_success"] = {"max_continuous_severe_m": limit,
                                               "severe_threshold_dbm": manifest["config"]["outage_threshold_dbm"]}
@@ -277,13 +306,14 @@ def main():
             continue
         rows = []
         floors = load_radio(args.manifest, scene, geometry) if not probe and "observed_rssi" in tracks else None
-        with simulator(geometry, render=not probe, gpu_device=args.egl_device, rgbd=rgbd) as sim:
+        with simulator(geometry, render=not probe, gpu_device=args.egl_device, rgbd=rgbd, profile=profile) as sim:
             objects = sim.semantic_scene.objects if not probe and not rgbd else []
             for task in geometry["tasks"]:
                 row = task["source_row"]
                 if row not in tasks:
                     continue
-                episode, rule, views, bounds = prepare(sim.pathfinder, geometry, source, task)
+                episode, rule, views, bounds = prepare(sim.pathfinder, geometry, source, task,
+                                                       action_budget=action_budget)
                 if probe:
                     a = probe["trace"]["actions"]
                     if name != probe["scene"]:
@@ -306,7 +336,7 @@ def main():
                     raise ValueError(f"No semantic sensor target label for {name}:{row}")
                 for track in tracks:
                     mapping = floors[task["floor"]] if track == "observed_rssi" else None
-                    policy = agent_factory()
+                    policy = agent_factory(**camera_kwargs)
                     try:
                         trace = execute(sim, episode, rule, task, policy, ids, mapping, trace_target=rgbd)
                     finally:

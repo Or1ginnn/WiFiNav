@@ -39,11 +39,12 @@ def load_scene(manifest_path, scene, config, *, split="val"):
 
 
 class SingleFloor:
-    def __init__(self, finder, floor, tolerance, radius):
+    def __init__(self, finder, floor, tolerance, radius, action_budget=MAX_ACTIONS):
         self.finder = finder
         self.floor = floor
         self.tolerance = tolerance
         self.radius = radius
+        self.action_budget = action_budget
 
     def in_band(self, point):
         return abs(point[1] - self.floor) <= self.tolerance + 1e-5
@@ -104,7 +105,8 @@ class SingleFloor:
     def score(self, start, views, bounds, trace):
         positions = trace["positions"]
         actions = trace["actions"]
-        if (len(positions) != len(actions) + 1 or len(actions) > MAX_ACTIONS
+        if (len(positions) != len(actions) + 1 or len(actions) > self.action_budget
+                or trace.get("action_budget", self.action_budget) != self.action_budget
                 or any(len(p) != 3 or not all(map(math.isfinite, p)) for p in positions)
                 or math.dist(start, positions[0]) > 1e-4 or not self.executed_pose_on_floor(positions[0])):
             raise ValueError("Invalid official start, trace shape or action budget")
@@ -134,12 +136,12 @@ class SingleFloor:
             "stop_called": stop and first_crossing is None,
             "termination": ("floor_violation" if first_crossing is not None else
                             ("success" if success else "invalid_stop") if stop else
-                            "budget" if len(actions) == MAX_ACTIONS else "incomplete"),
+                            "budget" if len(actions) == self.action_budget else "incomplete"),
             "scored_actions": len(used) - 1,
         }
 
 
-def prepare(finder, geometry, source, task):
+def prepare(finder, geometry, source, task, *, action_budget=MAX_ACTIONS):
     row = task["source_row"]
     episode = source["episodes"][row]
     if (episode["scene_id"] != geometry["source_ref"] or
@@ -150,7 +152,7 @@ def prepare(finder, geometry, source, task):
         raise ValueError(f"Official inputs differ for source row {row}")
     cfg = geometry["config"]
     rules = SingleFloor(finder, geometry["floors"][task["floor"]]["y"],
-                        cfg["floor_tolerance_m"], cfg["stop_radius_m"])
+                        cfg["floor_tolerance_m"], cfg["stop_radius_m"], action_budget)
     goals = source["goals_by_category"][f'{Path(geometry["source_ref"]).name}_{task["category"]}']
     views = rules.viewpoints(goals)
     bounds = rules.reference_bounds(episode["start_position"], views, task["route_xyz"], task["reference_m"])
