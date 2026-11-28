@@ -124,3 +124,11 @@ bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
 实际执行提交 `a6d09d0d04d72fc09f7d79b62cb7c1711c282ef4`，服务器目录 `runtime/diagnostics/objectnav_vlfm_20261128_official_dev4/`。清单仍为 `3f3034ece428556e27134aa16363b39da052e724a03b88d5757dae2219a3c7f0`，执行配置 SHA-256 `9f3923a1aaa5c50f8c35c2dce43d4f4caf79fdab36630140b5f2440eb728e9a1`，沿用相同策略版本和权重。结果 `cb8b0875356e4348609b829c151ba0969a30edef786f21128a9a403c9587e8e9`。
 
 四条均闭环落盘，402 个真实动作，成功 0/4，两条无效 STOP、两条越层。找马桶执行到第 318 步后越层，确认能越过旧预算继续执行。相同任务旧配置也为 0/4；新旧相机、深度、碰撞及步数同时改变，小样本只能验证对齐后的链路。四条失败均通过同配置 CPU 重放。官方 YAML 参数核对、200/500 步边界、原三条判分探针逐字节复验和 86 项本机测试均通过。正式评测保持暂停。
+
+### 官方推理入口核对
+
+上游 `584ed56` 的 README 先通过 `scripts/launch_vlm_servers.sh` 启动本机感知服务，再用 `python -m vlfm.run` 做 Habitat 评测。若缺少兼容 Habitat Baselines 的空权重文件，入口提示先用 `python -m vlfm.utils.generate_dummy_policy` 生成。`vlfm/run.py` 加载实验配置，移除语义传感器，交给 `VLFMTrainer` 驱动 `HabitatITMPolicyV2`。训练器传入每步原生观测和任务状态，执行动作后由 Habitat 生成成功和 SPL。实际 PointNav 使用仓库的预训练权重，按策略估计到目标点的距离在 0.9 m 内下发 STOP。评测要求停车时距离任务的合法视点小于 0.10 m，两项距离的参照点不同。[README](https://github.com/rai-opensource/vlfm/blob/584ed56008754fde7997d904983607def8328322/README.md#L98-L108) · [官方入口](https://github.com/rai-opensource/vlfm/blob/584ed56008754fde7997d904983607def8328322/vlfm/run.py#L33-L50) · [PointNav](https://github.com/rai-opensource/vlfm/blob/584ed56008754fde7997d904983607def8328322/vlfm/policy/base_objectnav_policy.py#L223-L256)
+
+服务器运行官方 `python -m vlfm.run --cfg job --resolve`，退出码 0，合成配置确认官方 RGB-D、碰撞、500 步、STOP 判分参数和 ObjectNav v1 `val` 路径。WiFiNav 同参数探针通过。另对 1,225 个合成平面位姿，用 0.2.4 原生 `EpisodicGPSSensor`、`EpisodicCompassSensor` 与 WiFiNav 转换对照，误差小于 `1e-6` m 和 `1e-6` rad。证据在 `runtime/diagnostics/objectnav_vlfm_20261128_upstream_entry_audit/`，官方配置输出 SHA-256 `328585d9b5c88aadbe3614cf94f5b67c967726209ea0cef3844562dffbe55098`。
+
+上游 README 为 HM3D 场景指定 v0.2 资产，为任务指定 ObjectNav v1 episode 包。WiFiNav 服务器只有 ObjectNav v2 episode 包。当前四条验收使用原策略与对齐后的运行参数，由 WiFiNav 的 Habitat 0.3.0 单层评测器驱动。官方入口仅验证到配置解析，未用上游 v1 任务完成真实闭环。[上游数据清单](https://github.com/rai-opensource/vlfm/blob/584ed56008754fde7997d904983607def8328322/README.md#L66-L88)
