@@ -17,6 +17,7 @@ import quaternion
 
 from objectnav_floor_protocol import ACTIONS, MAX_ACTIONS, PROTOCOL, ROOT, RSSI_STEP_M, load_scene, prepare
 from objectnav_sensor_baseline import Observation
+from score_objectnav_trace import parse_max_continuous_severe_m, summarize_communication_success
 
 DEFAULT_AGENT = "objectnav_sensor_baseline:SensorBaseline"
 RADIO_PYTHON = ROOT / "runtime/envs/sionna_rt_2_2_0_py311/bin/python"
@@ -164,7 +165,7 @@ def summarize(rows):
     count = len(rows)
     success = sum(r["navigation"]["success"] for r in rows)
     valid = [r["communication"] for r in rows if r["communication"]["available"]]
-    return {
+    summary = {
         "episodes": count, "successes": success, "sr": success / count,
         "spl_lower_bound": sum(r["navigation"]["spl_lower_bound"] for r in rows) / count,
         "spl_upper_bound": sum(r["navigation"]["spl_upper_bound"] for r in rows) / count,
@@ -181,6 +182,9 @@ def summarize(rows):
         "online_rssi_missing": sum(r["trace"]["observed_rssi_missing"] for r in rows),
         "episodes_with_target_seen": sum(r["trace"]["target_visible_frames"] > 0 for r in rows),
     }
+    if "communication_success" in rows[0]:
+        summary["communication_success"] = summarize_communication_success(rows)
+    return summary
 
 
 def main():
@@ -190,6 +194,8 @@ def main():
     parser.add_argument("--population", choices=("review20", "all"), default="review20")
     parser.add_argument("--agent", default=DEFAULT_AGENT, help="module:factory with reset() and act(observation)")
     parser.add_argument("--radio-python", type=Path, default=RADIO_PYTHON)
+    parser.add_argument("--max-continuous-severe-m", type=parse_max_continuous_severe_m,
+                        help="Maximum continuous severe weak-signal distance for communication success")
     parser.add_argument("--egl-device", type=int, default=0, help="GPU used only for Habitat sensor rendering")
     parser.add_argument("--audit-references", action="store_true")
     parser.add_argument("--cross-floor-probe", type=Path)
@@ -198,6 +204,9 @@ def main():
         parser.error("Output must be a new directory under runtime")
     if args.audit_references and args.cross_floor_probe:
         parser.error("Reference audit and regression replay are separate runs")
+    limit = args.max_continuous_severe_m
+    if limit is not None and (args.audit_references or args.cross_floor_probe):
+        parser.error("Communication success requires RSSI scoring of closed-loop runs")
     manifest_raw = args.manifest.read_bytes()
     manifest = json.loads(manifest_raw)
     server_audit = json.loads(args.manifest.with_name("audit.json").read_bytes())
@@ -217,7 +226,7 @@ def main():
     module, factory = args.agent.split(":", 1)
     agent_factory = getattr(import_module(module), factory) if not args.audit_references and not probe else None
     args.output.mkdir(parents=True)
-    write(args.output / "metadata.json", {
+    metadata = {
         "protocol": PROTOCOL, "execution_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "manifest_sha256": manifest_hash, "source_identity": manifest["identity"],
         "agent": args.agent if agent_factory else None, "mode": "references" if args.audit_references else "regression" if probe else args.population,
@@ -225,7 +234,11 @@ def main():
         "action_budget": MAX_ACTIONS, "rssi_step_m": RSSI_STEP_M, "habitat_sim_version": habitat_sim.__version__,
         "egl_device": args.egl_device if agent_factory else None,
         "tracks": list(TRACKS) if agent_factory else [],
-    })
+    }
+    if limit is not None:
+        metadata["communication_success"] = {"max_continuous_severe_m": limit,
+                                              "severe_threshold_dbm": manifest["config"]["outage_threshold_dbm"]}
+    write(args.output / "metadata.json", metadata)
     result = []
     for scene in manifest["scenes"]:
         name = scene["scene"]
@@ -292,16 +305,23 @@ def main():
             env = {**os.environ, "CUDA_VISIBLE_DEVICES": ""}
             if LLVM.is_file():
                 env.setdefault("DRJIT_LIBLLVM_PATH", str(LLVM))
-            subprocess.run([str(args.radio_python), str(ROOT / "scripts/score_objectnav_trace.py"),
-                            "--geometry", str(path), "--navigation", str(prefix_file), "--output", str(radio_output),
-                            "--rssi-step-m", str(RSSI_STEP_M)], check=True, cwd=ROOT, env=env)
+            command = [str(args.radio_python), str(ROOT / "scripts/score_objectnav_trace.py"),
+                       "--geometry", str(path), "--navigation", str(prefix_file), "--output", str(radio_output),
+                       "--rssi-step-m", str(RSSI_STEP_M)]
+            if limit is not None:
+                command.extend(("--max-continuous-severe-m", str(limit)))
+            subprocess.run(command, check=True, cwd=ROOT, env=env)
             scored = json.loads(radio_output.read_bytes())
             if (len(scored) != len(rows) or any((r["track"], r["trace"]["source_row"]) !=
                 (s["track"], s["trace"]["source_row"]) or s["communication"]["available"] and
                 abs(s["communication"]["length_m"] - r["navigation"]["length_m"]) > .002
                 for r, s in zip(rows, scored))):
                 raise ValueError("Communication results do not match the navigation prefixes")
-            result.extend({**r, "communication": s["communication"]} for r, s in zip(rows, scored))
+            for row, replay in zip(rows, scored):
+                row["communication"] = replay["communication"]
+                if limit is not None:
+                    row["communication_success"] = replay["communication_success"]
+            result.extend(rows)
         print(f"{name}: finished {len(rows)} trace executions", flush=True)
 
     if args.audit_references:

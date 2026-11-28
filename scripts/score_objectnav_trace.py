@@ -10,6 +10,32 @@ from types import SimpleNamespace
 from solve_objectnav_rssi_graph import ROOT, sample_route
 
 
+def parse_max_continuous_severe_m(value):
+    limit = float(value)
+    if not math.isfinite(limit) or limit < 0:
+        raise argparse.ArgumentTypeError("Expected a finite nonnegative distance in metres")
+    return limit
+
+
+def communication_success(navigation, communication, limit_m):
+    if not navigation["success"]:
+        return False
+    if not communication["available"]:
+        return None
+    longest = communication["longest_outage_m"]
+    return longest <= limit_m or math.isclose(longest, limit_m, rel_tol=0, abs_tol=1e-9)
+
+
+def summarize_communication_success(rows):
+    outcomes = [row["communication_success"] for row in rows]
+    successes = outcomes.count(True)
+    unknown = outcomes.count(None)
+    return {
+        "successes": successes, "failures": outcomes.count(False), "unknown": unknown,
+        "rate": successes / len(outcomes) if outcomes and not unknown else None,
+    }
+
+
 def score_navigation(finder, episode, trace, radius):
     import habitat_sim
     import numpy as np
@@ -150,7 +176,7 @@ def score_habitat(geometry, probes=False, traces=None):
                 for trace in traces]
 
 
-def score_radio(geometry, navigation, step):
+def score_radio(geometry, navigation, step, max_continuous_severe_m=None):
     import drjit as dr
     import numpy as np
     from run_objectnav_ap_radio import habitat_to_glb, semantic_geometry, signal_for_anchor
@@ -173,6 +199,9 @@ def score_radio(geometry, navigation, step):
         values = [float(value) if math.isfinite(value) else None for value in signals]
         lengths = np.linalg.norm(np.diff(points, axis=0), axis=1).tolist()
         row["communication"] = summarize_profile(values, {"segment_lengths_m": lengths}, config)
+        if max_continuous_severe_m is not None:
+            row["communication_success"] = communication_success(
+                row["navigation"], row["communication"], max_continuous_severe_m)
     return navigation
 
 
@@ -185,12 +214,17 @@ def main():
     mode.add_argument("--traces", type=Path)
     mode.add_argument("--navigation", type=Path)
     parser.add_argument("--rssi-step-m", type=float, default=.01875)
+    parser.add_argument("--max-continuous-severe-m", type=parse_max_continuous_severe_m,
+                        help="Maximum continuous severe weak-signal distance for communication success")
     args = parser.parse_args()
+    if args.max_continuous_severe_m is not None and not args.navigation:
+        parser.error("Communication success requires --navigation for RSSI replay")
     if ROOT / "runtime" not in args.output.resolve().parents or args.output.exists():
         parser.error("Output must be a new file below project runtime")
     geometry = json.loads(args.geometry.read_bytes())
     if args.navigation:
-        rows = score_radio(geometry, json.loads(args.navigation.read_bytes()), args.rssi_step_m)
+        rows = score_radio(geometry, json.loads(args.navigation.read_bytes()), args.rssi_step_m,
+                           args.max_continuous_severe_m)
     else:
         traces = json.loads(args.traces.read_bytes()) if args.traces else None
         rows = score_habitat(geometry, probes=args.probe, traces=traces)
