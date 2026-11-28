@@ -17,9 +17,15 @@ from run_objectnav_eval import DEFAULT_AGENT, SENSOR_LABELS, execute, simulator,
 TRAIN_MANIFEST_SHA256 = "3f3034ece428556e27134aa16363b39da052e724a03b88d5757dae2219a3c7f0"
 TRAIN_WITNESS_SHA256 = "7f25f2331e46d00338e857b14150fba8b0c791b4ea6120238e94abdbe8b462ef"
 DEV_DIAGNOSTIC = "wifinav-objectnav-train-dev-v1"
-TRAIN_LABELS = {**SENSOR_LABELS, "chair": SENSOR_LABELS["chair"] | {"garden chair"},
-                "plant": SENSOR_LABELS["plant"] | {"tree"},
-                "sofa": SENSOR_LABELS["sofa"] | {"chaise longue"}}
+# Extend only the train vocabulary with category names verified in the
+# official train goal annotations and the corresponding HM3D labels.
+TRAIN_LABELS = {
+    **SENSOR_LABELS,
+    "bed": SENSOR_LABELS["bed"] | {"massage bed"},
+    "chair": SENSOR_LABELS["chair"] | {"beanbag", "double armchair", "garden chair", "spa armchair"},
+    "plant": SENSOR_LABELS["plant"] | {"grass", "tree"},
+    "sofa": SENSOR_LABELS["sofa"] | {"chaise longue"},
+}
 
 
 def witness_task(task, scan, scene, witness_dir):
