@@ -22,6 +22,18 @@ DEFAULT_AGENT = "objectnav_sensor_baseline:SensorBaseline"
 RADIO_PYTHON = ROOT / "runtime/envs/sionna_rt_2_2_0_py311/bin/python"
 LLVM = Path("/opt/anaconda3/pkgs/libllvm19-19.1.2-ha7bfdaf_0/lib/libLLVM-19.so")
 TRACKS = ("no_signal", "observed_rssi")
+# Frozen vocabulary of HM3D v2 val semantic classes mapped to ObjectNav
+# categories. This is a class mapping, independent of scene and object ID.
+SENSOR_LABELS = {
+    "bed": {"bed", "bed sheet", "bedframe", "dog bed", "headboard"},
+    "chair": {"armchair", "bar chair", "bean bag chair", "chair", "computer chair", "desk chair",
+              "dining chair", "folded chair", "folding chair", "highchair", "lounge chair", "office chair",
+              "patio chair", "recliner", "rocking chair", "sofa chair"},
+    "plant": {"decorative plant", "dried flowers", "flower", "flower stand", "flower vase", "flowerpot", "plant"},
+    "sofa": {"circular sofa", "couch", "l-shaped sofa", "sofa", "sofa set"},
+    "toilet": {"toilet", "toilet seat"},
+    "tv_monitor": {"bulletin board", "display", "monitor", "tv", "tv_monitor", "tv/monitor"},
+}
 
 
 def write(path, value):
@@ -115,7 +127,7 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
         trace["collisions"] += int(bool(response.get("collided", False)))
         state = sim.get_agent(0).get_state()
         trace["positions"].append(state.position.tolist())
-        if not rules.on_floor(trace["positions"][-2:]):
+        if not rules.executed_pose_on_floor(state.position):
             break
     return trace
 
@@ -227,10 +239,9 @@ def main():
                     continue
                 # Only convert currently visible semantic pixels into the
                 # category mask. No object positions or IDs go to the agent.
-                aliases = {"plant": {"plant", "potted plant"}, "sofa": {"sofa", "couch"},
-                           "tv_monitor": {"tv_monitor", "tv", "tv monitor", "tv/monitor"}}
-                names = aliases.get(task["category"], {task["category"]})
-                ids = [obj.semantic_id for obj in objects if obj and obj.category and obj.category.name() in names]
+                names = SENSOR_LABELS[task["category"]]
+                ids = [obj.semantic_id for obj in objects if obj and obj.category
+                       and obj.category.name().strip().lower() in names]
                 if not ids:
                     raise ValueError(f"No semantic sensor target label for {name}:{row}")
                 for track in TRACKS:

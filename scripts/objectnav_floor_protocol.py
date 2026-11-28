@@ -46,13 +46,18 @@ class SingleFloor:
         return abs(point[1] - self.floor) <= self.tolerance + 1e-5
 
     def on_floor(self, points):
-        # Check both the recorded height and actual NavMesh surface.
+        """Certify a planning polyline against the physical NavMesh surface."""
         if len(points) == 1:
             points = [points[0], points[0]]
         return all(map(self.in_band, points)) and edge_on_floor(
             points, lambda p: self.finder.snap_point(np.asarray(p, dtype=np.float32)),
             self.floor, self.tolerance, VERIFIED_FLOOR_STEP_M,
         )
+
+    def executed_pose_on_floor(self, position):
+        # Habitat can slide around a wall during one action. Its actual
+        # resolved pose is authoritative, while a chord can cut the wall.
+        return self.on_floor([position])
 
     def shortest(self, start, ends):
         query = habitat_sim.MultiGoalShortestPath()
@@ -79,7 +84,7 @@ class SingleFloor:
         if (witness_distance <= 0 or lower > witness_distance + 1e-4
                 or not self.on_floor(witness) or not self.is_stop(witness[-1], views)):
             raise ValueError("Cannot verify a bounded reference for a frozen task")
-        return lower, max(lower, witness_distance)
+        return lower, max(lower, witness_distance + 1e-5)
 
     def is_stop(self, position, views):
         # Euclidean distance bounds the local path query and keeps the common
@@ -98,7 +103,7 @@ class SingleFloor:
         actions = trace["actions"]
         if (len(positions) != len(actions) + 1 or len(actions) > MAX_ACTIONS
                 or any(len(p) != 3 or not all(map(math.isfinite, p)) for p in positions)
-                or math.dist(start, positions[0]) > 1e-4 or not self.on_floor([positions[0]])):
+                or math.dist(start, positions[0]) > 1e-4 or not self.executed_pose_on_floor(positions[0])):
             raise ValueError("Invalid official start, trace shape or action budget")
         first_crossing = None
         for i, action in enumerate(actions):
@@ -106,7 +111,7 @@ class SingleFloor:
                 raise ValueError(f"Unsupported action: {action}")
             if action == "stop" and (i != len(actions) - 1 or math.dist(*positions[i:i+2]) > 1e-5):
                 raise ValueError("STOP must terminate the trace and keep the pose")
-            if first_crossing is None and not self.on_floor(positions[i:i+2]):
+            if first_crossing is None and not self.executed_pose_on_floor(positions[i+1]):
                 first_crossing = i + 1
         stop = bool(actions) and actions[-1] == "stop"
         prefix_end = len(positions) if first_crossing is None else first_crossing
