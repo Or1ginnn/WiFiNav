@@ -71,3 +71,16 @@ bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.2.4 \
 bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
   runtime/diagnostics/objectnav_vlfm_my_hab030
 ```
+
+## 正式集 NoSignal 基线
+
+原版 VLFM 单独运行全部 961 条 `val` 任务、36 个场景。固定原版检测、探索和 PointNav 权重、RGB-D 输入、200 个动作上限与同层 STOP 条件。结果报告导航 SR、SPL 区间、终止原因、路长和复算的弱信号暴露。通信达标长度上限另用开发集确定，正式基线保存逐轨迹 RSSI 分数供之后复算。
+
+启动已核验的本地感知服务并设置兼容环境后，使用 Habitat 0.3.0 的共用评测入口执行。加 `--scene` 可以按正式清单中的一个完整场景独立落盘，并行批次最终按清单核验全部任务各执行一次。每次执行使用新目录，保存原始轨迹、合法前缀、RSSI 回放和配置。
+
+```sh
+/opt/anaconda3/envs/habitat0.3.0/bin/python scripts/run_objectnav_eval.py \
+  --manifest runtime/diagnostics/objectnav_val_full_20261128_v3_checkpoint/manifest.json \
+  --population all --track no_signal --agent objectnav_vlfm_baseline:VLFM \
+  --egl-device 0 --output runtime/diagnostics/objectnav_vlfm_my_val961
+```

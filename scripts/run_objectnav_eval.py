@@ -192,6 +192,8 @@ def main():
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--population", choices=("review20", "all"), default="review20")
+    parser.add_argument("--track", choices=("paired", "no_signal"), default="paired")
+    parser.add_argument("--scene", help="Execute one whole scene of the full NoSignal evaluation")
     parser.add_argument("--agent", default=DEFAULT_AGENT, help="module:factory with reset() and act(observation)")
     parser.add_argument("--radio-python", type=Path, default=RADIO_PYTHON)
     parser.add_argument("--max-continuous-severe-m", type=parse_max_continuous_severe_m,
@@ -204,6 +206,9 @@ def main():
         parser.error("Output must be a new directory under runtime")
     if args.audit_references and args.cross_floor_probe:
         parser.error("Reference audit and regression replay are separate runs")
+    regression = args.audit_references or args.cross_floor_probe
+    if args.scene and (args.population != "all" or args.track != "no_signal" or regression):
+        parser.error("Scene execution requires --population all --track no_signal")
     limit = args.max_continuous_severe_m
     if limit is not None and (args.audit_references or args.cross_floor_probe):
         parser.error("Communication success requires RSSI scoring of closed-loop runs")
@@ -214,6 +219,9 @@ def main():
     if (manifest["scope"] != "full" or not server_audit["passed"]
             or server_audit["manifest_sha256"] != manifest_hash):
         parser.error("Expected an independently audited full manifest")
+    scenes = [s for s in manifest["scenes"] if not args.scene or s["scene"] == args.scene]
+    if args.scene and (len(scenes) != 1 or not scenes[0]["tasks"]):
+        parser.error("Selected scene has no qualified tasks in the audited manifest")
     selected = {(r["scene"], r["source_row"]) for r in manifest["review_sample"]}
     probe = json.loads(args.cross_floor_probe.read_bytes())["probe"] if args.cross_floor_probe else None
     if args.cross_floor_probe and not probe:
@@ -225,6 +233,10 @@ def main():
         parser.error("Existing CPU radio environment is needed")
     module, factory = args.agent.split(":", 1)
     agent_factory = getattr(import_module(module), factory) if not args.audit_references and not probe else None
+    rgbd = getattr(agent_factory, "requires_rgb", False)
+    if rgbd and args.track != "no_signal":
+        parser.error("The RGB-D agent is currently supported on the NoSignal track")
+    tracks = ("no_signal",) if args.track == "no_signal" else TRACKS
     args.output.mkdir(parents=True)
     metadata = {
         "protocol": PROTOCOL, "execution_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
@@ -233,18 +245,24 @@ def main():
         "probe_sha256": sha256(args.cross_floor_probe.read_bytes()).hexdigest() if probe else None,
         "action_budget": MAX_ACTIONS, "rssi_step_m": RSSI_STEP_M, "habitat_sim_version": habitat_sim.__version__,
         "egl_device": args.egl_device if agent_factory else None,
-        "tracks": list(TRACKS) if agent_factory else [],
+        "tracks": list(tracks) if agent_factory else [],
     }
+    if args.scene:
+        metadata["scene"] = args.scene
+    if rgbd:
+        metadata.update(agent_factory.metadata(), sensor_track="rgbd")
     if limit is not None:
         metadata["communication_success"] = {"max_continuous_severe_m": limit,
                                               "severe_threshold_dbm": manifest["config"]["outage_threshold_dbm"]}
     write(args.output / "metadata.json", metadata)
     result = []
-    for scene in manifest["scenes"]:
+    expected_keys = set()
+    for scene in scenes:
         name = scene["scene"]
         tasks = {t["source_row"] for t in scene["tasks"] if all_tasks or (name, t["source_row"]) in selected}
         if not tasks:
             continue
+        expected_keys.update((name, row) for row in tasks)
         geometry, source, path = load_scene(args.manifest, scene, manifest["config"])
         if args.audit_references:
             finder = habitat_sim.PathFinder()
@@ -258,9 +276,9 @@ def main():
             print(f"{name}: verified {len(tasks)} references", flush=True)
             continue
         rows = []
-        floors = load_radio(args.manifest, scene, geometry) if not probe else None
-        with simulator(geometry, render=not probe, gpu_device=args.egl_device) as sim:
-            objects = sim.semantic_scene.objects if not probe else []
+        floors = load_radio(args.manifest, scene, geometry) if not probe and "observed_rssi" in tracks else None
+        with simulator(geometry, render=not probe, gpu_device=args.egl_device, rgbd=rgbd) as sim:
+            objects = sim.semantic_scene.objects if not probe and not rgbd else []
             for task in geometry["tasks"]:
                 row = task["source_row"]
                 if row not in tasks:
@@ -284,18 +302,25 @@ def main():
                 names = SENSOR_LABELS[task["category"]]
                 ids = [obj.semantic_id for obj in objects if obj and obj.category
                        and obj.category.name().strip().lower() in names]
-                if not ids:
+                if not ids and not rgbd:
                     raise ValueError(f"No semantic sensor target label for {name}:{row}")
-                for track in TRACKS:
+                for track in tracks:
                     mapping = floors[task["floor"]] if track == "observed_rssi" else None
-                    trace = execute(sim, episode, rule, task, agent_factory(), ids, mapping)
+                    policy = agent_factory()
+                    try:
+                        trace = execute(sim, episode, rule, task, policy, ids, mapping, trace_target=rgbd)
+                    finally:
+                        if rgbd:
+                            policy.close()
                     navigation = rule.score(episode["start_position"], views, bounds, trace)
                     rows.append({"scene": name, "track": track, "navigation": navigation, "trace": trace})
+                if rgbd:
+                    print(f"{name}: navigation {len(rows)}/{len(tasks)}", flush=True)
         write(args.output / f"{name}.navigation.json", rows)
         if probe:
             result.extend(rows)
         else:
-            if not any(r["trace"]["labeled_frames"] for r in rows):
+            if not rgbd and not any(r["trace"]["labeled_frames"] for r in rows):
                 raise ValueError(f"All semantic frames are empty in {name}")
             inputs = [{**r, "trace": {**r["trace"], "positions": r["trace"]["positions"][:r["navigation"]["scored_actions"] + 1],
                                     "actions": r["trace"]["actions"][:r["navigation"]["scored_actions"]]}} for r in rows]
@@ -335,20 +360,23 @@ def main():
                 or summary["early_stop"]["success"] != 0 or summary["cross_floor"]["termination"] != "floor_violation"):
             raise ValueError("Expected legal success, premature STOP failure and cross-floor rejection")
     else:
+        if (all_tasks and not args.scene and len(expected_keys) != manifest["qualified_episodes"]
+                or not all_tasks and expected_keys != selected):
+            raise ValueError("Incomplete benchmark selection")
         by_track = {track: {(r["scene"], r["trace"]["source_row"]): r for r in result if r["track"] == track}
-                    for track in TRACKS}
-        first, second = (by_track[track] for track in TRACKS)
-        expected = manifest["qualified_episodes"] if all_tasks else len(selected)
-        if (len(result) != expected * 2 or len(first) != expected or first.keys() != second.keys()
-                or (not all_tasks and first.keys() != selected)):
-            raise ValueError("Incomplete or unpaired benchmark results")
-        common = [k for k in first if all(by_track[t][k]["navigation"]["success"] for t in TRACKS)]
-        summary = {
-            "all": {t: summarize(list(by_track[t].values())) for t in TRACKS},
-            "common_success": {t: summarize([by_track[t][k] for k in common]) if common else None for t in TRACKS},
-            "common_success_pairs": len(common),
-            "different_action_sequences": sum(first[k]["trace"]["actions"] != second[k]["trace"]["actions"] for k in first),
-        }
+                    for track in tracks}
+        if (len(result) != len(expected_keys) * len(tracks)
+                or any(rows.keys() != expected_keys for rows in by_track.values())):
+            raise ValueError("Incomplete or duplicated benchmark results")
+        summary = {"all": {t: summarize(list(by_track[t].values())) for t in tracks}}
+        if args.track == "paired":
+            first, second = (by_track[track] for track in tracks)
+            common = [k for k in first if all(by_track[t][k]["navigation"]["success"] for t in tracks)]
+            summary.update({
+                "common_success": {t: summarize([by_track[t][k] for k in common]) if common else None for t in tracks},
+                "common_success_pairs": len(common),
+                "different_action_sequences": sum(first[k]["trace"]["actions"] != second[k]["trace"]["actions"] for k in first),
+            })
     write(args.output / "results.json", result)
     write(args.output / "summary.json", summary)
     print(json.dumps(summary, ensure_ascii=False), flush=True)

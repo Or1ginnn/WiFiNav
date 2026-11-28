@@ -28,7 +28,7 @@ WIFI+Nav/
 │   ├── install_hm3d_val.py                      # 核验并安装正式 val 所引用的场景
 │   ├── build_objectnav_benchmark.py             # 小批验收和全量单 AP 制作入口
 │   ├── audit_objectnav_benchmark.py             # 独立核对清单、AP、参考路线和随机样本
-│   ├── run_objectnav_eval.py                   # v1.1 单层闭环、基线配对和真实动作回归
+│   ├── run_objectnav_eval.py                   # v1.1 单层闭环、VLFM NoSignal、基线配对和真实动作回归
 │   ├── run_objectnav_dev.py                    # 冻结 train 样本的 NoSignal 闭环与失败诊断
 │   ├── objectnav_vlfm_baseline.py              # 隔离 VLFM 原版策略、映射 RGB-D 观测与离散动作
 │   ├── audit_objectnav_dev_failures.py          # Habitat 重放核查越层和无效 STOP
