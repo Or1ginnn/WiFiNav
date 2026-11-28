@@ -88,3 +88,22 @@ bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
 2026-11-28 21:10（北京时间），冻结运行提交 `23b2c7bac2152f14fcc7d1c511d43ae2340d9dc2`，在 GPU 1、2、3 上各启动 12 个场景，分别为 321、320、320 条。RTX 4090 的 UUID 与各场景的分配保存在服务器 `runtime/diagnostics/objectnav_vlfm_20261128_val961/metadata.json`，SHA-256 为 `50e70a8b98daba7266f8e06e383c1d61bae8a16354cb49c2b807713530cb4270`。该文件同时记录冻结清单、配置、策略版本和权重收据。权重逐项校验通过。三组实际导航均收到本地 BLIP-2 与 YOLOv7 的 HTTP 200，MobileSAM 也收到真实分割请求。CPU 重放的三项原导航判分探针与 v1.1 结果逐字节一致，本机 84 项测试通过。
 
 进度查 `gpu1.log` 至 `gpu3.log` 和各 `attempts/*.log`。完整场景进入 `scenes/`，失败尝试保存在 `attempts/`。批次保存启动脚本和汇总脚本。汇总逐场景核验执行提交、清单哈希、权重收据、任务唯一性及零在线 RSSI，再写 `results.json` 和 `summary.json`。`exit_code` 为 0 且场景结果齐全时确认完成。评测期间服务器工作区保持执行提交，文档提交在整批退出后同步到服务器。
+
+### 论文结果与移植排查
+
+22:18 已评分的 7 个场景共 196 条，其中 58 条成功，SR 29.6%，SPL 0.152。78 条停车未达标、43 条耗尽 200 步、17 条越层。78 条停车失败中，54 条距离最近同层官方视点为 0.10–0.25 m，3 条为 0.50–1.00 m，21 条在 1 m 或更远。距离为诊断用的 NavMesh 测地距离。
+
+执行提交 `23b2c7b` 上，两个版本各在 CPU 重放相同的 196 条动作，196 条的实际位姿、终止原因、导航成功与各项得分都与原 0.3.0 结果一致，两份 JSON 逐字节相同。此结论覆盖固定动作的执行与评分。实时 RGB-D 进入模型后能否产生相同动作仍待更大样本验证。此前四条开发闭环中有一条的路线不同，两次都停车未达标。
+
+| 设置 | 上游 VLFM 公开配置 | 当前 WiFiNav |
+| --- | --- | --- |
+| 任务 | HM3D ObjectNav `v1` 验证集，2,000 条 | HM3D ObjectNav `v2`，正式单层 961 条 |
+| 动作预算 | 500 | 200 |
+| 相机横向视野 | 79° | 90° |
+| 深度归一化使用的米制区间 | 0.5–5 m | 0–10 m |
+| 碰撞后允许贴墙滑动 | 关闭 | 两套当前接入均沿用 Habitat-Sim 默认开启 |
+| STOP 评分 | 到官方有效视点测地距离小于 0.10 m | 同一 0.10 m 阈值，额外检查同层轨迹和视点 |
+
+论文表 I 的 52.5% 对应上游任务。当前首批 196 条的差距不能据此分摊给任何一项配置。上游配置差异需要在开发集按控制变量做闭环验证。该批正式轨迹继续保留供当前协议的基线。 [论文](https://arxiv.org/html/2312.03275v1) · [VLFM 实验配置](https://github.com/rai-opensource/vlfm/blob/584ed56008754fde7997d904983607def8328322/config/experiments/vlfm_objectnav_hm3d.yaml) · [相机和步数配置](https://github.com/facebookresearch/habitat-lab/blob/v0.2.4/habitat-lab/habitat/config/benchmark/nav/objectnav/objectnav_hm3d.yaml) · [评测配置](https://github.com/facebookresearch/habitat-lab/blob/v0.2.4/habitat-lab/habitat/config/habitat/task/objectnav.yaml)
+
+服务器证据位于 `runtime/diagnostics/objectnav_vlfm_20261128_port_audit/`，每版输出记录 7 个原始 `results.json` 的哈希。两份回放 JSON 的 SHA-256 均为 `d1fd90866f7e49c0ec9de3c862fd215f86efeb786ed7b160dc8d59b0d0641c96`。复用 `replay.py` 时复制到同级的新目录后，通过各 Habitat Python 解释器运行，导入路径指向项目 `scripts/`。
