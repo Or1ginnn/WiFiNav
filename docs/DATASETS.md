@@ -1,10 +1,10 @@
 # 服务器任务与场景数据
 
-更新于 2026-11-24。任务集和场景以独立实际文件存放在服务器 `~/WiFiNav/data/`。Git 同步配置与记录。
+更新于 2026-11-28。任务集和场景以独立实际文件存放在服务器 `~/WiFiNav/data/`。Git 同步配置与记录。
 
 ## 当前主线：HM3D ObjectNav v2
 
-官方 episode 包和 ObjectNav v2 引用的 145 个 `train` 场景已装好。另有一处公开 `val` 样例。其余 `val` 和 `minival` 场景待补齐。
+官方 episode 包、ObjectNav v2 引用的 145 个 `train` 场景和 36 个 `val` 场景均已安装。独立的 `val_mini` 路径仍保留原状态。
 
 | 内容 | 服务器项目内路径 |
 |---|---|
@@ -16,13 +16,15 @@
 | 11 月 22 日初始场景覆盖 | `runtime/data_imports/hm3d_objectnav_v2_20261122/readiness.json` |
 | 11 月 24 日 `train` 安装及逐文件校验 | `data/_manifests/hm3d_objectnav_v2_train_install.json` |
 | `train` 原始 tar、清单与日志 | `runtime/data_imports/hm3d_train_v0.2/` |
+| `val` 安装及逐文件校验 | `data/_manifests/hm3d_objectnav_v2_val_install.json` |
+| `val` 原始 tar、上传校验、安装及全量预检 | `runtime/data_imports/hm3d_val_v0.2/` |
 
 源 ZIP 大小为 260,304,032 字节，SHA256 为 `f551a0d8560804dc385c52f9aedb646c70917da36c1902d848b4fbc1615515d0`。CRC 校验通过，解出的 186 个 gzip 文件逐字节与包内一致，原始 JSON 和场景引用路径保留。官方 `train` 和 `val` 的 `episode_id` 在同场景的不同物体类别间会重复。后续派生清单使用源文件相对路径和文件内记录序号建立稳定标识，保留原 ID。
 
 | 官方 split | Episode 记录 | 场景引用 | 场景已安装 |
 |---|---:|---:|---:|
 | `train` | 7,196,434 | 145 | 145 |
-| `val` | 1,000 | 36 | 1 |
+| `val` | 1,000 | 36 | 36 |
 | `val_mini` | 30 | 2 | 0 |
 
 六个目标类别为 `bed`、`chair`、`plant`、`sofa`、`toilet`、`tv_monitor`。表内是官方原始记录数。首批 `train` 开发审阅使用 5 个已安装场景中的 20 条单层任务和 7 套 AP 草稿。[首批开发审阅](experiments/objectnav_train_ap_review_2026-11-24.md)
@@ -35,7 +37,7 @@
 
 安装入口 `scripts/install_hm3d_train.py`，执行提交 `7d3f966`；日志 `runtime/data_imports/hm3d_train_v0.2/install_20261124.log`。Habitat-Sim 0.3.0 在 CPU 全量加载 145 个 navmesh。抽查 `00006-HkseAnWCgqk`，Habitat-Lab 0.3.0 读入该场景分片的 40,000 条任务，headless 模拟器读入 453 个语义对象并验证首个任务起点可通行。安装后复核了 581 个实际文件的完整目录、长度和独立 inode。安装清单 SHA256 为 `eea2abbf6cf5e5431a92107829aa2720a7b613f067dcde50de00b5ed3eb734ce`。
 
-**后续评估所缺资产。** 其余 `val` 和 `minival` 仍待授权资产。访问入口见 [HM3D 官方获取说明](https://github.com/facebookresearch/habitat-sim/blob/main/DATASETS.md#habitat-matterport-3d-research-dataset-hm3d)。
+**`val` 配置及导入记录。** 2026-11-28 从本机项目 `data/` 上传三个官方 v0.2 tar，共 5,676,595,200 字节，逐包 SHA256 一致。由 `scripts/install_hm3d_val.py` 在提交 `49335ac` 导入。146 个清单文件均通过安装后长度、独立 inode 及 SHA256 校验，141 个新文件落盘，公开样例的四个场景文件和全局配置经匹配后保留。Habitat-Sim 0.3.0 成功加载 36 个导航网格。新场景 `TEEsavR23oF` 的无渲染抽查读入 661 个语义对象，28 条任务起点均可通行。安装清单 SHA256 为 `6c351787491fd67e9783ed8b75a0386e7e99305c2b868467b45abf1c5b8a3ad3`，独立 `val_mini` 资产与正式全量 `val` 范围分开。
 
 2026-11-23 复核，服务器可解析并访问 Matterport，三个官方 `train` 下载 URL 的匿名响应均为登录 HTML。服务器直下入口为 `python3 scripts/download_hm3d_train.py`，从交互 SSH 终端运行。输入已获授权的 Token ID 和 Secret 后，先校验语义配置包，再后台下载两份大包到 `runtime/data_imports/hm3d_train_v0.2/`。凭据仅用于进程内认证。用同目录的 `download.log` 查看状态，全部校验后生成 `archives.json`，随后按项目要求验收并安装实际文件。
 

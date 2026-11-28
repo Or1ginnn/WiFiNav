@@ -39,8 +39,9 @@
 
 2026-11-28 用户完成 v5 HTML 审阅并同意放量。服务器在 `72ad8be` 上以当期 v5 清单再次调用全量入口，仍只找到 1 个完整场景，缺 35 个。三份归档均未在本机项目或服务器项目中找到，服务器限量匿名 GET 确认仍返回 HTML。预检记录位于 `runtime/diagnostics/objectnav_full_preflight_20261128/`。正式批次尚未生成。
 
+同日用户提供的三个 `val` 包已从本机上传、验证并安装。正式 `val` 的 36 个场景全部齐全，1,000 条源任务均可读取，v5 小批清单、独立审计、来源、配置和工作流哈希通过核对。放量就绪记录位于 `runtime/data_imports/hm3d_val_v0.2/full_readiness_20261128.json`。本次完成安装与预检，正式构建待启动。[完整数据记录](../DATASETS.md#当前主线hm3d-objectnav-v2)
+
 ```sh
-/opt/anaconda3/envs/habitat0.3.0/bin/python scripts/install_hm3d_val.py
 /opt/anaconda3/envs/habitat0.3.0/bin/python scripts/build_objectnav_benchmark.py \
   --full-after runtime/diagnostics/objectnav_val_small_20261128_v5_parallel/manifest.json \
   --output runtime/diagnostics/<新的全量目录>
