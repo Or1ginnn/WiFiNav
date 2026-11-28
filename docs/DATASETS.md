@@ -43,6 +43,12 @@
 
 用户随后指定先下载到本机项目，再上传服务器。实际本机下载记录使用 `runtime/data_imports/hm3d_train_v0.2/local_archives.json` 保存包名、长度和 SHA256，服务器完整复核后导入。
 
+## VLFM 上游对照：HM3D ObjectNav v1
+
+从 VLFM 官方 README 指向的发布地址直下到服务器项目。ZIP 为 138,845,369 字节，SHA-256 为 `24d37da5a3919ca15c81251f9420eec5fef32a48ab26a6eeabda723e8387bee1`，CRC 校验通过。105 个原始 gzip 文件安装到 `data/datasets/objectnav/hm3d/v1/`，逐文件确认内容一致且为独立实际文件。原始 ZIP 保存在 `runtime/data_imports/hm3d_objectnav_v1_20261128/`，安装清单位于 `data/_manifests/hm3d_objectnav_v1_episodes.json`。
+
+v1 正式 `val` 源文件共 2,000 条、20 个场景。全部场景在项目的 HM3D v0.2 资产中可定位。上游基线小批的派生清单只变更 `scene_id` 和 `scene_dataset_config` 的本地路径，保留 v1 原任务、起点、目标及视点。CPU 用 Habitat 0.2.4 原生任务加载器验收了所选 20 条的起点、navmesh 和场景注释对象索引。[上游数据说明](https://github.com/rai-opensource/vlfm/blob/584ed56008754fde7997d904983607def8328322/README.md#L66-L88) · [小批运行](experiments/objectnav_vlfm_2026-11-28.md#原入口-v1-小批)
+
 ## 原 R2R-CE / MP3D 数据
 
 以下是 2026-11-04 的复制与验收记录，供旧实验复现。

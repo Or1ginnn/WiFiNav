@@ -131,4 +131,16 @@ bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
 
 服务器运行官方 `python -m vlfm.run --cfg job --resolve`，退出码 0，合成配置确认官方 RGB-D、碰撞、500 步、STOP 判分参数和 ObjectNav v1 `val` 路径。WiFiNav 同参数探针通过。另对 1,225 个合成平面位姿，用 0.2.4 原生 `EpisodicGPSSensor`、`EpisodicCompassSensor` 与 WiFiNav 转换对照，误差小于 `1e-6` m 和 `1e-6` rad。证据在 `runtime/diagnostics/objectnav_vlfm_20261128_upstream_entry_audit/`，官方配置输出 SHA-256 `328585d9b5c88aadbe3614cf94f5b67c967726209ea0cef3844562dffbe55098`。
 
-上游 README 为 HM3D 场景指定 v0.2 资产，为任务指定 ObjectNav v1 episode 包。WiFiNav 服务器只有 ObjectNav v2 episode 包。当前四条验收使用原策略与对齐后的运行参数，由 WiFiNav 的 Habitat 0.3.0 单层评测器驱动。官方入口仅验证到配置解析，未用上游 v1 任务完成真实闭环。[上游数据清单](https://github.com/rai-opensource/vlfm/blob/584ed56008754fde7997d904983607def8328322/README.md#L66-L88)
+上游 README 为 HM3D 场景指定 v0.2 资产，为任务指定 ObjectNav v1 episode 包。首次入口核对时服务器只装了 v2 任务，四条对齐配置的开发验收由 WiFiNav 的 Habitat 0.3.0 单层评测器驱动。原入口随后完成下节的 v1 小批。[上游数据清单](https://github.com/rai-opensource/vlfm/blob/584ed56008754fde7997d904983607def8328322/README.md#L66-L88)
+
+### 原入口 v1 小批
+
+官方 ObjectNav v1 包已独立安装。[安装记录](../DATASETS.md#vlfm-上游对照hm3d-objectnav-v1) 从 v1 `val` 的 20 个场景各选 1 条，从排序后的场景开始轮换可用类别，并在目标类别内按固定种子生成的 SHA-256 排序选定源行。20 条覆盖 6 类，分成 7、7、6 条三组并行。选样发生在模型启动前，冻结样本 SHA-256 为 `fae20569e8391f7283523fb4ee9fb39ac5003fc6c45452135dce728a14ff9996`。
+
+通过 GitHub 校验 `vlfm/run.py` 和 `vlfm/utils/vlfm_trainer.py` 与服务器源码逐字节一致，直接用 `python -m vlfm.run` 和原配置启动。只覆盖本机任务、场景、权重和日志路径。相机 79°、深度 0.5–5 m、500 步、贴墙滑动关闭和官方成功判定保持默认。使用原推理权重和 VLFM 策略 `584ed56008754fde7997d904983607def8328322`，运行环境为 Habitat-Sim 0.2.4、Habitat-Lab `0.2.420230405`、Habitat Baselines 0.2.4、LAVIS 1.0.2 与项目已有的 Torch 2.6.0+cu124 兼容环境。
+
+第一轮原生评测在 `Env.reset()` 读取目标包围盒时因旧的场景注释配置路径找不到对象。重试保留相同 20 条源任务，只将副本中的 `scene_dataset_config` 和 `scene_id` 一并映射到项目现有的 HM3D v0.2 资产。20 条的起点、navmesh 和目标对象索引均通过 CPU 预检。首轮错误日志保留在批次目录后缀 `.path_preflight` 下。
+
+服务器 `runtime/diagnostics/objectnav_vlfm_20261128_upstream_v1_small/` 保存 `sample_manifest.json`、`prepare_sample.py`、`launch.sh`、逐组原生 `eval.log`、官方逐任务 `stats/`、动作日志和实际配置。WiFiNav 的 961 条正式任务继续暂停。
+
+北京时间 23:44 三组全部退出码 0。**20 条成功 12 条，SR 60%，SPL 0.34750**，共执行 2,911 个动作。三个分组分别成功 5/7、5/7、2/6。原生日志记录失败原因为 5 条误检和 3 条未见目标且未穿越楼梯，后者由上游诊断标记为可能不可行。汇总核对每组的原生输出、单条分数和 20 个场景键。`config_parity.log` 验证配置仅有任务路径、场景根目录、PointNav 路径、TensorBoard 目录及视频目录五个配置字段与上游不同。汇总 SHA-256 为 `a5d63fe215317b94a7c10dcb8a6924c7bc1c8fc1dad00333d38896b87f42e4d2`。该小批用于核对运行与量级，论文的 52.5% 对应原 2,000 条验证任务。 [原论文](https://arxiv.org/html/2312.03275v1)
