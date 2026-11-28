@@ -264,3 +264,5 @@ RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数
 2026-11-28，复用两套现有 Habitat 解释器，对正式批次已落盘的 196 条动作做 CPU 重放。输出在 `runtime/diagnostics/objectnav_vlfm_20261128_port_audit/`，两版本结果逐字节一致。过程使用 CPU，无模型请求。正式评测进程继续运行。[诊断证据](experiments/objectnav_vlfm_2026-11-28.md#论文结果与移植排查)
 
 2026-11-28 22:53，按用户要求停止正式 VLFM 批次的三组运行及所属 localhost 模型进程，保留 280 条评分产物和中断日志。GPU 1–3 随后释放。官方接入配置使用独立开发输出目录。[暂停与对齐](experiments/objectnav_vlfm_2026-11-28.md#暂停正式评测与对齐配置)
+
+2026-11-28 23:02，官方参数开发验收结束，复用 GPU 0 和原 localhost 服务，Habitat 0.3.0 跑完同一固定开发场景的 4 条，离线复验复用 CPU。模型端口关闭，复查四卡各 15 MiB。全量评测继续暂停。[结果与配置哈希](experiments/objectnav_vlfm_2026-11-28.md#暂停正式评测与对齐配置)

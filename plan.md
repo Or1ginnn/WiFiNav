@@ -16,7 +16,7 @@
 | NoSignal 开发首轮完成 | 固定的 20 条 `train` 任务上，原规则、加卡住恢复、再尝试提前停车分别成功 1、3、5 条。第三版独立复跑逐字节一致，仍有 4 条越层和 6 条无效 STOP，暂未冻结为正式基线。[开发结果与复跑](docs/experiments/objectnav_train_nosignal_2026-11-28.md) |
 | NoSignal 失败复核完成 | 原 10 条失败逐条复现，符合 v1.1 判分。用动作后高差触发换向，原样本成功 5→6、越层 4→2。独立 20 条成功 3→1、越层 2→6，无效 STOP 1→3。候选未通过验收。[复核和独立对照](docs/experiments/objectnav_train_nosignal_followup_2026-11-28.md) |
 | 外部基线 VLFM 已跑通 | 原版策略在 Habitat-Sim 0.2.4 跑完首场景 4 条，在正式环境 0.3.0 跑完冻结 20 条 NoSignal 开发任务。0.3.0 成功 6/20、SPL 0.16116。11 条无效 STOP 或越层结果均已重放核验。[VLFM 接入记录](docs/experiments/objectnav_vlfm_2026-11-28.md) |
-| 正式 NoSignal 基线已暂停 | 用户要求先对齐原版配置。旧 200 步批次保存了 10 个场景、280 条已评分任务及中断日志。当前只在固定 `train` 开发任务上验收官方配置，等待后续指令再开启正式集。[暂停与对齐](docs/experiments/objectnav_vlfm_2026-11-28.md#暂停正式评测与对齐配置) |
+| 正式 NoSignal 基线已暂停 | 旧 200 步批次保存了 10 个场景、280 条已评分任务及中断日志。官方配置已在固定 `train` 首场景完成四条真实闭环和 CPU 复验，成功 0/4。正式集保持暂停。[暂停与对齐](docs/experiments/objectnav_vlfm_2026-11-28.md#暂停正式评测与对齐配置) |
 | 通信达标成功已通过开发回放 | 要求导航成功，且连续低于 −75 dBm 的最长路段不超过允许长度。VLFM 的 20 条开发轨迹中，导航成功 6 条，按演示值 1 m 通信达标 4 条。正式上限待冻结。[判分规则与证据](docs/experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md#通信达标成功率) |
 
 首版以信号覆盖作为环境和评分变量，仿真中的模型服务全程可用。请求掉线、恢复、本地识别和通信感知导航器属于历史讨论，保存在 [范围收紧前的计划](https://github.com/Or1ginnn/WiFiNav/blob/e2615326f4f826d2826283542d5b799bfde0d029/plan.md)。
@@ -117,7 +117,7 @@ $\mathcal{P}_G(s,v^*)$ 是图上连接固定起终点的全部可行路径。阈
 7. **导航基线处于开发，已完成越层与无效停车复核。** 原 20 条中，提前停车版曾成功 5 条。原样本四条失败的实际位姿越过单层高度带，六条停止时在合法停车范围外。[首轮](docs/experiments/objectnav_train_nosignal_2026-11-28.md) · [失败复核](docs/experiments/objectnav_train_nosignal_followup_2026-11-28.md)
    - 坡度触发换向在原 20 条改善，但在冻结的独立 5 场景、20 条任务上丢掉两条原成功，越层和无效 STOP 均增加。固定样本的加载问题已按官方 `train` 类别补齐词表，保留原失败日志和全部配对。候选未验收。
    - ICRA 2024 的 VLFM 已从 Habitat-Sim 0.2.4 迁移到 WiFiNav 正式环境 0.3.0。两版都跑通首场景，0.3.0 随后完成全部 20 条冻结开发任务。VLFM 感知使用真实渲染 RGB-D、类别和相对位姿。详细结果为 6 条成功、9 条停错、2 条越层、3 条用完动作预算。[VLFM 接入记录](docs/experiments/objectnav_vlfm_2026-11-28.md)
-   - 旧配置的正式 NoSignal 批次已暂停，保留 280 条已评分结果。先用固定开发任务确认官方 79° 视野、0.5–5 m 深度、关闭贴墙滑动以及 500 步上限。WiFiNav v2 任务、单层规则、STOP 阈值和事后 RSSI 评分按原协议执行。[暂停与对齐](docs/experiments/objectnav_vlfm_2026-11-28.md#暂停正式评测与对齐配置)
+   - 旧配置的正式 NoSignal 批次已暂停，保留 280 条已评分结果。官方 79° 视野、0.5–5 m 深度、关闭贴墙滑动以及 500 步上限已在固定开发任务上验收运行，四条中两条无效 STOP、两条越层。WiFiNav v2 任务、单层规则、STOP 阈值和事后 RSSI 评分按原协议执行。[暂停与对齐](docs/experiments/objectnav_vlfm_2026-11-28.md#暂停正式评测与对齐配置)
    - 两版 Habitat CPU 重放同一批 196 条正式动作，所有位姿与评分相同。核对到官方 VLFM 配置使用 79°、0.5–5 m 深度和 500 步，当前为 90°、0–10 m 和 200 步。若要解释论文成功率差距，先在固定开发样本上补原版传感器和动作预算对照，再区分实时渲染和配置效应。[迁移差距排查](docs/experiments/objectnav_vlfm_2026-11-28.md#论文结果与移植排查)
    - RSSI 决策仍待设计和实现。在开发集上验证后再与上述同协议基线配对。通信长度上限用 `train` 开发材料确定。
 8. **通信达标评分已验证。** 按原开发审阅的默认 AP 回放 VLFM 20 条实际轨迹，RSSI 全部有效。允许长度分别为 0、0.5、1、2、4 m 时，联合成功数为 2、3、4、5、6 条。该批只用于验证评分与观察敏感性。正式评测前在开发集核验上限与覆盖可行性，记录应用假设，两组使用同一上限。[证据](docs/experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md#通信达标成功率)
@@ -167,6 +167,6 @@ $\mathcal{P}_G(s,v^*)$ 是图上连接固定起终点的全部可行路径。阈
 - 2026-11-28，确认先放量跑原版 VLFM，新增正式 `val` 的 RGB-D NoSignal 入口与整场景执行选项。[全量基线协议](docs/experiments/objectnav_vlfm_2026-11-28.md#正式集-nosignal-基线)
 - 2026-11-28 21:10，原版 VLFM 的三个全量分组进入仿真。执行提交 `23b2c7b` 固定到整批退出，服务器批次位于 `runtime/diagnostics/objectnav_vlfm_20261128_val961/`。[验收和进度入口](docs/experiments/objectnav_vlfm_2026-11-28.md#正式集-nosignal-基线)
 - 2026-11-28，复核正式集首 196 条的中间结果和论文配置。两个 Habitat 版本的固定动作 CPU 回放完全一致，记录传感器、评测预算和数据差异，正式批次继续按冻结版本执行。[诊断](docs/experiments/objectnav_vlfm_2026-11-28.md#论文结果与移植排查)
-- 2026-11-28，按用户要求暂停 961 条正式批次，接入独立的 VLFM 官方相机、碰撞和动作预算配置。[配置验收](docs/experiments/objectnav_vlfm_2026-11-28.md#暂停正式评测与对齐配置)
+- 2026-11-28，按用户要求暂停 961 条正式批次。VLFM 官方运行配置通过 86 项本机测试、四条开发闭环和失败轨迹 CPU 复验，未启动正式集。[配置验收](docs/experiments/objectnav_vlfm_2026-11-28.md#暂停正式评测与对齐配置)
 
 新聊天先读第 0 节和第 4 节。需要操作服务器时核对 [数据配置](configs/data/objectnav_hm3d_v2.json)、[环境记录](docs/LOCAL_ENVIRONMENT.md) 与实际状态。

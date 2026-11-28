@@ -120,3 +120,7 @@ bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
 bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
   runtime/diagnostics/objectnav_vlfm_my_official_dev --vlfm-official --smoke
 ```
+
+实际执行提交 `a6d09d0d04d72fc09f7d79b62cb7c1711c282ef4`，服务器目录 `runtime/diagnostics/objectnav_vlfm_20261128_official_dev4/`。清单仍为 `3f3034ece428556e27134aa16363b39da052e724a03b88d5757dae2219a3c7f0`，执行配置 SHA-256 `9f3923a1aaa5c50f8c35c2dce43d4f4caf79fdab36630140b5f2440eb728e9a1`，沿用相同策略版本和权重。结果 `cb8b0875356e4348609b829c151ba0969a30edef786f21128a9a403c9587e8e9`。
+
+四条均闭环落盘，402 个真实动作，成功 0/4，两条无效 STOP、两条越层。找马桶执行到第 318 步后越层，确认能越过旧预算继续执行。相同任务旧配置也为 0/4；新旧相机、深度、碰撞及步数同时改变，小样本只能验证对齐后的链路。四条失败均通过同配置 CPU 重放。官方 YAML 参数核对、200/500 步边界、原三条判分探针逐字节复验和 86 项本机测试均通过。正式评测保持暂停。
