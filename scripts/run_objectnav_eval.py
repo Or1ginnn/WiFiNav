@@ -93,7 +93,8 @@ def reset(sim, episode):
     sim.get_agent(0).set_state(state)
 
 
-def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None, actions=None, *, trace_target=False):
+def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None, actions=None, *,
+            trace_target=False, observe_elevation=False):
     reset(sim, episode)
     start = sim.get_agent(0).get_state()
     if policy is not None:
@@ -131,8 +132,9 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
                     "pixels": len(valid),
                     "depth_p25_m": float(np.quantile(valid, .25)) if len(valid) else None,
                 })
+            elevation = float(delta[1]) if observe_elevation else 0.
             action = policy.act(Observation(task["category"], frames["depth"], target_mask,
-                                            float(x), float(z), theta, rssi, relative_height_m=float(delta[1])))
+                                            float(x), float(z), theta, rssi, relative_height_m=elevation))
         trace["actions"].append(action)
         if action == "stop":
             trace["positions"].append(state.position.tolist())

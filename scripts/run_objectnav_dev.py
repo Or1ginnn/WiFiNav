@@ -137,7 +137,7 @@ def main():
                        and obj.category.name().strip().lower() in names]
                 if not ids:
                     raise ValueError(f"No semantic sensor target label for {scan}:{task['source_row']}")
-                trace = execute(sim, episode, rules, task, agent(), ids, trace_target=True)
+                trace = execute(sim, episode, rules, task, agent(), ids, trace_target=True, observe_elevation=True)
                 score = rules.score(episode["start_position"], views, bounds, trace)
                 rows.append({"scene": scan, "floor": task["floor"], "category": task["category"],
                              "reference_witness": "audited_geometric_route" if witness is not task else "original",
