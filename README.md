@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-主线采用 **Habitat HM3D ObjectNav v2**。官方任务包和 `train` 引用的 145 个场景已安装。首批开发审阅包含 5 个场景、20 条单层任务和 7 个 AP 布局。原 R2R-Conn 的完整 B3 结论为 **No-Go**，其数据和结果供复现。[数据安装记录](docs/DATASETS.md) · [首批 AP 审阅](docs/experiments/objectnav_train_ap_review_2026-11-24.md)
+主线采用 **Habitat HM3D ObjectNav v2**。冻结的正式集包括 36 个场景、74 个楼层、961 条任务。v1.1 评测通过单层轨迹回归、全量参考审计及固定 20 条的闭环配对验收。[数据安装记录](docs/DATASETS.md) · [v1.1 评测与复跑](docs/experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md)
 
 ## 文档入口
 
@@ -25,9 +25,7 @@
 
 ## 下一步
 
-1. 在本机 HTML 审阅首批 AP 坐标及覆盖，校验草稿、重算并冻结布局。
-2. 在固定任务上接通 RSSI 查询和官方 ObjectNav 轨迹评分。
-3. 接入正式保留评估需要的 `val` 场景和语义资产。
+先在开发数据上验收更稳定的 ObjectNav 基线，再用冻结的正式清单做导航与模拟 RSSI 的闭环配对。原 R2R-Conn B3 的 No-Go 记录供复现。
 
 模型部署细节、实际请求结果和服务器资源见 [部署现场记录](docs/experiments/server_bootstrap_2026-11-04.md)。
 
