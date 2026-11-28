@@ -80,14 +80,19 @@ def free_space_check(config):
     return {"tx_effective_power_dbm": power, "max_error_db": float(np.max(error)), "cells": int(error.size)}
 
 
-def floor_check(mi_scene, points, tolerance, labels):
-    """Compare physical floor hits to known Habitat points after axis conversion."""
+def floor_matches(mi_scene, points, tolerance):
+    """Mark Habitat points whose vertical hits match the physical floor."""
     transformed = np.array([gltf_xyz(p) for p in points])
     ray = mi.Ray3f(mi.Point3f(transformed[:, 0], transformed[:, 1], transformed[:, 2] + tolerance),
                      mi.Vector3f(0, 0, -1))
     hit = mi_scene.ray_intersect(ray)
     errors = np.abs(np.asarray(hit.p.z) - transformed[:, 2])
-    matched = np.asarray(hit.is_valid()) & (errors <= tolerance)
+    return np.asarray(hit.is_valid()) & (errors <= tolerance)
+
+
+def floor_check(mi_scene, points, tolerance, labels):
+    """Compare physical floor hits to known Habitat points after axis conversion."""
+    matched = floor_matches(mi_scene, points, tolerance)
     count = int(np.count_nonzero(matched))
     ap_matched = [bool(m) for m, label in zip(matched, labels) if label.startswith("ap:")]
     if not all(ap_matched) or count < .90 * len(points):

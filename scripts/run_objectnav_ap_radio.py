@@ -15,10 +15,11 @@ import numpy as np
 
 from export_ap_review_scene_views import Textures, physical_mesh, render_floor
 from run_rss_multiwall_pilot import CATEGORIES, merge_hits, mesh_hits, sha
-from run_rss_raytrace_pilot import floor_check, summarize_profile
+from run_rss_raytrace_pilot import floor_check, floor_matches, summarize_profile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+FLOOR_ALIGNMENT_TOLERANCE_M = .30
 
 
 def read_accessor(doc, buffer, index):
@@ -136,6 +137,25 @@ def signal_for_anchor(scene, tags, anchor, receivers, config):
     return np.round(free - penalties, 2), sum(bool(ray) for ray in hits)
 
 
+def select_layout(geometry, asset):
+    """Select one center-ranked, mesh-aligned AP on each populated floor."""
+    if geometry["config"]["ap_candidates_per_floor"] != 1:
+        raise ValueError("Center-ranked floor validation requires exactly one chosen AP per floor")
+    scene = physical_mesh(asset)[0]
+    checks = {}
+    for fid, floor in geometry["floors"].items():
+        candidates = floor["candidates"]
+        matches = floor_matches(scene, [item["xyz"] for item in candidates], FLOOR_ALIGNMENT_TOLERANCE_M)
+        legal = np.flatnonzero(matches)
+        if not len(legal):
+            raise ValueError(f"No AP matches the physical floor in {asset.stem}/{fid}")
+        index = int(legal[0])
+        checks[fid] = {"candidate_count": len(candidates), "matched": len(legal), "chosen_rank": index + 1}
+        floor["candidates"] = [{**candidates[index], "id": "AP-01"}]
+    geometry["ap_floor_validation"] = checks
+    return geometry
+
+
 def build(geometry, asset, decoder):
     config = geometry["config"]
     stem = asset.name.removesuffix(".basis.glb")
@@ -150,7 +170,7 @@ def build(geometry, asset, decoder):
     for task in geometry["tasks"]:
         stops.extend([task["route_xyz"][0], task["route_xyz"][-1]])
         labels.extend([f"start:{task['source_row']}", f"stop:{task['source_row']}"])
-    alignment = floor_check(physical[0], anchors + stops, .30, labels)
+    alignment = floor_check(physical[0], anchors + stops, FLOOR_ALIGNMENT_TOLERANCE_M, labels)
     radio = {}
     glb = asset.read_bytes()
     textures = Textures(glb, decoder) if decoder else None
@@ -206,6 +226,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--geometry", type=Path, required=True)
     parser.add_argument("--basis-decoder", type=Path)
+    parser.add_argument("--select-layout", action="store_true", help="Freeze the first floor-aligned AP per floor")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     output = args.output.resolve()
@@ -221,6 +242,12 @@ def main():
             raise ValueError(f"Source file changed after the geometry audit: {name}")
     dr.set_thread_count(4)
     asset = ROOT / "data/scene_datasets" / geom["source_ref"]
+    if args.select_layout:
+        result = select_layout(geom, asset)
+        with output.open("x", encoding="utf-8") as handle:
+            json.dump(result, handle, separators=(",", ":"), allow_nan=False)
+        print(result["ap_floor_validation"], flush=True)
+        return
     radio = build(geom, asset, args.basis_decoder)
     result = {"geometry": geom, "geometry_sha256": sha(args.geometry), "radio": radio,
               "radio_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),

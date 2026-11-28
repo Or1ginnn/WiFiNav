@@ -89,13 +89,20 @@ def classify(task, final, cross, minimum):
 def build_scene(ref, config, rules, identity, output, radio_python, decoder):
     scan, shard, (scene, _, _, _) = files_for_scene(ref)
     geometry_path = output / f"{scan}.geometry.json"
-    geometry = build(shard, scene, config, count=None)
+    geometry = build(shard, scene, config, count=None, center_ranked_aps=True)
     geometry["config_sha256"] = identity["config_sha256"]
     if geometry["source_episode_count"] != len(geometry["scope_audit"]):
         raise RuntimeError(f"Unaccounted official rows in {scan}")
-    if any(len(floor["candidates"]) != 1 for floor in geometry["floors"].values()):
-        raise RuntimeError(f"Expected one frozen AP per floor in {scan}")
-    write_json(geometry_path, geometry)
+    if geometry["tasks"]:
+        pool_path = output / f"{scan}.ap_candidates.json"
+        write_json(pool_path, geometry)
+        run(radio_python, "run_objectnav_ap_radio.py", output / f"{scan}.ap_selection.log",
+            "--geometry", pool_path, "--select-layout", "--output", geometry_path)
+        geometry = load(geometry_path)
+        if any(len(floor["candidates"]) != 1 for floor in geometry["floors"].values()):
+            raise RuntimeError(f"Expected one frozen AP per floor in {scan}")
+    else:
+        write_json(geometry_path, geometry)
     record = {
         "scene": scan, "source_ref": ref, "geometry_sha256": sha256(geometry_path),
         "source_episodes": geometry["source_episode_count"], "tasks": [],
@@ -105,6 +112,7 @@ def build_scene(ref, config, rules, identity, output, radio_python, decoder):
     if not geometry["tasks"]:
         print(f"{scan}: 0 qualifying rows out of {record['source_episodes']}", flush=True)
         return record
+    record["files"][pool_path.name] = sha256(pool_path)
 
     def product(label, python, script, *arguments):
         result = output / f"{scan}.{label}.json"

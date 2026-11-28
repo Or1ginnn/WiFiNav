@@ -44,7 +44,7 @@ def shortest(finder, start, end, floor, tolerance):
     return points
 
 
-def anchor_ap_candidates(finder, topdown, mask, floor, config):
+def anchor_ap_candidates(finder, topdown, mask, floor, config, *, center_ranked=False):
     origin = np.asarray(topdown["first_center_xz"])
     pixels_m = topdown["meters_per_pixel"]
     stride = max(1, round(config["ap_search_step_m"] / pixels_m))
@@ -66,12 +66,15 @@ def anchor_ap_candidates(finder, topdown, mask, floor, config):
         raise ValueError("No wall-adjacent AP anchors fit this floor")
     locations = np.asarray([item[0] for item in candidates])[:, [0, 2]]
     distance_center = np.linalg.norm(locations - center, axis=1)
-    keep = [int(np.argmin(distance_center))]
-    distances = np.linalg.norm(locations - locations[keep[0]], axis=1)
-    while len(keep) < config["ap_candidates_per_floor"] and distances.max() >= config["ap_candidate_separation_m"]:
-        index = int(np.argmax(distances))
-        keep.append(index)
-        distances = np.minimum(distances, np.linalg.norm(locations - locations[index], axis=1))
+    if center_ranked:
+        keep = np.argsort(distance_center, kind="stable")
+    else:
+        keep = [int(np.argmin(distance_center))]
+        distances = np.linalg.norm(locations - locations[keep[0]], axis=1)
+        while len(keep) < config["ap_candidates_per_floor"] and distances.max() >= config["ap_candidate_separation_m"]:
+            index = int(np.argmax(distances))
+            keep.append(index)
+            distances = np.minimum(distances, np.linalg.norm(locations - locations[index], axis=1))
     return [
         {"id": f"AP-{i + 1:02d}", "xyz": [round(float(v), 5) for v in candidates[index][0]],
          "navmesh_clearance_m": round(float(candidates[index][1]), 3)}
@@ -79,7 +82,7 @@ def anchor_ap_candidates(finder, topdown, mask, floor, config):
     ]
 
 
-def build(shard, asset, config, count):
+def build(shard, asset, config, count, *, center_ranked_aps=False):
     complete_shard = count is None
     if complete_shard and "episode_pool_per_category" in config:
         raise ValueError("Full-shard screening requires all source episodes")
@@ -166,7 +169,8 @@ def build(shard, asset, config, count):
         floor = anchors[int(floor_id[1:]) - 1]
         topdown, mask = topdown_slice(finder, floor, floor_tol)
         floors[floor_id] = {"y": floor, "map": topdown,
-                            "candidates": anchor_ap_candidates(finder, topdown, mask, floor, config)}
+                            "candidates": anchor_ap_candidates(finder, topdown, mask, floor, config,
+                                                               center_ranked=center_ranked_aps)}
     stem = asset.name.removesuffix(".basis.glb")
     source_paths = [shard, asset, navmesh, asset.with_name(stem + ".semantic.glb"), asset.with_name(stem + ".semantic.txt")]
     return {
