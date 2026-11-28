@@ -69,6 +69,9 @@ def simulator(geometry, *, render, gpu_device):
     options.scene_dataset_config_file = str(ROOT / "data/scene_datasets/hm3d_v0.2/hm3d_annotated_basis.scene_dataset_config.json")
     options.create_renderer = render
     options.load_semantic_mesh = render
+    # HM3D .semantic.glb carries IDs in vertex colors. The texture mode
+    # defaults to True in Habitat 0.3.0 and produces an all-zero sensor here.
+    options.use_semantic_textures = False
     options.gpu_device_id = gpu_device
     agent = habitat_sim.agent.AgentConfiguration()
     agent.action_space = {name: habitat_sim.agent.ActionSpec(name, habitat_sim.agent.ActuationSpec(amount))
@@ -96,7 +99,8 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
     if policy is not None:
         policy.reset()
     trace = {"source_row": task["source_row"], "positions": [start.position.tolist()], "actions": [], "collisions": 0,
-             "observed_rssi_samples": 0, "observed_rssi_missing": 0, "action_budget": MAX_ACTIONS}
+             "observed_rssi_samples": 0, "observed_rssi_missing": 0, "labeled_frames": 0, "target_visible_frames": 0,
+             "action_budget": MAX_ACTIONS}
     commands = iter(actions) if actions is not None else None
     state = start
     frames = sim.get_sensor_observations() if policy is not None else None
@@ -114,7 +118,10 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
             rssi = current_rssi(mapping, state.position) if mapping is not None else None
             if mapping is not None:
                 trace["observed_rssi_samples" if rssi is not None else "observed_rssi_missing"] += 1
-            action = policy.act(Observation(task["category"], frames["depth"], np.isin(frames["semantic"], target_ids),
+            target_mask = np.isin(frames["semantic"], target_ids)
+            trace["labeled_frames"] += int(np.any(frames["semantic"] > 0))
+            trace["target_visible_frames"] += int(np.any(target_mask))
+            action = policy.act(Observation(task["category"], frames["depth"], target_mask,
                                             float(x), float(z), theta, rssi))
         trace["actions"].append(action)
         if action == "stop":
@@ -151,6 +158,7 @@ def summarize(rows):
         "collisions": sum(r["trace"]["collisions"] for r in rows),
         "online_rssi_samples": sum(r["trace"]["observed_rssi_samples"] for r in rows),
         "online_rssi_missing": sum(r["trace"]["observed_rssi_missing"] for r in rows),
+        "episodes_with_target_seen": sum(r["trace"]["target_visible_frames"] > 0 for r in rows),
     }
 
 
@@ -253,6 +261,8 @@ def main():
         if probe:
             result.extend(rows)
         else:
+            if not any(r["trace"]["labeled_frames"] for r in rows):
+                raise ValueError(f"All semantic frames are empty in {name}")
             inputs = [{**r, "trace": {**r["trace"], "positions": r["trace"]["positions"][:r["navigation"]["scored_actions"] + 1],
                                     "actions": r["trace"]["actions"][:r["navigation"]["scored_actions"]]}} for r in rows]
             prefix_file = args.output / f"{name}.prefixes.json"

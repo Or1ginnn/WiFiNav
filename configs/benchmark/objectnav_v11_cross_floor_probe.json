@@ -1,0 +1,16 @@
+{
+  "probe": {
+    "scene": "bCPU9suPUw9",
+    "source_row": 0,
+    "trace": {
+      "actions": [
+        "move_forward", "turn_right", "move_forward", "move_forward", "move_forward",
+        "move_forward", "move_forward", "turn_left", "move_forward", "turn_left",
+        "move_forward", "move_forward", "turn_left", "move_forward", "turn_left", "turn_left",
+        "move_forward", "move_forward", "move_forward", "move_forward", "move_forward",
+        "turn_left", "move_forward", "turn_left", "move_forward", "move_forward",
+        "turn_right", "move_forward", "turn_left", "move_forward", "turn_right", "move_forward", "stop"
+      ]
+    }
+  }
+}
