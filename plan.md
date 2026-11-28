@@ -15,6 +15,7 @@
 | v1.1 单层评测已验收 | 真实动作回归通过。此前被判成功的跨层轨迹在第 5 步终止并记失败。同层到达、提前 STOP 正常区分。全量 961 条的 SPL 参考通过审计，951 条精确、10 条报告区间。固定 20 条的两组闭环均可复跑，通信收益尚未证实。[v1.1 验收报告](docs/experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md) |
 | NoSignal 开发首轮完成 | 固定的 20 条 `train` 任务上，原规则、加卡住恢复、再尝试提前停车分别成功 1、3、5 条。第三版独立复跑逐字节一致，仍有 4 条越层和 6 条无效 STOP，暂未冻结为正式基线。[开发结果与复跑](docs/experiments/objectnav_train_nosignal_2026-11-28.md) |
 | NoSignal 失败复核完成 | 原 10 条失败逐条复现，符合 v1.1 判分。用动作后高差触发换向，原样本成功 5→6、越层 4→2。独立 20 条成功 3→1、越层 2→6，无效 STOP 1→3。候选未通过验收。[复核和独立对照](docs/experiments/objectnav_train_nosignal_followup_2026-11-28.md) |
+| 外部基线 VLFM 已跑通 | 原版策略在 Habitat-Sim 0.2.4 跑完首场景 4 条，在正式环境 0.3.0 跑完冻结 20 条 NoSignal 开发任务。0.3.0 成功 6/20、SPL 0.16116。11 条无效 STOP 或越层结果均已重放核验。[VLFM 接入记录](docs/experiments/objectnav_vlfm_2026-11-28.md) |
 
 首版以信号覆盖作为环境和评分变量，仿真中的模型服务全程可用。请求掉线、恢复、本地识别和通信感知导航器属于历史讨论，保存在 [范围收紧前的计划](https://github.com/Or1ginnn/WiFiNav/blob/e2615326f4f826d2826283542d5b799bfde0d029/plan.md)。
 
@@ -110,8 +111,8 @@ $\mathcal{P}_G(s,v^*)$ 是图上连接固定起终点的全部可行路径。阈
 6. **v1.1 单层闭环验收已完成。** 参考审计覆盖全部 961 条，真实轨迹回归验证了同层成功、提前 STOP 与出层拒绝。默认小批固定 200 个离散动作预算，使用同一深度和可见语义基线，对正式清单中的 20 条固定随机任务做配对。两组成功数 1/20 与 2/20，通信收益门未通过。[协议、结果与复跑](docs/experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md)
 7. **导航基线处于开发，已完成越层与无效停车复核。** 原 20 条中，提前停车版曾成功 5 条。原样本四条失败的实际位姿越过单层高度带，六条停止时在合法停车范围外。[首轮](docs/experiments/objectnav_train_nosignal_2026-11-28.md) · [失败复核](docs/experiments/objectnav_train_nosignal_followup_2026-11-28.md)
    - 坡度触发换向在原 20 条改善，但在冻结的独立 5 场景、20 条任务上丢掉两条原成功，越层和无效 STOP 均增加。固定样本的加载问题已按官方 `train` 类别补齐词表，保留原失败日志和全部配对。候选未验收。
-   - 下一步在开发数据单独检查前进前能否观测到高差、以及目标周围的停靠探索，再用新的互斥场景验证。基线稳定后冻结版本，在固定评测清单做 RSSI 配对。分别报告离线 Oracle、闭环导航与通信服务指标。
-   - 已选择 ICRA 2024 的 VLFM 作为首个外部 ObjectNav 基线。先用 Habitat-Sim 0.2.4 在原冻结开发清单首场景验收原版策略，再复用同一桥接和模型将场景执行切回 0.3.0，按 WiFiNav v1.1 的 200 动作和同层 STOP 评测。先做 NoSignal，完整 20 条开发通过后再讨论 RSSI。
+   - ICRA 2024 的 VLFM 已从 Habitat-Sim 0.2.4 迁移到 WiFiNav 正式环境 0.3.0。两版都跑通首场景，0.3.0 随后完成全部 20 条冻结开发任务。VLFM 感知使用真实渲染 RGB-D、类别和相对位姿。详细结果为 6 条成功、9 条停错、2 条越层、3 条用完动作预算。[VLFM 接入记录](docs/experiments/objectnav_vlfm_2026-11-28.md)
+   - 下一步用已保存的 VLFM 轨迹区分近距离停靠、远处误停和越层，在独立 `train` 场景验证导航基线。冻结统一观测和动作规则之后再做 RSSI 配对。分别报告离线 Oracle、闭环导航与通信服务指标。
 
 **制作入口。** [小批与全量构建脚本](scripts/build_objectnav_benchmark.py) 使用 [固定配置](configs/benchmark/objectnav_val_v1.json)。以已安装公开场景 `GLAQ4DNUx5U` 做工程小批。每层先按现有几何候选规则找出合法位置，再取最靠近楼层可通行区域中心的候选。复用开发批次的 0.50 m 改善阈值，在 1.875 cm 和 3.75 cm 步长各复算一次。全量完成后从所有正式纳入任务使用配置中的固定种子无放回随机抽 20 条，本机生成交互式报告。
 
@@ -153,5 +154,6 @@ $\mathcal{P}_G(s,v^*)$ 是图上连接固定起终点的全部可行路径。阈
 - 2026-11-28，完成 v1.1 单层评分修复、961 条参考距离审计和 40 次配对闭环验收。修复 HM3D 语义图的顶点色加载与目标类别映射。小批保留全部失败和通信负面结果。[v1.1 验收报告](docs/experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md)
 - 2026-11-28，接通冻结 `train` 的 NoSignal 诊断。完成原规则、卡住恢复、提前停车三组配对和一次独立复跑，记录目标未看到、看到但没成功、越层及无效停车。[开发结果与复跑](docs/experiments/objectnav_train_nosignal_2026-11-28.md)
 - 2026-11-28，复现 NoSignal 首轮十条越层及停车失败。固定第二批 5 场景后完成配对复验，否决动作后高差换向候选。正式清单哈希和三项判分回归结果一致。[证据与复跑](docs/experiments/objectnav_train_nosignal_followup_2026-11-28.md)
+- 2026-11-28，按 0.2.4 到 0.3.0 的顺序接通 VLFM 本地推理，固定开发集完成 20 条 NoSignal 闭环及 11 条失败轨迹复核。[结果与复跑](docs/experiments/objectnav_vlfm_2026-11-28.md)
 
 新聊天先读第 0 节和第 4 节。需要操作服务器时核对 [数据配置](configs/data/objectnav_hm3d_v2.json)、[环境记录](docs/LOCAL_ENVIRONMENT.md) 与实际状态。
