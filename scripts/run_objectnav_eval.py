@@ -93,7 +93,7 @@ def reset(sim, episode):
     sim.get_agent(0).set_state(state)
 
 
-def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None, actions=None):
+def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None, actions=None, *, trace_target=False):
     reset(sim, episode)
     start = sim.get_agent(0).get_state()
     if policy is not None:
@@ -104,6 +104,8 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
     commands = iter(actions) if actions is not None else None
     state = start
     frames = sim.get_sensor_observations() if policy is not None else None
+    if trace_target:
+        trace["target_observations"] = []
     a = float(quaternion.as_rotation_vector(start.rotation)[1])
     for _ in range(MAX_ACTIONS):
         if commands is not None:
@@ -121,6 +123,14 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
             target_mask = np.isin(frames["semantic"], target_ids)
             trace["labeled_frames"] += int(np.any(frames["semantic"] > 0))
             trace["target_visible_frames"] += int(np.any(target_mask))
+            if trace_target:
+                # Use the same positive-depth pixels as the engineering policy.
+                depth = frames["depth"]
+                valid = depth[target_mask & np.isfinite(depth) & (depth > 0)]
+                trace["target_observations"].append({
+                    "pixels": len(valid),
+                    "depth_p25_m": float(np.quantile(valid, .25)) if len(valid) else None,
+                })
             action = policy.act(Observation(task["category"], frames["depth"], target_mask,
                                             float(x), float(z), theta, rssi))
         trace["actions"].append(action)

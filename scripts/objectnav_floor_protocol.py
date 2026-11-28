@@ -16,21 +16,24 @@ MAX_ACTIONS = 200
 RSSI_STEP_M = .01875
 
 
-def load_scene(manifest_path, scene, config):
+def load_scene(manifest_path, scene, config, *, split="val"):
     path = manifest_path.with_name(f'{scene["scene"]}.geometry.json')
     data = path.read_bytes()
-    if sha256(data).hexdigest() != scene["files"][path.name]:
+    expected = scene["files"][path.name] if split == "val" else scene["geometry_sha256"]
+    if sha256(data).hexdigest() != expected:
         raise ValueError(f"Changed evaluation input: {path}")
     geometry = json.loads(data)
-    if geometry["source_ref"] != scene["source_ref"] or geometry["config"] != config or geometry["split"] != "val":
+    if (geometry["source_ref"] != scene["source_ref"] or geometry["config"] != config
+            or geometry["split"] != split or Path(scene["source_ref"]).parts[:2] != ("hm3d_v0.2", split)):
         raise ValueError("Mismatched scene, configuration or split")
     for name, fingerprint in geometry["source_sha256"].items():
         if sha256((ROOT / name).read_bytes()).hexdigest() != fingerprint:
             raise ValueError(f"Changed source asset: {name}")
-    shard = ROOT / "data/datasets/objectnav/hm3d/v2/val/content" / f'{scene["scene"]}.json.gz'
+    shard = ROOT / "data/datasets/objectnav/hm3d/v2" / split / "content" / f'{scene["scene"]}.json.gz'
     with gzip.open(shard, "rt", encoding="utf-8") as handle:
         source = json.load(handle)
-    if len(source["episodes"]) != scene["source_episodes"]:
+    expected_count = scene["source_episodes"] if split == "val" else geometry["source_episode_count"]
+    if len(source["episodes"]) != expected_count:
         raise ValueError("Official episode count changed")
     return geometry, source, path
 
