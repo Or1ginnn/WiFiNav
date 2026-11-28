@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from objectnav_progress_baseline import ProgressBaseline
+from objectnav_progress_baseline import EarlierStopBaseline, ProgressBaseline
 from objectnav_sensor_baseline import Observation
 
 
@@ -33,3 +33,10 @@ class ProgressBaselineTests(unittest.TestCase):
         self.assertEqual(self.policy.act(observation(.42, target=True)), "stop")
         self.policy.reset()
         self.assertEqual(self.policy.act(observation(.42)), "move_forward")
+
+    def test_earlier_stop_only_changes_the_stop_trigger(self):
+        earlier = EarlierStopBaseline()
+        earlier.reset()
+        target = observation(.65, target=True)
+        self.assertEqual(self.policy.act(target), "move_forward")
+        self.assertEqual(earlier.act(target), "stop")

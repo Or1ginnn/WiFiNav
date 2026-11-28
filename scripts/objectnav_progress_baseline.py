@@ -57,3 +57,9 @@ class ProgressBaseline(SensorBaseline):
 
         self.last_pose, self.last_action = pose, action
         return action
+
+
+class EarlierStopBaseline(ProgressBaseline):
+    """Development ablation that attempts STOP one forward step earlier."""
+
+    stop_target_depth_m = .75

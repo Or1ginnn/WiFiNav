@@ -21,6 +21,8 @@ class Observation:
 class SensorBaseline:
     """Use ground-truth semantic sensing for a lightweight engineering baseline."""
 
+    stop_target_depth_m = .50
+
     def reset(self):
         self.departures = Counter()
         self.visits = Counter()
@@ -47,7 +49,7 @@ class SensorBaseline:
                 return "turn_left"
             if x > .70:
                 return "turn_right"
-            if float(np.quantile(image[ys, xs], .25)) < .50:
+            if float(np.quantile(image[ys, xs], .25)) < self.stop_target_depth_m:
                 return "stop"
             if close_obstacle > .28:
                 return "move_forward"
