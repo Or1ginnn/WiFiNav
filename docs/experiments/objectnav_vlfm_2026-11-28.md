@@ -84,3 +84,7 @@ bash runtime/diagnostics/vlfm_setup_20261128/replay.sh 0.3.0 \
   --population all --track no_signal --agent objectnav_vlfm_baseline:VLFM \
   --egl-device 0 --output runtime/diagnostics/objectnav_vlfm_my_val961
 ```
+
+2026-11-28 21:10（北京时间），冻结运行提交 `23b2c7bac2152f14fcc7d1c511d43ae2340d9dc2`，在 GPU 1、2、3 上各启动 12 个场景，分别为 321、320、320 条。RTX 4090 的 UUID 与各场景的分配保存在服务器 `runtime/diagnostics/objectnav_vlfm_20261128_val961/metadata.json`，SHA-256 为 `50e70a8b98daba7266f8e06e383c1d61bae8a16354cb49c2b807713530cb4270`。该文件同时记录冻结清单、配置、策略版本和权重收据。权重逐项校验通过。三组实际导航均收到本地 BLIP-2 与 YOLOv7 的 HTTP 200，MobileSAM 也收到真实分割请求。CPU 重放的三项原导航判分探针与 v1.1 结果逐字节一致，本机 84 项测试通过。
+
+进度查 `gpu1.log` 至 `gpu3.log` 和各 `attempts/*.log`。完整场景进入 `scenes/`，失败尝试保存在 `attempts/`。批次保存启动脚本和汇总脚本。汇总逐场景核验执行提交、清单哈希、权重收据、任务唯一性及零在线 RSSI，再写 `results.json` 和 `summary.json`。`exit_code` 为 0 且场景结果齐全时确认完成。评测期间服务器工作区保持执行提交，文档提交在整批退出后同步到服务器。

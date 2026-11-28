@@ -16,7 +16,7 @@
 | NoSignal 开发首轮完成 | 固定的 20 条 `train` 任务上，原规则、加卡住恢复、再尝试提前停车分别成功 1、3、5 条。第三版独立复跑逐字节一致，仍有 4 条越层和 6 条无效 STOP，暂未冻结为正式基线。[开发结果与复跑](docs/experiments/objectnav_train_nosignal_2026-11-28.md) |
 | NoSignal 失败复核完成 | 原 10 条失败逐条复现，符合 v1.1 判分。用动作后高差触发换向，原样本成功 5→6、越层 4→2。独立 20 条成功 3→1、越层 2→6，无效 STOP 1→3。候选未通过验收。[复核和独立对照](docs/experiments/objectnav_train_nosignal_followup_2026-11-28.md) |
 | 外部基线 VLFM 已跑通 | 原版策略在 Habitat-Sim 0.2.4 跑完首场景 4 条，在正式环境 0.3.0 跑完冻结 20 条 NoSignal 开发任务。0.3.0 成功 6/20、SPL 0.16116。11 条无效 STOP 或越层结果均已重放核验。[VLFM 接入记录](docs/experiments/objectnav_vlfm_2026-11-28.md) |
-| 当前放量任务 | 先独立建立原版 VLFM 的 961 条正式 NoSignal 基线。RSSI 决策模块仍待设计和实现。[全量基线协议](docs/experiments/objectnav_vlfm_2026-11-28.md#正式集-nosignal-基线) |
+| 正式 NoSignal 基线运行中 | 原版 VLFM 在 GPU 1–3 上按场景执行固定 961 条正式任务。服务已返回真实推理，整批结果以输出目录的 `summary.json` 和 `exit_code` 为准。RSSI 决策模块仍待设计和实现。[运行位置和验收](docs/experiments/objectnav_vlfm_2026-11-28.md#正式集-nosignal-基线) |
 | 通信达标成功已通过开发回放 | 要求导航成功，且连续低于 −75 dBm 的最长路段不超过允许长度。VLFM 的 20 条开发轨迹中，导航成功 6 条，按演示值 1 m 通信达标 4 条。正式上限待冻结。[判分规则与证据](docs/experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md#通信达标成功率) |
 
 首版以信号覆盖作为环境和评分变量，仿真中的模型服务全程可用。请求掉线、恢复、本地识别和通信感知导航器属于历史讨论，保存在 [范围收紧前的计划](https://github.com/Or1ginnn/WiFiNav/blob/e2615326f4f826d2826283542d5b799bfde0d029/plan.md)。
@@ -164,5 +164,6 @@ $\mathcal{P}_G(s,v^*)$ 是图上连接固定起终点的全部可行路径。阈
 - 2026-11-28，按 0.2.4 到 0.3.0 的顺序接通 VLFM 本地推理，固定开发集完成 20 条 NoSignal 闭环及 11 条失败轨迹复核。[结果与复跑](docs/experiments/objectnav_vlfm_2026-11-28.md)
 - 2026-11-28，确认初版通信达标成功率的两个条件，接入可配置的最长连续严重弱区评分，并通过 20 条 VLFM 轨迹的离线评分、三条原导航探针和 84 项本机测试。长度上限待冻结。[评分入口与证据](docs/experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md#通信达标成功率)
 - 2026-11-28，确认先放量跑原版 VLFM，新增正式 `val` 的 RGB-D NoSignal 入口与整场景执行选项。[全量基线协议](docs/experiments/objectnav_vlfm_2026-11-28.md#正式集-nosignal-基线)
+- 2026-11-28 21:10，原版 VLFM 的三个全量分组进入仿真。执行提交 `23b2c7b` 固定到整批退出，服务器批次位于 `runtime/diagnostics/objectnav_vlfm_20261128_val961/`。[验收和进度入口](docs/experiments/objectnav_vlfm_2026-11-28.md#正式集-nosignal-基线)
 
 新聊天先读第 0 节和第 4 节。需要操作服务器时核对 [数据配置](configs/data/objectnav_hm3d_v2.json)、[环境记录](docs/LOCAL_ENVIRONMENT.md) 与实际状态。
