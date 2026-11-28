@@ -92,6 +92,8 @@ $\mathcal{P}_G(s,v^*)$ 是图上连接固定起终点的全部可行路径。阈
 
 「信号明显影响选路」的最小弱信号改善量及复算口径在开发集上确定并冻结，再报告 `val` 的通信难度分布。把长绕行和对采样敏感的案例单独标记。固定停车点的诊断范围限于该终点，整项任务的覆盖可行性需纳入其他合法视点。
 
+与 Habitat ObjectNav、HA-VLN 2.0、LISN-Bench、SocialNav 和通信感知规划的对照显示，首版数据制作与内部复算已验收。154 条达到明确选路差异口径的任务分布在 29 个场景、38 个楼层。论文闭环评测还需统一单层 STOP 和 SPL、跑通可复现的 NoSignal 与同一导航器的通信对照，再打包第三方复跑入口。[文献对照与发布检查](docs/references/social_navigation_benchmark_review_2026-11-28.md)
+
 ## 4. 当前执行顺序
 
 1. **已做工程检查。** 干净版本 `e261532` 上，用公开场景的原导航网格和 Habitat 0.3.0 的视点评分器离线验证。已到达且 STOP 的成功值为 1、SPL 约 1，已到达但未 STOP 和起点 STOP 的成功值均为 0。使用预先计算的探针轨迹，未进行机器人搜索。结果在服务器 `runtime/diagnostics/objectnav_scoring_smoke_20261122/score.json`。本机已有 RSSI 积分测试 9 项通过。
@@ -141,5 +143,6 @@ $\mathcal{P}_G(s,v^*)$ 是图上连接固定起终点的全部可行路径。阈
 - 2026-11-28，完成 HM3D ObjectNav `val` 全量构建、独立审计和本机 HTML 核验。最后一个大场景的地面校验按任务并行，由约 38 分钟降至约 6 分钟，路线结果与同场景串行计算一致。[全量验收](docs/experiments/objectnav_val_small_2026-11-26.md#2026-11-28-全量验收)
 - 2026-11-28，独立重审全量构建，确认跨层评分边界待补。仅在本机新增 100 条分层审阅 HTML，覆盖全部 36 场景、74 楼层，每类目标 16–17 条，并包含全部 8 条换路后全程达标的任务。[成品复审与分层抽审](docs/experiments/objectnav_val_small_2026-11-26.md#2026-11-28-成品复审与分层抽审)
 - 2026-11-28，修复本机 100 条审阅报告的字符编码兼容问题。验证了直接打开和预览字符编码冲突时的中文显示，复查全部 100 条路线和筛选。[报告与复验](docs/experiments/objectnav_val_small_2026-11-26.md#100-条本机交互报告)
+- 2026-11-28，对照 Social Navigation、ObjectNav 和通信感知规划的原论文及官方评测入口，完成 v1 制作质量与闭环发布缺口审查。[Benchmark 标准调研](docs/references/social_navigation_benchmark_review_2026-11-28.md)
 
 新聊天先读第 0 节和第 4 节。需要操作服务器时核对 [数据配置](configs/data/objectnav_hm3d_v2.json)、[环境记录](docs/LOCAL_ENVIRONMENT.md) 与实际状态。

@@ -120,6 +120,7 @@ WIFI+Nav/
 | 原研究方案 | [连通性感知 VLN 项目小样](references/connectivity_aware_vln_project_proposal_2026-10-15.pdf) | 在线贝叶斯信号场、连通代价注入 VLN、实验路线 |
 | 文献参考 | [WiFi 信号感知 VLN 调研](references/wifi_aware_vln_literature_review_2026-10-15.pdf) | 文献版图、gap 论证、仿真和数据资源调研 |
 | 新增基座调研 | [Social Navigation 基座与规划接口](references/social_navigation_backbone_review_2026-11-02.md) | 模型配置、训练路线、作者代码及对当前项目的选型建议 |
+| 评测规范调研 | [Social Navigation benchmark 对照](references/social_navigation_benchmark_review_2026-11-28.md) | 原论文协议、WiFiNav v1 验收差距和最小闭环发布检查 |
 | API费用调研 | [API费用与预算测算](references/api_cost_review_2026-11-03.md) | 官方价格、地域/上下文档位与导航运行预算 |
 | 本地部署调研 | [本地zero-shot可行性](references/local_zero_shot_feasibility_2026-11-03.md) | 用户报告4×4090条件下的模型容量与导航代码可用性 |
 | 部署记录 | [服务器部署现场记录](experiments/server_bootstrap_2026-11-04.md) | 四步基础设施执行、资源、复用环境及服务验收 |
