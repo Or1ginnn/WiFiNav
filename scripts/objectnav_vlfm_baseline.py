@@ -90,8 +90,8 @@ def worker():
     policy = HabitatITMPolicyV2(camera_height=.88, min_depth=0., max_depth=MAX_DEPTH_M, camera_fov=90.,
                                image_width=640, visualize=False, compute_frontiers=True, **kwargs)
     hidden = None
-    previous = torch.zeros((1, 1), dtype=torch.long)
-    masks = torch.zeros((1, 1), dtype=torch.bool)
+    previous = torch.zeros((1, 1), dtype=torch.long, device="cuda")
+    masks = torch.zeros((1, 1), dtype=torch.bool, device="cuda")
     while True:
         try:
             goal, rgb, depth, x, z, yaw = pickle.load(sys.stdin.buffer)
@@ -102,7 +102,7 @@ def worker():
         inputs = TensorDict({
             "objectgoal": torch.tensor([[goal]], dtype=torch.long),
             "rgb": torch.from_numpy(rgb[None]),
-            "depth": torch.from_numpy(distance[None, :, :, None]),
+            "depth": torch.from_numpy(distance[None, :, :, None]).to("cuda"),
             "gps": torch.tensor([[-z, x]], dtype=torch.float32),
             "compass": torch.tensor([[yaw]], dtype=torch.float32),
             "heading": torch.tensor([[0.]], dtype=torch.float32),
