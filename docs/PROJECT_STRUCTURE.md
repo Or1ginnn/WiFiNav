@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-25。主线为 HM3D ObjectNav，官方任务包及 `train` 对应的 145 个场景已安装。首批 20 条单层任务的 AP 与图上最优路线报告在本机 `runtime/reports/objectnav_train_ap_review_20261124/`，正式评估资产待补齐。原 R2R-Conn 的审阅和 B3 记录供复现。
+> 最近整理：2026-11-28。主线为 HM3D ObjectNav，官方任务包、145 个 `train` 场景和 36 个 `val` 场景已安装。v5 小批审阅报告位于本机 `runtime/reports/objectnav_val_review_20261126/index-small-review.html`，全量构建入口见 [计划](../plan.md)。原 R2R-Conn 的审阅和 B3 记录供复现。
 
 ## 当前目录
 
