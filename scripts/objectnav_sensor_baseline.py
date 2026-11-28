@@ -17,6 +17,7 @@ class Observation:
     yaw: float
     rssi_dbm: Optional[float]
     relative_height_m: float = 0.
+    rgb: Optional[np.ndarray] = None
 
 
 class SensorBaseline:

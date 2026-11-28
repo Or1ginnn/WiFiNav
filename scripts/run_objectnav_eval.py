@@ -63,12 +63,12 @@ def current_rssi(mapping, pose):
     return None
 
 
-def simulator(geometry, *, render, gpu_device):
+def simulator(geometry, *, render, gpu_device, rgbd=False):
     options = habitat_sim.SimulatorConfiguration()
     options.scene_id = str(ROOT / "data/scene_datasets" / geometry["source_ref"])
     options.scene_dataset_config_file = str(ROOT / "data/scene_datasets/hm3d_v0.2/hm3d_annotated_basis.scene_dataset_config.json")
     options.create_renderer = render
-    options.load_semantic_mesh = render
+    options.load_semantic_mesh = render and not rgbd
     # HM3D .semantic.glb carries IDs in vertex colors. The texture mode
     # defaults to True in Habitat 0.3.0 and produces an all-zero sensor here.
     options.use_semantic_textures = False
@@ -77,10 +77,11 @@ def simulator(geometry, *, render, gpu_device):
     agent.action_space = {name: habitat_sim.agent.ActionSpec(name, habitat_sim.agent.ActuationSpec(amount))
                           for name, amount in ACTIONS.items()}
     if render:
-        for name, kind in (("depth", habitat_sim.SensorType.DEPTH), ("semantic", habitat_sim.SensorType.SEMANTIC)):
+        image_sensor = ("rgb", habitat_sim.SensorType.COLOR) if rgbd else ("semantic", habitat_sim.SensorType.SEMANTIC)
+        for name, kind in (("depth", habitat_sim.SensorType.DEPTH), image_sensor):
             spec = habitat_sim.CameraSensorSpec()
             spec.uuid, spec.sensor_type = name, kind
-            spec.resolution, spec.hfov, spec.position = [96, 128], 90., [0., .88, 0.]
+            spec.resolution, spec.hfov, spec.position = [480, 640] if rgbd else [96, 128], 90., [0., .88, 0.]
             agent.sensor_specifications.append(spec)
     return habitat_sim.Simulator(habitat_sim.Configuration(options, [agent]))
 
@@ -121,10 +122,12 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
             rssi = current_rssi(mapping, state.position) if mapping is not None else None
             if mapping is not None:
                 trace["observed_rssi_samples" if rssi is not None else "observed_rssi_missing"] += 1
-            target_mask = np.isin(frames["semantic"], target_ids)
-            trace["labeled_frames"] += int(np.any(frames["semantic"] > 0))
+            semantic = frames.get("semantic")
+            target_mask = (np.isin(semantic, target_ids) if semantic is not None
+                           else np.zeros(frames["depth"].shape, dtype=bool))
+            trace["labeled_frames"] += int(semantic is not None and np.any(semantic > 0))
             trace["target_visible_frames"] += int(np.any(target_mask))
-            if trace_target:
+            if trace_target and semantic is not None:
                 # Use the same positive-depth pixels as the engineering policy.
                 depth = frames["depth"]
                 valid = depth[target_mask & np.isfinite(depth) & (depth > 0)]
@@ -134,7 +137,13 @@ def execute(sim, episode, rules, task, policy=None, target_ids=(), mapping=None,
                 })
             elevation = float(delta[1]) if observe_elevation else 0.
             action = policy.act(Observation(task["category"], frames["depth"], target_mask,
-                                            float(x), float(z), theta, rssi, relative_height_m=elevation))
+                                            float(x), float(z), theta, rssi, relative_height_m=elevation,
+                                            rgb=frames.get("rgb")))
+            if trace_target and semantic is None:
+                # Visual policies report their own detections rather than
+                # observing the simulator's labels.
+                trace["target_observations"].append(policy.target_observation)
+                trace["target_visible_frames"] += int(policy.target_observation["pixels"] > 0)
         trace["actions"].append(action)
         if action == "stop":
             trace["positions"].append(state.position.tolist())

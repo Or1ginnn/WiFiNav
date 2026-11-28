@@ -100,6 +100,7 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--agent", default=DEFAULT_AGENT)
     parser.add_argument("--egl-device", type=int, default=0)
+    parser.add_argument("--smoke", action="store_true", help="Run the first frozen scene only")
     args = parser.parse_args()
     if ROOT / "runtime" not in args.output.resolve().parents or args.output.exists():
         parser.error("Output must be a new directory under runtime")
@@ -112,6 +113,8 @@ def main():
     original = args.manifest_sha256 == TRAIN_MANIFEST_SHA256
     module, name = args.agent.split(":", 1)
     agent = getattr(import_module(module), name)
+    rgbd = getattr(agent, "requires_rgb", False)
+    scenes = manifest["scenes"][:1] if args.smoke else manifest["scenes"]
     args.output.mkdir(parents=True)
     write(args.output / "metadata.json", {
         "diagnostic": DEV_DIAGNOSTIC, "protocol": PROTOCOL, "split": "train", "track": "no_signal",
@@ -119,36 +122,44 @@ def main():
         "manifest_sha256": args.manifest_sha256, "train_witness_sha256": TRAIN_WITNESS_SHA256 if original else None,
         "config_sha256": manifest["config_sha256"], "habitat_sim_version": habitat_sim.__version__,
         "agent": args.agent, "egl_device": args.egl_device, "action_budget": MAX_ACTIONS,
-        "model_requests": 0,
+        "model_requests": None if rgbd else 0,
+        **({"sensor_track": "rgbd", "scope": "first_scene" if args.smoke else "frozen_sample",
+            **agent.metadata()} if rgbd else {}),
     })
 
     records = []
-    for scene in manifest["scenes"]:
+    for scene in scenes:
         scan = scene["scene"]
         geometry, source, _ = load_scene(args.manifest, scene, manifest["config"], split="train")
         rows = []
-        with simulator(geometry, render=True, gpu_device=args.egl_device) as sim:
-            objects = sim.semantic_scene.objects
+        with simulator(geometry, render=True, gpu_device=args.egl_device, rgbd=rgbd) as sim:
+            objects = () if rgbd else sim.semantic_scene.objects
             for task in geometry["tasks"]:
                 witness = witness_task(task, scan, scene, args.witness_dir) if original else task
                 episode, rules, views, bounds = prepare(sim.pathfinder, geometry, source, witness)
                 names = TRAIN_LABELS[task["category"]]
                 ids = [obj.semantic_id for obj in objects if obj and obj.category
                        and obj.category.name().strip().lower() in names]
-                if not ids:
+                if not ids and not rgbd:
                     raise ValueError(f"No semantic sensor target label for {scan}:{task['source_row']}")
-                trace = execute(sim, episode, rules, task, agent(), ids, trace_target=True, observe_elevation=True)
+                policy = agent()
+                try:
+                    trace = execute(sim, episode, rules, task, policy, ids, trace_target=True, observe_elevation=True)
+                finally:
+                    if rgbd:
+                        policy.close()
                 score = rules.score(episode["start_position"], views, bounds, trace)
                 rows.append({"scene": scan, "floor": task["floor"], "category": task["category"],
                              "reference_witness": "audited_geometric_route" if witness is not task else "original",
                              "trace": trace, "navigation": score, "diagnostics": diagnostics(rules, views, trace, score)})
-        if len(rows) != scene["tasks"] or not any(r["trace"]["labeled_frames"] for r in rows):
+        if len(rows) != scene["tasks"] or (not rgbd and not any(r["trace"]["labeled_frames"] for r in rows)):
             raise ValueError(f"Incomplete executions or missing semantics in {scan}")
         write(args.output / f"{scan}.json", rows)
         print(f"{scan}: {sum(r['navigation']['success'] for r in rows)}/{len(rows)}", flush=True)
         records.extend(rows)
     keys = {(r["scene"], r["trace"]["source_row"]) for r in records}
-    if len(keys) != len(records) or len(keys) != manifest["config"]["scene_count"] * manifest["config"]["task_count"]:
+    expected = sum(scene["tasks"] for scene in scenes)
+    if len(keys) != len(records) or len(keys) != expected:
         raise ValueError("Incomplete or duplicate development cases")
     summary = summarize(records)
     write(args.output / "results.json", records)
