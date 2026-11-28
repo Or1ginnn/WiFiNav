@@ -1,6 +1,6 @@
 # 项目目录结构与文档索引
 
-> 最近整理：2026-11-28。主线为 HM3D ObjectNav，官方任务包、145 个 `train` 场景和 36 个 `val` 场景已安装。单层 `val` benchmark 已通过全量验收。正式产物位于服务器 `runtime/diagnostics/objectnav_val_full_20261128_v3_checkpoint/`，20 条随机抽审的交互报告位于本机 `runtime/reports/objectnav_val_full_review_20261128/index.html`。[全量验收](experiments/objectnav_val_small_2026-11-26.md#2026-11-28-全量验收) · [计划](../plan.md)。原 R2R-Conn 的审阅和 B3 记录供复现。
+> 最近整理：2026-11-28。主线为 HM3D ObjectNav，官方任务包、145 个 `train` 场景和 36 个 `val` 场景已安装。单层 `val` 数据通过全量制作验收，闭环单层评分待验收。正式产物位于服务器 `runtime/diagnostics/objectnav_val_full_20261128_v3_checkpoint/`。本机 100 条分层报告位于 `runtime/reports/objectnav_val_full_review_20261128_stratified100/index.html`。[全量验收](experiments/objectnav_val_small_2026-11-26.md#2026-11-28-全量验收) · [计划](../plan.md)。原 R2R-Conn 的审阅和 B3 记录供复现。
 
 ## 当前目录
 

@@ -4,6 +4,7 @@ const $ = id => document.getElementById(id);
 const data = JSON.parse($("report-data").textContent);
 const {geometry, radio, report_sha256: reportHash} = data;
 const benchmarkReview = data.benchmark_review;
+const stratifiedReview = benchmarkReview?.stratified;
 const {config, tasks, floors} = geometry;
 const routeExample = data.route_diagnostic?.example;
 const referencePolicy = data.rssi_reference_policy;
@@ -12,6 +13,12 @@ const severeFirst = referencePolicy?.objective_order?.[0] === "outage_length_m";
 const independentlyVerified = referencePolicy?.independent_solver_checked === true;
 const names = {bed:"床", chair:"椅子", plant:"盆栽", sofa:"沙发", toilet:"马桶", tv_monitor:"电视"};
 const goalText = {bed:"一张床", chair:"一把椅子", plant:"一盆植物", sofa:"一张沙发", toilet:"一个马桶", tv_monitor:"一台电视"};
+const reviewGroups = {
+  geometric_route_covered: "最短路已达标",
+  covered_alternative: "换路后全程达标",
+  residual_weak_coverage_with_gain: "仍有弱区，明显改善",
+  residual_weak_coverage_other: "仍有弱区，未达改善标准",
+};
 const chosen = Object.fromEntries(Object.entries(floors).map(([key, f]) => [key, f.candidates[0].id]));
 const taskKey = task => task.task_key ?? task.source_row;
 const taskNumbers = new Map(tasks.map((task, index) => [taskKey(task), String(index + 1).padStart(2, "0")]));
@@ -303,11 +310,21 @@ function referenceEntry(task) {
   return apEntry(task).reference_tasks?.[task.source_row];
 }
 
+function filteredTasks() {
+  const floor = $("floor-filter").value;
+  const category = $("category-filter").value;
+  const group = $("group-filter").value;
+  return tasks.filter(task =>
+    (floor === "all" || task.floor === floor) &&
+    (!stratifiedReview || (category === "all" || task.category === category) &&
+                          (group === "all" || task.review_group === group)));
+}
+
 function drawTaskList() {
-  const parent = $("task-list"), scroll = parent.scrollTop, filter = $("floor-filter").value;
+  const parent = $("task-list"), scroll = parent.scrollTop;
   parent.replaceChildren();
-  const list = filter === "all" ? tasks : tasks.filter(task => task.floor === filter);
-  $("task-summary").textContent = list.length + " 条 · 参考 STOP RSSI";
+  const list = filteredTasks();
+  $("task-summary").textContent = list.length ? list.length + " 条 · 参考 STOP RSSI" : "当前筛选组合无任务";
   for (const task of list) {
     const row = document.createElement("button");
     row.className = "task";
@@ -317,7 +334,8 @@ function drawTaskList() {
     row.dataset.taskNumber = taskNumbers.get(taskKey(task));
     const text = document.createElement("span"), caption = document.createElement("small");
     text.textContent = row.dataset.taskNumber + " · 找" + (names[task.category] || task.category);
-    caption.textContent = task.floor + " · 源行 " + task.source_row;
+    caption.textContent = task.floor + " · 源行 " + task.source_row +
+      (stratifiedReview ? " · " + reviewGroups[task.review_group] : "");
     text.append(caption);
     const profile = referenceEntry(task)?.profile ?? apEntry(task).tasks[task.source_row];
     const value = profile.samples_dbm.at(-1);
@@ -342,7 +360,8 @@ function draw() {
   $("task-instruction").textContent = "任务指令：找" + (goalText[selected.category] ?? selected.category) + "。目标类别 " + selected.category;
   $("map-detail").textContent = "楼层 Y " + format(floor.y, "m", 2) + " · 覆盖边界 " +
     format(config.weak_threshold_dbm, "dBm", 0) + " · 本层采样覆盖 " +
-    format(ap.coverage_above_weak * 100, "%", 0);
+    format(ap.coverage_above_weak * 100, "%", 0) +
+    (stratifiedReview ? " · " + reviewGroups[selected.review_group] : "");
   $("ap-choice").replaceChildren();
   for (const candidate of floor.candidates) option($("ap-choice"), candidate.id, candidate.id);
   $("ap-choice").value = chosen[selected.floor];
@@ -441,6 +460,8 @@ for (const [index, tab] of reportTabs.entries()) {
 function showTaskOnMap(task, ap) {
   selected = task;
   $("floor-filter").value = task.floor;
+  $("category-filter").value = "all";
+  $("group-filter").value = "all";
   $("path").checked = true;
   setAP(ap);
   $("map").scrollIntoView({block:"center"});
@@ -471,11 +492,31 @@ for (const key of Object.keys(floors)) {
   const label = sceneOrder.has(scene) ? "场景 " + sceneOrder.get(scene) + " · " + layer : key;
   option($("floor-filter"), key, label);
 }
-$("floor-filter").onchange = () => {
-  const layer = $("floor-filter").value;
-  if (layer !== "all" && layer !== selected.floor) selected = tasks.find(task => task.floor === layer);
+function changeTaskFilters() {
+  const list = filteredTasks();
+  if (list.length && !list.includes(selected)) selected = list[0];
   draw();
-};
+  $("task-list").scrollTop = 0;
+}
+
+$("floor-filter").onchange = changeTaskFilters;
+if (stratifiedReview) {
+  $("review-filters").hidden = false;
+  $("stratified-summary").hidden = false;
+  option($("category-filter"), "all", "全部目标");
+  option($("group-filter"), "all", "全部通信类型");
+  const counts = (labels, sample, full, dropdown) =>
+    Object.entries(labels).filter(([id]) => full[id]).map(([id, name]) => {
+      if (sample[id]) option($(dropdown), id, name + "（" + sample[id] + "）");
+      return name + " " + (sample[id] ?? 0) + "/" + full[id];
+    }).join(" · ");
+  $("review-groups").textContent = "通信类型（审阅/全量） · " +
+    counts(reviewGroups, stratifiedReview.sample_groups, stratifiedReview.full_groups, "group-filter");
+  $("review-categories").textContent = "目标类别（审阅/全量） · " +
+    counts(names, stratifiedReview.sample_categories, stratifiedReview.full_categories, "category-filter");
+  $("category-filter").onchange = changeTaskFilters;
+  $("group-filter").onchange = changeTaskFilters;
+}
 
 $("export").onclick = () => {
   const layouts = Object.entries(chosen).map(([floor, ap]) => ({
@@ -499,7 +540,8 @@ if (benchmarkReview) {
   const phase = benchmarkReview.scope === "full" ? "全量正式集" : "单场景工程小批";
   $("scope").textContent = phase + " · 官方 val。本批筛查 " + benchmarkReview.source_scenes + " 个场景的 " +
     benchmarkReview.source_episodes + " 条任务，纳入 " + benchmarkReview.qualified_episodes +
-    " 条。本页按固定种子随机展示 " + tasks.length + " 条，每层展示冻结的 AP。“成功”和“SPL”通过实际轨迹评分。";
+    " 条。本页" + (stratifiedReview ? "按通信类型分层，兼顾楼层与目标类别，展示 " : "按固定种子随机展示 ") +
+    tasks.length + " 条，每层展示冻结的 AP。“成功”和“SPL”通过实际轨迹评分。";
 }
 if (severeFirst) $("scope").textContent += " 蓝线优先避开低于 " + format(config.outage_threshold_dbm, "dBm", 0) + " 的严重弱信号区。";
 $("overview").textContent = tasks.length + " 条任务 · " + scope + " · " + Object.keys(floors).length +

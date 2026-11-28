@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WiFiNav · HM3D AP 审阅</title>
 <style>__STYLE__</style>
+<style>
+  .review-filters:not([hidden]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .review-filters select { width: 100%; padding-inline: 7px; font-size: var(--small); }
+  #stratified-summary { margin: 0 0 14px; }
+</style>
 </head>
 <body>
 <header class="masthead">
@@ -20,6 +31,11 @@
 <main class="frame">
   <div id="layout-panel" role="tabpanel" aria-labelledby="layout-tab" tabindex="0">
     <p class="notice" id="scope">公开样例 · 工程 smoke。任务来自官方 val 中唯一已安装的公开场景，仅用于此审阅。热力图和路线为离线模拟。</p>
+    <details class="card technical" id="stratified-summary" hidden>
+      <summary>审阅样本与全量分布</summary>
+      <p id="review-groups"></p>
+      <p id="review-categories"></p>
+    </details>
     <div class="workspace">
       <section class="card explorer" aria-label="楼层地图">
         <div class="panel-head">
@@ -44,6 +60,10 @@
       </section>
       <aside class="card tasks">
         <div class="panel-head"><div><h2>官方任务</h2><p id="task-summary"></p></div><label><span class="sr">按楼层筛选</span><select id="floor-filter" aria-label="按楼层筛选"></select></label></div>
+        <div class="review-filters" id="review-filters" hidden>
+          <select id="category-filter" aria-label="按目标类别筛选"></select>
+          <select id="group-filter" aria-label="按通信类型筛选"></select>
+        </div>
         <div id="task-list" class="task-list" aria-label="任务列表"></div>
       </aside>
     </div>

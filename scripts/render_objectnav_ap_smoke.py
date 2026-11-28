@@ -2,10 +2,88 @@
 """Embed an AP smoke payload in a self-contained local HTML report."""
 import argparse
 import base64
+from collections import Counter
 import hashlib
 import json
 import math
 from pathlib import Path
+import random
+
+
+REVIEW_GROUPS = (
+    "geometric_route_covered",
+    "covered_alternative",
+    "residual_weak_coverage_with_gain",
+    "residual_weak_coverage_other",
+)
+
+
+def review_group(task):
+    difficulty = task["communication_difficulty"]
+    if difficulty == "residual_weak_coverage":
+        return REVIEW_GROUPS[2] if task["signal_changes_route_materially"] else REVIEW_GROUPS[3]
+    return difficulty
+
+
+def stratified_review(manifest, count):
+    if manifest["scope"] != "full" or not 1 <= count <= manifest["qualified_episodes"]:
+        raise ValueError("Stratified review requires 1 to all qualified tasks from the full benchmark")
+    population = [(scene["scene"], task) for scene in manifest["scenes"] for task in scene["tasks"]]
+    seed = f'{manifest["rules"]["review_seed"]}-stratified-{count}'
+    random.Random(seed).shuffle(population)
+    groups = {(scene, task["source_row"]): review_group(task) for scene, task in population}
+    group_sizes = Counter(groups.values())
+    category_sizes = Counter(task["category"] for _, task in population)
+    if len(groups) != manifest["qualified_episodes"] or group_sizes.keys() - set(REVIEW_GROUPS):
+        raise ValueError("Incomplete benchmark population or unknown communication class")
+
+    # Share slots evenly between groups until a group runs out of distinct tasks.
+    quotas = Counter()
+    for _ in range(count):
+        group = min((group for group in REVIEW_GROUPS if quotas[group] < group_sizes[group]),
+                    key=quotas.__getitem__)
+        quotas[group] += 1
+
+    chosen = []
+    by_floor, by_scene, by_category, by_group = Counter(), Counter(), Counter(), Counter()
+    category_limit = math.ceil(count / len(category_sizes))
+
+    def take(row):
+        scene, task = row
+        by_floor[scene, task["floor"]] += 1
+        by_scene[scene] += 1
+        by_category[task["category"]] += 1
+        by_group[groups[scene, task["source_row"]]] += 1
+        chosen.append((scene, task["source_row"]))
+        population.remove(row)
+
+    # Keep every task in a group at or below its quota, then cover floors before
+    # revisiting them. Shuffled order breaks ties reproducibly.
+    for row in population[:]:
+        group = groups[row[0], row[1]["source_row"]]
+        if group_sizes[group] == quotas[group]:
+            take(row)
+    while len(chosen) < count:
+        pool = [(scene, task) for scene, task in population
+                if by_group[groups[scene, task["source_row"]]] < quotas[groups[scene, task["source_row"]]]]
+        available = Counter((scene, task["floor"]) for scene, task in pool)
+
+        def priority(row):
+            scene, task = row
+            floor = (scene, task["floor"])
+            category = task["category"]
+            return (by_floor[floor] > 0, by_category[category] >= category_limit,
+                    available[floor] if by_floor[floor] == 0 else 0,
+                    by_category[category], by_scene[scene], by_floor[floor], category_sizes[category])
+
+        take(min(pool, key=priority))
+
+    selection = {
+        "method": "stratified_v1", "seed": seed,
+        "sample_groups": dict(by_group), "full_groups": dict(group_sizes),
+        "sample_categories": dict(by_category), "full_categories": dict(category_sizes),
+    }
+    return sorted(chosen), selection
 
 
 def add_rssi_reference(manifest_path, row, source, radio, *, graph_mode):
@@ -134,7 +212,7 @@ def assemble(manifest_path, with_routes=False, with_rssi_reference=False, with_r
     return result
 
 
-def assemble_benchmark(manifest_path):
+def assemble_benchmark(manifest_path, review_count=None):
     raw = manifest_path.read_bytes()
     manifest = json.loads(raw)
     if manifest["format"] != "wifinav-objectnav-benchmark-v1" or not manifest["validation"]["passed"]:
@@ -145,6 +223,9 @@ def assemble_benchmark(manifest_path):
     if (len(set(sample)) != len(sample) or not sample
             or (manifest["scope"] == "full" and len(sample) != manifest["rules"]["review_count"])):
         raise ValueError("Invalid frozen review sample")
+    selection = None
+    if review_count is not None:
+        sample, selection = stratified_review(manifest, review_count)
     sampled_scenes = {scene for scene, _ in sample}
     geom = {"format": "wifinav-objectnav-ap-review-v1", "split": "val", "scope": config["scope"],
             "config": config, "config_sha256": identity["config_sha256"], "scene_count": len(sampled_scenes),
@@ -188,6 +269,8 @@ def assemble_benchmark(manifest_path):
             by_floor.setdefault(fid, set()).add(str(key))
             selected[scene, key] = {**task, "scene": scene, "task_key": f"{scene}:{key}",
                                     "floor": f"{scene}/{fid}", "difficulty": task_info[key]}
+            if selection is not None:
+                selected[scene, key]["review_group"] = review_group(task_info[key])
         for fid, keys in by_floor.items():
             floor = source["floors"][fid]
             floor_radio = report["radio"]["floors"][fid]
@@ -200,12 +283,15 @@ def assemble_benchmark(manifest_path):
     if len(commits) != 1 or selected.keys() != set(sample):
         raise ValueError("Review sample differs from frozen tasks or mixes code versions")
     geom["tasks"] = [selected[key] for key in sample]
+    benchmark_review = {"scope": manifest["scope"], "source_episodes": manifest["source_episodes"],
+                        "qualified_episodes": manifest["qualified_episodes"], "source_scenes": len(manifest["scenes"]),
+                        "review_seed": manifest["rules"]["review_seed"]}
+    if selection is not None:
+        benchmark_review["stratified"] = selection
     return {
         "geometry": geom, "radio": radio, "radio_commit": commits.pop(), "models_called": 0,
         "rssi_reference_policy": reference_policy,
-        "benchmark_review": {"scope": manifest["scope"], "source_episodes": manifest["source_episodes"],
-                             "qualified_episodes": manifest["qualified_episodes"], "source_scenes": len(manifest["scenes"]),
-                             "review_seed": manifest["rules"]["review_seed"]},
+        "benchmark_review": benchmark_review,
     }
 
 
@@ -215,6 +301,7 @@ def main():
     source_type.add_argument("--report", type=Path)
     source_type.add_argument("--manifest", type=Path)
     source_type.add_argument("--benchmark-manifest", type=Path)
+    parser.add_argument("--benchmark-review-count", type=int, help="Create a stratified HTML-only review sample")
     parser.add_argument("--with-routes", action="store_true")
     ref_mode = parser.add_mutually_exclusive_group()
     ref_mode.add_argument("--with-rssi-reference", action="store_true")
@@ -223,8 +310,10 @@ def main():
     args = parser.parse_args()
     if not args.manifest and (args.with_routes or args.with_rssi_reference or args.with_rssi_graph):
         parser.error("Route overlays require --manifest")
+    if args.benchmark_review_count is not None and not args.benchmark_manifest:
+        parser.error("A stratified sample requires --benchmark-manifest")
     if args.benchmark_manifest:
-        report = assemble_benchmark(args.benchmark_manifest)
+        report = assemble_benchmark(args.benchmark_manifest, args.benchmark_review_count)
         raw = json.dumps(report, separators=(",", ":"), allow_nan=False).encode()
     elif args.manifest:
         report = assemble(args.manifest, args.with_routes, args.with_rssi_reference, args.with_rssi_graph)
