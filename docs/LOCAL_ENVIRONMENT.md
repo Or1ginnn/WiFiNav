@@ -252,3 +252,5 @@ RSSI 优先参考在同一环境的 CPU 上完成，使用冻结几何及 AP 数
 2026-11-28，单层评测 v1.1 复用 Habitat 0.3.0 和项目现有 CPU 射线解释器。参考审计和跨层回归用 CPU，小批闭环使用 GPU 0 的 EGL 渲染深度和语义。模型调用为 0。正式执行提交、服务器证据与复跑命令见 [v1.1 验收](experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md)。
 
 2026-11-28，NoSignal 开发首轮同样使用 Habitat 0.3.0 和 GPU 0 的 EGL 深度语义渲染。四次运行共执行 80 条轨迹，模型请求为 0，运行结束退出渲染进程。记录在服务器 `runtime/diagnostics/objectnav_train_dev_20261128_*`。[开发执行版本、产物和复跑](experiments/objectnav_train_nosignal_2026-11-28.md)
+
+2026-11-28，NoSignal 复核在同一 Habitat 环境用 CPU 重放失败动作并核验正式判分探针，闭环配对仅使用 GPU 0 渲染，模型请求为 0。开发样本冻结件、首跑加载失败日志及第二轮轨迹在 `runtime/diagnostics/objectnav_train_dev_followup_20261128*`。[执行与证据](experiments/objectnav_train_nosignal_followup_2026-11-28.md)

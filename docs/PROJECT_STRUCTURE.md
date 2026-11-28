@@ -30,6 +30,7 @@ WIFI+Nav/
 │   ├── audit_objectnav_benchmark.py             # 独立核对清单、AP、参考路线和随机样本
 │   ├── run_objectnav_eval.py                   # v1.1 单层闭环、基线配对和真实动作回归
 │   ├── run_objectnav_dev.py                    # 冻结 train 样本的 NoSignal 闭环与失败诊断
+│   ├── audit_objectnav_dev_failures.py          # Habitat 重放核查越层和无效 STOP
 │   ├── objectnav_progress_baseline.py          # 开发用卡住恢复与提前停车对照
 │   ├── score_objectnav_trace.py                 # Habitat 导航指标和多墙 RSSI 轨迹评分
 │   ├── build_objectnav_train_ap_review.py        # 先于 RSSI 固定同层任务与 AP 候选
@@ -119,6 +120,7 @@ WIFI+Nav/
 | 当前任务数据 | [HM3D ObjectNav v2](DATASETS.md#当前主线hm3d-objectnav-v2) | 官方任务包、已安装场景及剩余资源状态 |
 | 当前评测 | [v1.1 单层闭环验收](experiments/objectnav_benchmark_v11_acceptance_2026-11-28.md) | 评分协议、结果、基线及第三方复跑入口 |
 | 基线开发 | [NoSignal 开发首轮](experiments/objectnav_train_nosignal_2026-11-28.md) | 固定 train 闭环、失败分解和两项策略对照 |
+| 基线复核 | [NoSignal 失败复核与独立场景验证](experiments/objectnav_train_nosignal_followup_2026-11-28.md) | 越层与停车复核证据和独立样本配对结果 |
 | 原 benchmark 制作 | [R2R-Conn制作计划v0](design/r2r_conn_benchmark_plan_v0.md) | 原 R2R-CE 路线与冻结开发实验的制作依据 |
 | 阶段任务调研范围 | [任务调研任务单](design/task_benchmark_research_plan.md) | 保留历史讨论；不作为从零重选任务方向的要求 |
 | 阶段选型记录 | [基座选型简报](references/backbone_selection_report_2026-11-03.md) | 旧首选已撤销；保留候选取舍与源码审计，当前选择见 plan.md |
